@@ -1,15 +1,26 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { 
-    LayoutDashboard, 
-    KanbanSquare, 
-    FileSpreadsheet, 
-    CheckCircle2, 
-    XCircle,
-    Bookmark
+import {
+    Bookmark,
+    FileText,
+    DollarSign,
+    Users,
+    FileDiff,
+    Clock,
+    Briefcase,
+    TrendingUp,
+    Settings,
+    CheckCircle,
+    BarChart,
+    Building2,
+    User,
+    Clock as ClockIcon,
+    Package,
+    Zap,
+    Wrench
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import BookmarksMenu from './FavoritesMenu';
-import { QuickCreateMenu } from './QuickCreateMenu';
+// import { QuickCreateMenu } from './QuickCreateMenu'; // Keep for future use
 
 // --- Icon Definitions ---
 
@@ -19,11 +30,47 @@ const IconWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
     </div>
 );
 
-const DashboardIcon = () => <IconWrapper><LayoutDashboard size={24} strokeWidth={1.5} /></IconWrapper>;
-const BoardsIcon = () => <IconWrapper><KanbanSquare size={24} strokeWidth={1.5} /></IconWrapper>;
-const LogsIcon = () => <IconWrapper><FileSpreadsheet size={24} strokeWidth={1.5} /></IconWrapper>;
-const CompletedIcon = () => <IconWrapper><CheckCircle2 size={24} strokeWidth={1.5} /></IconWrapper>;
-const ClosedIcon = () => <IconWrapper><XCircle size={24} strokeWidth={1.5} /></IconWrapper>;
+// Finance Module Icons
+const ContractIcon = () => <IconWrapper><FileText size={24} strokeWidth={1.5} /></IconWrapper>;
+const BudgetIcon = () => <IconWrapper><DollarSign size={24} strokeWidth={1.5} /></IconWrapper>;
+const SOVIcon = () => <IconWrapper><Briefcase size={24} strokeWidth={1.5} /></IconWrapper>;
+const CommitmentIcon = () => <IconWrapper><CheckCircle size={24} strokeWidth={1.5} /></IconWrapper>;
+const AdjustmentIcon = () => <IconWrapper><Wrench size={24} strokeWidth={1.5} /></IconWrapper>;
+const AllocateIcon = () => <IconWrapper><BarChart size={24} strokeWidth={1.5} /></IconWrapper>;
+const CLSIcon = () => <IconWrapper><FileText size={24} strokeWidth={1.5} /></IconWrapper>;
+const BillingIcon = () => <IconWrapper><DollarSign size={24} strokeWidth={1.5} /></IconWrapper>;
+
+// Owner Billing Icons
+const MyProgressIcon = () => <IconWrapper><TrendingUp size={24} strokeWidth={1.5} /></IconWrapper>;
+const OpenIcon = () => <IconWrapper><FileText size={24} strokeWidth={1.5} /></IconWrapper>;
+const PayAppsIcon = () => <IconWrapper><DollarSign size={24} strokeWidth={1.5} /></IconWrapper>;
+const InvoiceIcon = () => <IconWrapper><FileText size={24} strokeWidth={1.5} /></IconWrapper>;
+
+// Change Order Icons
+const BoardsIcon = () => <IconWrapper><Briefcase size={24} strokeWidth={1.5} /></IconWrapper>;
+const LogIcon = () => <IconWrapper><FileText size={24} strokeWidth={1.5} /></IconWrapper>;
+const CompletedIcon = () => <IconWrapper><CheckCircle size={24} strokeWidth={1.5} /></IconWrapper>;
+const CancelledIcon = () => <IconWrapper><Zap size={24} strokeWidth={1.5} /></IconWrapper>;
+const BilledIcon = () => <IconWrapper><DollarSign size={24} strokeWidth={1.5} /></IconWrapper>;
+
+// Costs Icons
+const LaborIcon = () => <IconWrapper><User size={24} strokeWidth={1.5} /></IconWrapper>;
+const OverheadIcon = () => <IconWrapper><Building2 size={24} strokeWidth={1.5} /></IconWrapper>;
+const OthersIcon = () => <IconWrapper><Package size={24} strokeWidth={1.5} /></IconWrapper>;
+const SubcontractorIcon = () => <IconWrapper><Users size={24} strokeWidth={1.5} /></IconWrapper>;
+const EquipmentIcon = () => <IconWrapper><Wrench size={24} strokeWidth={1.5} /></IconWrapper>;
+
+// Analytics Icons
+const SummaryIcon = () => <IconWrapper><BarChart size={24} strokeWidth={1.5} /></IconWrapper>;
+const JobCostIcon = () => <IconWrapper><DollarSign size={24} strokeWidth={1.5} /></IconWrapper>;
+const ProfitIcon = () => <IconWrapper><TrendingUp size={24} strokeWidth={1.5} /></IconWrapper>;
+const BudgetUtilIcon = () => <IconWrapper><Briefcase size={24} strokeWidth={1.5} /></IconWrapper>;
+
+// Recurring Cost Icons
+const ConfigIcon = () => <IconWrapper><Settings size={24} strokeWidth={1.5} /></IconWrapper>;
+const RequestsIcon = () => <IconWrapper><FileText size={24} strokeWidth={1.5} /></IconWrapper>;
+const UnapprovedIcon = () => <IconWrapper><Clock size={24} strokeWidth={1.5} /></IconWrapper>;
+const HistoryIcon = () => <IconWrapper><FileText size={24} strokeWidth={1.5} /></IconWrapper>;
 
 // Bookmarks Icon
 const BookmarksIcon = () => (
@@ -46,16 +93,68 @@ const LinarcLogo = () => (
 
 
 // --- Data for Sidebar ---
-const sidebarItems = [
-    { key: 'dashboard', label: 'Dashboard', icon: <DashboardIcon /> },
-    { key: 'boards', label: 'Boards', icon: <BoardsIcon /> },
-    { key: 'logs', label: 'Logs', icon: <LogsIcon /> },
-    { key: 'completed', label: 'Completed', icon: <CompletedIcon /> },
-    { key: 'closed', label: 'Closed', icon: <ClosedIcon /> },
-];
+const sidebarItemsByCategory: { [key: string]: Array<{ key: string; label: string; icon: React.ReactNode }> } = {
+    contract: [
+        { key: 'primeContract', label: 'Prime Contract', icon: <ContractIcon /> },
+        { key: 'budget', label: 'Budget', icon: <BudgetIcon /> },
+        { key: 'sov', label: 'SOV', icon: <SOVIcon /> },
+        { key: 'commitment', label: 'Commitment Release', icon: <CommitmentIcon /> },
+        { key: 'adjustment', label: 'Adjustment History', icon: <AdjustmentIcon /> },
+        { key: 'allocate', label: 'Allocate', icon: <AllocateIcon /> },
+        { key: 'cls', label: 'CLS', icon: <CLSIcon /> },
+        { key: 'billing', label: 'Planned Billing', icon: <BillingIcon /> },
+    ],
+    ownerBilling: [
+        { key: 'progress', label: 'My Progress', icon: <MyProgressIcon /> },
+        { key: 'open', label: 'Open', icon: <OpenIcon /> },
+        { key: 'payApps', label: 'Pay Apps', icon: <PayAppsIcon /> },
+        { key: 'invoice', label: 'Invoice', icon: <InvoiceIcon /> },
+    ],
+    subsBilling: [
+        { key: 'subPayApps', label: 'Pay Apps', icon: <PayAppsIcon /> },
+        { key: 'lienWaivers', label: 'Lien Waivers', icon: <FileText size={24} strokeWidth={1.5} /> },
+        { key: 'certifications', label: 'Certifications', icon: <CheckCircle size={24} strokeWidth={1.5} /> },
+        { key: 'subBillings', label: 'Billings', icon: <DollarSign size={24} strokeWidth={1.5} /> },
+    ],
+    changeOrder: [
+        { key: 'boards', label: 'Boards', icon: <BoardsIcon /> },
+        { key: 'log', label: 'Log', icon: <LogIcon /> },
+        { key: 'completed', label: 'Completed', icon: <CompletedIcon /> },
+        { key: 'cancelled', label: 'Cancelled', icon: <CancelledIcon /> },
+        { key: 'billed', label: 'Billed', icon: <BilledIcon /> },
+    ],
+    recurringCost: [
+        { key: 'configure', label: 'Configure', icon: <ConfigIcon /> },
+        { key: 'requests', label: 'My Requests', icon: <RequestsIcon /> },
+        { key: 'unapproved', label: 'Unapproved Costs', icon: <UnapprovedIcon /> },
+        { key: 'history', label: 'History', icon: <HistoryIcon /> },
+    ],
+    costs: [
+        { key: 'labor', label: 'Labor', icon: <LaborIcon /> },
+        { key: 'overhead', label: 'Overhead', icon: <OverheadIcon /> },
+        { key: 'others', label: 'Others', icon: <OthersIcon /> },
+        { key: 'subcontractor', label: 'Subcontractor', icon: <SubcontractorIcon /> },
+        { key: 'equipment', label: 'Equipment', icon: <EquipmentIcon /> },
+    ],
+    tm: [
+        { key: 'timeTracking', label: 'Time Tracking', icon: <ClockIcon size={24} strokeWidth={1.5} /> },
+        { key: 'materialLog', label: 'Material Log', icon: <Package size={24} strokeWidth={1.5} /> },
+        { key: 'equipmentHours', label: 'Equipment Hours', icon: <Wrench size={24} strokeWidth={1.5} /> },
+        { key: 'tmBilling', label: 'T&M Billing', icon: <DollarSign size={24} strokeWidth={1.5} /> },
+    ],
+    analytics: [
+        { key: 'summary', label: 'Summary', icon: <SummaryIcon /> },
+        { key: 'jobCost', label: 'Job Cost', icon: <JobCostIcon /> },
+        { key: 'profitLoss', label: 'Profit and Loss', icon: <ProfitIcon /> },
+        { key: 'budgetUtil', label: 'Budget Utilization', icon: <BudgetUtilIcon /> },
+    ],
+    configure: [
+        { key: 'financeConfig', label: 'Finance Config', icon: <ConfigIcon /> },
+    ],
+};
 
 interface SidebarItemProps {
-    item: typeof sidebarItems[0];
+    item: { key: string; label: string; icon: React.ReactNode };
     isActive: boolean;
     onClick: () => void;
 }
@@ -70,7 +169,7 @@ const SidebarItem: React.FC<SidebarItemProps> = ({ item, isActive, onClick }) =>
         className={`relative flex flex-col items-center justify-center gap-1.5 h-[80px] w-full text-xs font-medium transition-colors duration-200 ${isActive ? 'text-gray-900' : 'text-gray-500 hover:text-gray-800'}`}
     >
         {item.icon}
-        <span>{item.label}</span>
+        <span className="text-center px-1">{item.label}</span>
         {isActive && <div className="absolute right-[-2px] top-1/2 -translate-y-1/2 h-[16px] w-[4px] bg-orange-500 rounded-l-md"></div>}
     </a>
 );
@@ -89,11 +188,12 @@ interface SidebarProps {
     bookmarks?: BookmarkItem[];
     onSelect?: (categoryKey: string, subcategoryKey: string) => void;
     onToggleBookmark?: (categoryKey: string, itemKey: string) => void;
+    activeTopNavCategory?: string;
 }
 
 
-const Sidebar: React.FC<SidebarProps> = ({ version = 'v1', bookmarks = [], onSelect, onToggleBookmark }) => {
-    const [activeItemKey, setActiveItemKey] = useState('logs');
+const Sidebar: React.FC<SidebarProps> = ({ version = 'v1', bookmarks = [], onSelect, onToggleBookmark, activeTopNavCategory = 'contract' }) => {
+    const [activeItemKey, setActiveItemKey] = useState('');
     const [isBookmarksMenuVisible, setBookmarksMenuVisible] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
     const bookmarksMenuRef = useRef<HTMLDivElement>(null);
@@ -108,6 +208,14 @@ const Sidebar: React.FC<SidebarProps> = ({ version = 'v1', bookmarks = [], onSel
         window.addEventListener('resize', checkMobile);
         return () => window.removeEventListener('resize', checkMobile);
     }, []);
+
+    // Reset activeItemKey when category changes
+    useEffect(() => {
+        const items = sidebarItemsByCategory[activeTopNavCategory];
+        if (items && items.length > 0) {
+            setActiveItemKey(items[0].key);
+        }
+    }, [activeTopNavCategory]);
 
     // Close bookmarks menu on outside click
     useEffect(() => {
@@ -136,11 +244,12 @@ const Sidebar: React.FC<SidebarProps> = ({ version = 'v1', bookmarks = [], onSel
     return (
         <aside className="w-[82px] bg-gray-50 border-r border-gray-200 flex flex-col shrink-0">
             <div className="flex-grow flex flex-col gap-1 pt-3">
-                <QuickCreateMenu />
-                
-                {/* Bookmarks Button - Only for v2 */}
-                {version === 'v2' && (
-                    <div 
+                {/* QuickCreateMenu removed - keep code for future use */}
+                {/* <QuickCreateMenu /> */}
+
+                {/* Bookmarks Button - Removed but kept for future use */}
+                {/* {version === 'v2' && (
+                    <div
                         ref={bookmarksMenuRef}
                         className="relative w-full"
                     >
@@ -150,8 +259,8 @@ const Sidebar: React.FC<SidebarProps> = ({ version = 'v1', bookmarks = [], onSel
                                 setBookmarksMenuVisible(!isBookmarksMenuVisible);
                             }}
                             className={`relative flex flex-col items-center justify-center gap-1.5 h-[80px] w-full text-xs font-medium transition-colors duration-200 ${
-                                isBookmarksMenuVisible 
-                                    ? 'text-gray-900' 
+                                isBookmarksMenuVisible
+                                    ? 'text-gray-900'
                                     : 'text-gray-500 hover:text-gray-800'
                             }`}
                             aria-label="Bookmarks menu"
@@ -165,7 +274,7 @@ const Sidebar: React.FC<SidebarProps> = ({ version = 'v1', bookmarks = [], onSel
                         </button>
                         <AnimatePresence>
                             {isBookmarksMenuVisible && bookmarks && onSelect && onToggleBookmark && (
-                                <BookmarksMenu 
+                                <BookmarksMenu
                                     bookmarks={bookmarks}
                                     onSelect={handleSelect}
                                     onToggleBookmark={onToggleBookmark}
@@ -175,9 +284,9 @@ const Sidebar: React.FC<SidebarProps> = ({ version = 'v1', bookmarks = [], onSel
                             )}
                         </AnimatePresence>
                     </div>
-                )}
+                )} */}
                 
-                {sidebarItems.map((item) => (
+                {(sidebarItemsByCategory[activeTopNavCategory] || []).map((item) => (
                     <SidebarItem
                         key={item.key}
                         item={item}

@@ -44,6 +44,7 @@ const AppLayout: React.FC = () => {
     const mainContentRef = useRef<HTMLDivElement>(null);
     const [isScrolled, setIsScrolled] = useState(false);
     const [bookmarksData, setBookmarksData] = useState<BookmarksData | null>(null);
+    const [activeTopNavCategory, setActiveTopNavCategory] = useState<string>('contract');
 
     useEffect(() => {
         const contentEl = mainContentRef.current;
@@ -82,6 +83,7 @@ const AppLayout: React.FC = () => {
             <Header
                 onSelectionChange={(title) => {}}
                 onBookmarksDataChange={setBookmarksData}
+                onActiveCategoryChange={setActiveTopNavCategory}
             />
 
             <div className="flex flex-1 overflow-hidden">
@@ -89,6 +91,7 @@ const AppLayout: React.FC = () => {
                     bookmarks={bookmarksData?.bookmarks ?? []}
                     onSelect={bookmarksData?.handleSelect}
                     onToggleBookmark={bookmarksData?.toggleBookmark}
+                    activeTopNavCategory={activeTopNavCategory}
                 />
 
                 <div className="flex flex-col flex-1 min-w-0 overflow-hidden relative">

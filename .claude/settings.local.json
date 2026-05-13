@@ -31,7 +31,8 @@
       "Bash(Start-Sleep -Seconds 10)",
       "Bash(Get-Content C:\\\\Users\\\\damie\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-damie-Projects-linarc-financials\\\\820b5506-550d-449c-9c81-33b4736abbc8\\\\tasks\\\\bl0bwhh5h.output -Tail 20)",
       "Bash(cat)",
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "Bash(curl -s http://localhost:3001/)"
     ],
     "additionalDirectories": [
       "c:\\Users\\damie\\Projects\\linarc-financials\\src\\components\\views\\dashboard"

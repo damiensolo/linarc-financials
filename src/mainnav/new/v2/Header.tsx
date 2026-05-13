@@ -1,14 +1,14 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { 
-    Plus, 
-    FileDiff, 
-    CheckSquare, 
-    Truck, 
-    CalendarDays, 
-    Package, 
-    Ticket, 
-    ClipboardList, 
-    FileQuestion, 
+import {
+    Plus,
+    FileDiff,
+    CheckSquare,
+    Truck,
+    CalendarDays,
+    Package,
+    Ticket,
+    ClipboardList,
+    FileQuestion,
     FileCheck,
     Search,
     MessageSquare,
@@ -36,7 +36,8 @@ import {
     Activity,
     File,
     BookOpen,
-    Map
+    Map,
+    Settings
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import HoverMenu from './HoverMenu';
@@ -93,10 +94,15 @@ const PunchlistIcon = () => <NavIconWrapper><ClipboardList size={20} strokeWidth
 const ChecklistIcon = () => <NavIconWrapper><CheckSquare size={20} strokeWidth={1.5} /></NavIconWrapper>;
 
 // Finance
-const FinanceIcon = () => <NavIconWrapper><DollarSign size={20} strokeWidth={1.5} /></NavIconWrapper>;
-const CostsIcon = () => <NavIconWrapper><Receipt size={20} strokeWidth={1.5} /></NavIconWrapper>;
 const ContractIcon = () => <NavIconWrapper><FileText size={20} strokeWidth={1.5} /></NavIconWrapper>;
+const OwnerBillingIcon = () => <NavIconWrapper><DollarSign size={20} strokeWidth={1.5} /></NavIconWrapper>;
+const SubsBillingIcon = () => <NavIconWrapper><Building2 size={20} strokeWidth={1.5} /></NavIconWrapper>;
 const ChangeOrderIcon = () => <NavIconWrapper><FileDiff size={20} strokeWidth={1.5} /></NavIconWrapper>;
+const RecurringCostIcon = () => <NavIconWrapper><Briefcase size={20} strokeWidth={1.5} /></NavIconWrapper>;
+const CostsIcon = () => <NavIconWrapper><Receipt size={20} strokeWidth={1.5} /></NavIconWrapper>;
+const TMIcon = () => <NavIconWrapper><Briefcase size={20} strokeWidth={1.5} /></NavIconWrapper>;
+const AnalyticsFinanceIcon = () => <NavIconWrapper><Activity size={20} strokeWidth={1.5} /></NavIconWrapper>;
+const ConfigureFinanceIcon = () => <NavIconWrapper><Settings size={24} strokeWidth={1.5} /></NavIconWrapper>;
 
 // Field & Site
 const SiteIcon = () => <NavIconWrapper><MapPin size={20} strokeWidth={1.5} /></NavIconWrapper>;
@@ -189,10 +195,15 @@ const navigationData: { [key: string]: CategoryData } = {
     finance: {
         key: 'finance', title: 'Finance & Cost Control', mainIcon: <FinanceMainIcon/>,
         items: [
-            { key: 'finance', label: 'Finance', description: 'Main financial dashboard', icon: <MenuIconWrapper className="bg-green-100 text-green-600"><FinanceIcon/></MenuIconWrapper>, navIcon: <FinanceIcon/> },
-            { key: 'costs', label: 'Costs', description: 'Track all project expenses', icon: <MenuIconWrapper className="bg-green-100 text-green-600"><CostsIcon/></MenuIconWrapper>, navIcon: <CostsIcon/> },
-            { key: 'contract', label: 'Contract', description: 'Manage contracts and vendors', icon: <MenuIconWrapper className="bg-green-100 text-green-600"><ContractIcon/></MenuIconWrapper>, navIcon: <ContractIcon/> },
-            { key: 'changeOrder', label: 'Change Order', description: 'Handle contract modifications', icon: <MenuIconWrapper className="bg-teal-100 text-teal-600"><ChangeOrderIcon/></MenuIconWrapper>, navIcon: <ChangeOrderIcon/> },
+            { key: 'contract', label: 'Contract', description: 'Prime contract and budget management', icon: <MenuIconWrapper className="bg-green-100 text-green-600"><ContractIcon/></MenuIconWrapper>, navIcon: <ContractIcon/> },
+            { key: 'ownerBilling', label: 'Owner Billing', description: 'Manage owner payment applications', icon: <MenuIconWrapper className="bg-green-100 text-green-600"><OwnerBillingIcon/></MenuIconWrapper>, navIcon: <OwnerBillingIcon/> },
+            { key: 'subsBilling', label: 'Subs Billing', description: 'Subcontractor billing management', icon: <MenuIconWrapper className="bg-green-100 text-green-600"><SubsBillingIcon/></MenuIconWrapper>, navIcon: <SubsBillingIcon/> },
+            { key: 'changeOrder', label: 'Change Order', description: 'Manage change orders and RFIs', icon: <MenuIconWrapper className="bg-teal-100 text-teal-600"><ChangeOrderIcon/></MenuIconWrapper>, navIcon: <ChangeOrderIcon/> },
+            { key: 'recurringCost', label: 'Recurring Cost', description: 'Track recurring project costs', icon: <MenuIconWrapper className="bg-green-100 text-green-600"><RecurringCostIcon/></MenuIconWrapper>, navIcon: <RecurringCostIcon/> },
+            { key: 'costs', label: 'Costs', description: 'Manage labor, materials, and equipment costs', icon: <MenuIconWrapper className="bg-green-100 text-green-600"><CostsIcon/></MenuIconWrapper>, navIcon: <CostsIcon/> },
+            { key: 'tm', label: 'T&M', description: 'Time and materials tracking', icon: <MenuIconWrapper className="bg-green-100 text-green-600"><TMIcon/></MenuIconWrapper>, navIcon: <TMIcon/> },
+            { key: 'analytics', label: 'Analytics', description: 'Financial reports and analytics', icon: <MenuIconWrapper className="bg-indigo-100 text-indigo-600"><AnalyticsFinanceIcon/></MenuIconWrapper>, navIcon: <AnalyticsFinanceIcon/> },
+            { key: 'configure', label: 'Configure', description: 'Finance module settings', icon: <MenuIconWrapper className="bg-gray-100 text-gray-600"><ConfigureFinanceIcon/></MenuIconWrapper>, navIcon: <ConfigureFinanceIcon/> },
         ]
     },
     fieldOps: {
@@ -401,6 +412,7 @@ interface HeaderProps {
         toggleBookmark: (categoryKey: string, itemKey: string) => void;
         handleSelect: (categoryKey: string, subcategoryKey: string) => void;
     }) => void;
+    onActiveCategoryChange?: (categoryKey: string) => void;
 }
 
 // Bookmarks management with localStorage
@@ -473,13 +485,13 @@ const useBookmarks = () => {
     return { bookmarks, toggleBookmark, getBookmarkItems };
 };
 
-const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBookmarksDataChange }) => {
+const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBookmarksDataChange, onActiveCategoryChange }) => {
     const [isMenuVisible, setMenuVisible] = useState(false);
     const [isBookmarksMenuVisible, setBookmarksMenuVisible] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
     const [activeCategoryKey, setActiveCategoryKey] = useState<StandardCategoryKey>('finance');
-    const [activeSubcategoryKey, setActiveSubcategoryKey] = useState<string>('finance');
+    const [activeSubcategoryKey, setActiveSubcategoryKey] = useState<string>('contract');
     const [selectedProject, setSelectedProject] = useState<Project>(projects[0]);
     const mobileMenuRef = useRef<HTMLDivElement>(null);
     const hoverMenuRef = useRef<HTMLDivElement>(null);
@@ -523,6 +535,13 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
         return () => window.removeEventListener('resize', checkMobile);
     }, []);
 
+    // Notify parent of active category changes (for sidebar)
+    useEffect(() => {
+        if (onActiveCategoryChange && activeCategoryKey === 'finance') {
+            onActiveCategoryChange(activeSubcategoryKey);
+        }
+    }, [activeCategoryKey, activeSubcategoryKey, onActiveCategoryChange]);
+
     // Synchronize Top Nav with view modes and Advanced Spreadsheet templates
     useEffect(() => {
         // Specific logic for Advanced Spreadsheet templates (V3/V4)
@@ -533,14 +552,14 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
                 return;
             } else if (activeView.v3ActiveSheetId === 'sheet-budget') {
                 setActiveCategoryKey('finance');
-                setActiveSubcategoryKey('finance');
+                setActiveSubcategoryKey('contract');
                 return;
             }
-            
+
             // Default for Spreadsheet + (V4) if no specific sheet match
             if (activeViewMode === 'spreadsheetV4') {
-                setActiveCategoryKey('projectManagement');
-                setActiveSubcategoryKey('planner');
+                setActiveCategoryKey('finance');
+                setActiveSubcategoryKey('contract');
                 return;
             }
         }
@@ -553,7 +572,7 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
             setActiveSubcategoryKey('rfi');
         } else if (activeViewMode.startsWith('spreadsheet')) {
             setActiveCategoryKey('finance');
-            setActiveSubcategoryKey('finance');
+            setActiveSubcategoryKey('contract');
         } else if (activeViewMode === 'gantt') {
             setActiveCategoryKey('projectManagement');
             setActiveSubcategoryKey('schedule');
@@ -742,9 +761,9 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
                             }
                         </AnimatePresence>
                     </div>
-                    {/* Bookmarks Button - Only for v1 */}
-                    {version === 'v1' && (
-                    <div 
+                    {/* Bookmarks Button - Removed but kept for future use */}
+                    {/* {version === 'v1' && (
+                    <div
                         ref={bookmarksMenuRef}
                         className={`relative flex flex-col items-center gap-2 pl-[15px] pr-2 py-2 rounded-md ${bookmarksMenuClasses} transition-colors cursor-pointer group shrink-0`}
                         onClick={() => {
@@ -771,8 +790,8 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
                         <span className="text-[12px] font-medium text-gray-300 group-hover:text-white whitespace-nowrap transition-colors">{categoryAbbreviations.bookmarks}</span>
                         <div className="absolute top-full h-4 w-full" />
                         <AnimatePresence>
-                            {isBookmarksMenuVisible && 
-                                <BookmarksMenu 
+                            {isBookmarksMenuVisible &&
+                                <BookmarksMenu
                                     bookmarks={bookmarkItems}
                                     onSelect={handleSelect}
                                     onToggleBookmark={toggleBookmark}
@@ -783,7 +802,7 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
                             }
                         </AnimatePresence>
                     </div>
-                    )}
+                    )} */}
                     <nav className="flex-1 min-w-0">
                         <ul className="flex items-center gap-x-[42px]">
                             {navItems.map((item, index) => {
