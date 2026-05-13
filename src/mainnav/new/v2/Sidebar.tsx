@@ -20,6 +20,9 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import BookmarksMenu from './FavoritesMenu';
+import Tooltip from './Tooltip';
+import { useProject } from '../../../context/ProjectContext';
+import { isSidebarItemLocked, getSidebarItemTooltip } from '../../../lib/financialGating';
 // import { QuickCreateMenu } from './QuickCreateMenu'; // Keep for future use
 
 // --- Icon Definitions ---
@@ -157,22 +160,37 @@ interface SidebarItemProps {
     item: { key: string; label: string; icon: React.ReactNode };
     isActive: boolean;
     onClick: () => void;
+    isLocked?: boolean;
 }
 
-const SidebarItem: React.FC<SidebarItemProps> = ({ item, isActive, onClick }) => (
-    <a
-        href="#"
-        onClick={(e) => {
-            e.preventDefault();
+const SidebarItem: React.FC<SidebarItemProps> = ({ item, isActive, onClick, isLocked = false }) => {
+    const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+        e.preventDefault();
+        if (!isLocked) {
             onClick();
-        }}
-        className={`relative flex flex-col items-center justify-center gap-1.5 h-[80px] w-full text-xs font-medium transition-colors duration-200 ${isActive ? 'text-gray-900' : 'text-gray-500 hover:text-gray-800'}`}
-    >
-        {item.icon}
-        <span className="text-center px-1">{item.label}</span>
-        {isActive && <div className="absolute right-[-2px] top-1/2 -translate-y-1/2 h-[16px] w-[4px] bg-orange-500 rounded-l-md"></div>}
-    </a>
-);
+        }
+    };
+
+    return (
+        <a
+            href="#"
+            onClick={handleClick}
+            className={`relative flex flex-col items-center justify-center gap-1.5 h-[80px] w-full text-xs font-medium transition-colors duration-200 ${
+                isLocked
+                    ? 'text-gray-400 opacity-40 cursor-not-allowed'
+                    : isActive
+                      ? 'text-gray-900'
+                      : 'text-gray-500 hover:text-gray-800'
+            }`}
+        >
+            {item.icon}
+            <span className="text-center px-1">{item.label}</span>
+            {isActive && !isLocked && (
+                <div className="absolute right-[-2px] top-1/2 -translate-y-1/2 h-[16px] w-[4px] bg-orange-500 rounded-l-md" />
+            )}
+        </a>
+    );
+};
 
 interface BookmarkItem {
     categoryKey: string;
@@ -193,6 +211,7 @@ interface SidebarProps {
 
 
 const Sidebar: React.FC<SidebarProps> = ({ version = 'v1', bookmarks = [], onSelect, onToggleBookmark, activeTopNavCategory = 'contract' }) => {
+    const { financialSetupStep } = useProject();
     const [activeItemKey, setActiveItemKey] = useState('');
     const [isBookmarksMenuVisible, setBookmarksMenuVisible] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
@@ -286,14 +305,27 @@ const Sidebar: React.FC<SidebarProps> = ({ version = 'v1', bookmarks = [], onSel
                     </div>
                 )} */}
                 
-                {(sidebarItemsByCategory[activeTopNavCategory] || []).map((item) => (
-                    <SidebarItem
-                        key={item.key}
-                        item={item}
-                        isActive={activeItemKey === item.key}
-                        onClick={() => setActiveItemKey(item.key)}
-                    />
-                ))}
+                {(sidebarItemsByCategory[activeTopNavCategory] || []).map((item) => {
+                    const locked = isSidebarItemLocked(activeTopNavCategory, item.key, financialSetupStep);
+                    const tip = getSidebarItemTooltip(activeTopNavCategory, item.key, financialSetupStep);
+
+                    const sidebarItemElement = (
+                        <SidebarItem
+                            item={item}
+                            isActive={activeItemKey === item.key && !locked}
+                            onClick={() => setActiveItemKey(item.key)}
+                            isLocked={locked}
+                        />
+                    );
+
+                    return locked && tip ? (
+                        <Tooltip key={item.key} content={tip} position="right" delay={300}>
+                            {sidebarItemElement}
+                        </Tooltip>
+                    ) : (
+                        <React.Fragment key={item.key}>{sidebarItemElement}</React.Fragment>
+                    );
+                })}
             </div>
             <div className="py-4 w-[82px]">
                 <LinarcLogo />

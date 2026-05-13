@@ -45,6 +45,29 @@ import ProjectDetailsCard from './ProjectDetailsCard';
 import BookmarksMenu from './FavoritesMenu';
 import Tooltip from './Tooltip';
 import { useProject } from '../../../context/ProjectContext';
+import { isHeaderCategoryLocked, getHeaderCategoryTooltip } from '../../../lib/financialGating';
+
+// Custom CSS for responsive nav items 5+
+const navResponsiveStyles = `
+  @media (max-width: 1535px) {
+    .nav-item-5 { display: none !important; }
+    .nav-item-6 { display: none !important; }
+    .nav-item-7 { display: none !important; }
+    .nav-item-8 { display: none !important; }
+  }
+  @media (min-width: 1536px) {
+    .nav-item-5 { display: block !important; }
+  }
+  @media (min-width: 1600px) {
+    .nav-item-6 { display: block !important; }
+  }
+  @media (min-width: 1700px) {
+    .nav-item-7 { display: block !important; }
+  }
+  @media (min-width: 1800px) {
+    .nav-item-8 { display: block !important; }
+  }
+`;
 
 // --- Icon Definitions ---
 
@@ -284,15 +307,38 @@ interface NavItemProps {
     label: string;
     isActive?: boolean;
     activeColor?: string;
+    isLocked?: boolean;
     onClick: (event: React.MouseEvent<HTMLAnchorElement>) => void;
 }
 
-const NavItem: React.FC<NavItemProps> = ({ icon, label, isActive = false, activeColor = 'text-white', onClick }) => (
-    <a href="#" onClick={onClick} className={`flex flex-col items-center gap-2 transition-colors duration-200 pl-2 ${isActive ? activeColor : 'text-gray-300 hover:text-white'}`}>
-        {icon}
-        <span className={`text-[12px] ${isActive ? 'font-semibold' : 'font-medium'}`}>{label}</span>
-    </a>
-);
+const NavItem: React.FC<NavItemProps> = ({ icon, label, isActive = false, activeColor = 'text-white', isLocked = false, onClick }) => {
+    const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+        if (isLocked) {
+            e.preventDefault();
+            return;
+        }
+        onClick(e);
+    };
+
+    return (
+        <a
+            href="#"
+            onClick={handleClick}
+            className={`flex flex-col items-center gap-2 transition-colors duration-200 pl-2 ${
+                isLocked
+                    ? 'text-gray-500 opacity-40 cursor-not-allowed'
+                    : isActive
+                      ? activeColor
+                      : 'text-gray-300 hover:text-white'
+            }`}
+        >
+            {icon}
+            <span className={`text-[12px] ${isActive && !isLocked ? 'font-semibold' : 'font-medium'}`}>
+                {label}
+            </span>
+        </a>
+    );
+};
 
 // --- New ProjectSelector Component ---
 
@@ -497,7 +543,7 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
     const hoverMenuRef = useRef<HTMLDivElement>(null);
     const bookmarksMenuRef = useRef<HTMLDivElement>(null);
     const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-    const { activeViewMode, activeView } = useProject();
+    const { activeViewMode, activeView, financialSetupStep } = useProject();
     const { bookmarks, toggleBookmark, getBookmarkItems } = useBookmarks();
 
     const hoverCountRef = useRef(0);
@@ -597,6 +643,7 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
     // FIX: Add type guard to safely access properties on `category`.
     // This ensures `category` is a `StandardCategoryData` before we try to find an item in its `items` array.
     const handleSelect = useCallback((categoryKey: string, subcategoryKey: string) => {
+        if (isHeaderCategoryLocked(categoryKey, financialSetupStep)) return;
         if (categoryKey !== 'more') {
             const category = navigationData[categoryKey];
             if ('mainIcon' in category) { // Type guard
@@ -611,7 +658,7 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
         }
         setMenuVisible(false);
         setBookmarksMenuVisible(false);
-    }, [navigationData, onSelectionChange]);
+    }, [navigationData, onSelectionChange, financialSetupStep]);
 
     // Expose bookmarks data to parent for v2 sidebar integration
     useEffect(() => {
@@ -711,6 +758,7 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
 
     return (
         <header className={headerClasses}>
+            <style>{navResponsiveStyles}</style>
             <div className={`${containerPaddingClasses} flex items-center h-full`}>
                 {/* Left & Center Nav Items */}
                 <div className="flex items-center gap-x-3 flex-1 min-w-0 h-full">
@@ -806,26 +854,46 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
                     <nav className="flex-1 min-w-0">
                         <ul className="flex items-center gap-x-[42px]">
                             {navItems.map((item, index) => {
-                                // First 2 items are robust, stay visible until md
-                                // Subsequent items hide progressively
-                                let responsiveClass = "hidden md:block";
-                                if (index >= 4) responsiveClass = "hidden 2xl:block";
-                                else if (index === 3) responsiveClass = "hidden xl:block";
-                                else if (index === 2) responsiveClass = "hidden lg:block";
+                                // First 2 items always visible
+                                // Subsequent items hide progressively as screen shrinks
+                                let responsiveClass = "";
+                                if (index === 2) responsiveClass = "hidden md:block";
+                                else if (index === 3) responsiveClass = "hidden lg:block";
+                                else if (index === 4) responsiveClass = "hidden xl:block";
+                                else if (index === 5) responsiveClass = "nav-item-5";
+                                else if (index === 6) responsiveClass = "nav-item-6";
+                                else if (index === 7) responsiveClass = "nav-item-7";
+                                else if (index === 8) responsiveClass = "nav-item-8";
+
+                                const locked = isHeaderCategoryLocked(item.key, financialSetupStep);
+                                const tip = getHeaderCategoryTooltip(item.key, financialSetupStep);
+
+                                const navItemElement = (
+                                    <NavItem
+                                        icon={item.navIcon}
+                                        label={item.label}
+                                        isActive={item.key === activeSubcategoryKey}
+                                        activeColor={activeColor}
+                                        isLocked={locked}
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            if (!locked) {
+                                                setActiveSubcategoryKey(item.key);
+                                                onSelectionChange(`${activeCategory.title} / ${item.label}`);
+                                            }
+                                        }}
+                                    />
+                                );
 
                                 return (
                                     <li key={item.key} className={responsiveClass}>
-                                        <NavItem 
-                                            icon={item.navIcon} 
-                                            label={item.label}
-                                            isActive={item.key === activeSubcategoryKey}
-                                            activeColor={activeColor}
-                                            onClick={(e) => {
-                                                e.preventDefault();
-                                                setActiveSubcategoryKey(item.key);
-                                                onSelectionChange(`${activeCategory.title} / ${item.label}`);
-                                            }}
-                                        />
+                                        {locked && tip ? (
+                                            <Tooltip content={tip} position="bottom" delay={300}>
+                                                {navItemElement}
+                                            </Tooltip>
+                                        ) : (
+                                            navItemElement
+                                        )}
                                     </li>
                                 );
                             })}

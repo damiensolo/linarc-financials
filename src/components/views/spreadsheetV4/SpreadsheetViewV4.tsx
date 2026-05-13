@@ -8,6 +8,7 @@ import SpreadsheetToolbar from '../spreadsheetV2/components/SpreadsheetToolbar';
 import AddColumnModal from './components/AddColumnModal';
 import ContractDetailsForm from './ContractDetailsForm';
 import ContractSummaryHeader from './ContractSummaryHeader';
+import FinancialSetupHub from './FinancialSetupHub';
 import { ContextMenu, ContextMenuItem } from '../../common/ui/ContextMenu';
 import ColorPicker from '../../common/ui/ColorPicker';
 import {
@@ -119,7 +120,7 @@ const getModKeyLabel = () => (typeof navigator !== 'undefined' && /Mac/i.test(na
 
 // ─── Main component ──────────────────────────────────────────────────────────
 const SpreadsheetViewV4: React.FC = () => {
-  const { activeView, updateView, contractData, setIsContractUploadOpen, contractConfirmed } = useProject();
+  const { activeView, updateView, contractData, setIsContractUploadOpen, contractConfirmed, financialSetupComplete, setContractConfirmed, budgetLocked } = useProject();
 
   // ── Single-sheet state + persistence sync ──────────────────────────────────
   const [localSheet, setLocalSheet] = useState<V3Sheet>(() => {
@@ -1541,31 +1542,16 @@ const SpreadsheetViewV4: React.FC = () => {
   // ── Early returns (AFTER all hooks) ──────────────────────────────────
   if (!activeSheet) return null;
 
-  // Show empty state if no contract attached
-  if (!contractData) {
-    return (
-      <div className="flex flex-col h-full items-center justify-center gap-4 px-4">
-        <div className="text-center max-w-md">
-          <PaperclipIcon className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-          <h2 className="text-2xl font-semibold text-gray-900 mb-2">No Contract Attached</h2>
-          <p className="text-gray-600 mb-6">
-            Upload your prime contract to get started. We'll extract key dates and help you build your project schedule.
-          </p>
-          <button
-            onClick={() => setIsContractUploadOpen(true)}
-            className="inline-flex items-center gap-2 px-6 py-3 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <PaperclipIcon className="w-4 h-4" />
-            Upload Contract
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // Auto-set contractConfirmed when budget is locked (financial setup step 2 → 3)
+  useEffect(() => {
+    if (budgetLocked && !contractConfirmed) {
+      setContractConfirmed(true);
+    }
+  }, [budgetLocked, contractConfirmed, setContractConfirmed]);
 
-  // Show contract details form if contract not confirmed
-  if (!contractConfirmed) {
-    return <ContractDetailsForm />;
+  // Show Financial Setup Hub if not complete
+  if (!financialSetupComplete) {
+    return <FinancialSetupHub />;
   }
 
   // Otherwise show spreadsheet

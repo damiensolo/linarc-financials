@@ -1,6 +1,6 @@
 import React, { createContext, useState, useMemo, useCallback, useContext, useRef, useEffect, SetStateAction, ReactNode } from 'react';
 import { MOCK_TASKS, MOCK_BUDGET_DATA } from '../data';
-import { Task, View, FilterRule, HighlightRule, Priority, ColumnId, Status, DisplayDensity, Column, ViewMode, ViewCategory, ContractData } from '../types';
+import { Task, View, FilterRule, HighlightRule, Priority, ColumnId, Status, DisplayDensity, Column, ViewMode, ViewCategory, ContractData, FinancialConfig, FinancialSetupStep } from '../types';
 import { getDefaultTableColumns, getDefaultSpreadsheetColumns } from '../constants';
 
 type SortConfig = {
@@ -153,6 +153,13 @@ interface ProjectContextType {
   setIsContractUploadOpen: (open: boolean) => void;
   contractConfirmed: boolean;
   setContractConfirmed: (confirmed: boolean) => void;
+  financialConfig: FinancialConfig | null;
+  setFinancialConfig: React.Dispatch<SetStateAction<FinancialConfig | null>>;
+  financialSetupStep: FinancialSetupStep;
+  setFinancialSetupStep: React.Dispatch<SetStateAction<FinancialSetupStep>>;
+  budgetLocked: boolean;
+  setBudgetLocked: React.Dispatch<SetStateAction<boolean>>;
+  financialSetupComplete: boolean;
 }
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
@@ -185,6 +192,9 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [contractData, setContractData] = useState<ContractData | null>(null);
   const [isContractUploadOpen, setIsContractUploadOpen] = useState(false);
   const [contractConfirmed, setContractConfirmed] = useState(false);
+  const [financialConfig, setFinancialConfig] = useState<FinancialConfig | null>(null);
+  const [financialSetupStep, setFinancialSetupStep] = useState<FinancialSetupStep>(0);
+  const [budgetLocked, setBudgetLocked] = useState(false);
 
   // Initialize with System Views
   useEffect(() => {
@@ -591,7 +601,14 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     isContractUploadOpen,
     setIsContractUploadOpen,
     contractConfirmed,
-    setContractConfirmed
+    setContractConfirmed,
+    financialConfig,
+    setFinancialConfig,
+    financialSetupStep,
+    setFinancialSetupStep,
+    budgetLocked,
+    setBudgetLocked,
+    get financialSetupComplete() { return this.financialSetupStep === 5; }
   };
 
   return <ProjectContext.Provider value={value}>{children}</ProjectContext.Provider>;

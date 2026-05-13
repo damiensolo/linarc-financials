@@ -201,3 +201,12 @@ export interface ContractData {
   uploadedAt:       string;
   extractionMethod: 'parsed' | 'fallback';
 }
+
+export interface FinancialConfig {
+  defaultRetainage: number;
+  defaultOverhead: number;
+  billingCutoffDay: number;
+  allowMultiplePayApps: boolean;
+}
+
+export type FinancialSetupStep = 0 | 1 | 2 | 3 | 4 | 5;

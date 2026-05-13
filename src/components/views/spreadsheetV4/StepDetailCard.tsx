@@ -18,13 +18,17 @@ const StepDetailCard: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<'sov' | 'schedule'>('sov');
 
-  const handleLockBudget = () => {
-    setBudgetLocked(true);
+  const handleLockPrimeContract = () => {
     setFinancialSetupStep(3);
   };
 
+  const handleLockBudget = () => {
+    setBudgetLocked(true);
+    setFinancialSetupStep(4);
+  };
+
   const handlePublishSOV = () => {
-    setFinancialSetupStep(5);
+    setFinancialSetupStep(6);
   };
 
   const renderStepContent = () => {
@@ -101,7 +105,50 @@ const StepDetailCard: React.FC = () => {
           return (
             <div className="w-full h-full flex flex-col">
               <div className="flex-1 overflow-auto">
-                <PrimeContractTable />
+                <PrimeContractTable isLocked={false} />
+              </div>
+              <div className="border-t border-gray-200 px-6 py-4 flex items-center justify-between gap-3">
+                <button
+                  onClick={handleLockPrimeContract}
+                  className="flex items-center gap-2 px-6 py-2 bg-orange-500 text-white font-medium rounded-lg hover:bg-orange-600 transition-colors"
+                >
+                  Lock Prime Contract
+                  <ChevronRight size={18} />
+                </button>
+              </div>
+            </div>
+          );
+        }
+
+        return (
+          <div className="max-w-md">
+            <h2 className="text-2xl font-semibold text-gray-900 mb-2">
+              Prime Contract
+            </h2>
+            <p className="text-gray-600 mb-6">
+              Upload your prime contract to extract and review contract line items.
+            </p>
+
+            <button
+              onClick={() => setIsContractUploadOpen(true)}
+              className="w-full py-3 px-4 bg-orange-500 text-white font-medium rounded-lg hover:bg-orange-600 transition-colors flex items-center justify-center gap-2"
+            >
+              Upload Contract
+              <ChevronRight size={18} />
+            </button>
+          </div>
+        );
+      }
+
+      case 3: {
+        const budgetSheet = activeView?.v3Sheets?.find(s => s.id === 'sheet-budget');
+        const hasRows = budgetSheet && budgetSheet.rows.length > 0 && budgetSheet.rows[0].id !== 'empty-row';
+
+        if (hasRows && contractData) {
+          return (
+            <div className="w-full h-full flex flex-col">
+              <div className="flex-1 overflow-auto">
+                <PrimeContractTable isLocked={true} />
               </div>
               <div className="border-t border-gray-200 px-6 py-4 flex items-center justify-between gap-3">
                 {budgetLocked && (
@@ -137,7 +184,7 @@ const StepDetailCard: React.FC = () => {
                 onClick={() => setIsContractUploadOpen(true)}
                 className="w-full py-3 px-4 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
               >
-                Auto-populate from Contract
+                Re-upload Contract
               </button>
 
               <div className="relative">
@@ -169,8 +216,8 @@ const StepDetailCard: React.FC = () => {
         );
       }
 
-      case 3:
       case 4:
+      case 5:
         return (
           <div className="max-w-2xl w-full">
             <h2 className="text-2xl font-semibold text-gray-900 mb-2">
@@ -234,7 +281,7 @@ const StepDetailCard: React.FC = () => {
           </div>
         );
 
-      case 5:
+      case 6:
         return (
           <div className="max-w-md text-center">
             <div className="mb-6">
@@ -251,7 +298,7 @@ const StepDetailCard: React.FC = () => {
 
             <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm text-green-900">
               <p className="font-medium mb-2">Setup Complete</p>
-              <p>All 5 mandatory financial setup steps have been completed successfully.</p>
+              <p>All 6 mandatory financial setup steps have been completed successfully.</p>
             </div>
           </div>
         );
