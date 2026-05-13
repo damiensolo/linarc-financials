@@ -9,6 +9,7 @@ import Sidebar from '../../mainnav/new/v2/Sidebar';
 import ViewManagerModal from '../shared/ViewManagerModal';
 import DownloadModal from '../shared/DownloadModal';
 import PDFExportModal from '../shared/PDFExportModal';
+import ContractUploadModal from '../shared/ContractUploadModal';
 
 /** Bookmarks data passed from Header (v2) for Sidebar integration */
 type BookmarksData = {
@@ -25,24 +26,24 @@ type BookmarksData = {
 };
 
 const AppLayout: React.FC = () => {
-    const { 
-        modalState, 
-        setModalState, 
-        handleSaveView, 
-        detailedTask, 
-        setDetailedTaskId, 
+    const {
+        modalState,
+        setModalState,
+        handleSaveView,
+        detailedTask,
+        setDetailedTaskId,
         handlePriorityChange,
         isViewManagerOpen,
         setIsViewManagerOpen,
         isDownloadModalOpen,
         setIsDownloadModalOpen,
         isPDFModalOpen,
-        setIsPDFModalOpen
+        setIsPDFModalOpen,
+        isContractUploadOpen,
     } = useProject();
     const mainContentRef = useRef<HTMLDivElement>(null);
     const [isScrolled, setIsScrolled] = useState(false);
     const [bookmarksData, setBookmarksData] = useState<BookmarksData | null>(null);
-    const [headerVersion, setHeaderVersion] = useState<'v1' | 'v2'>('v1');
 
     useEffect(() => {
         const contentEl = mainContentRef.current;
@@ -73,38 +74,33 @@ const AppLayout: React.FC = () => {
             {isPDFModalOpen && (
                 <PDFExportModal />
             )}
-            
-            {/* Header v2: exposes bookmarks to Sidebar via onBookmarksDataChange */}
+
+            {isContractUploadOpen && (
+                <ContractUploadModal />
+            )}
+
             <Header
-                version={headerVersion}
-                onSelectionChange={(title) => console.log('Navigated to:', title)}
+                onSelectionChange={(title) => {}}
                 onBookmarksDataChange={setBookmarksData}
-                onToggleVersion={() => setHeaderVersion(v => v === 'v1' ? 'v2' : 'v1')}
             />
-            
+
             <div className="flex flex-1 overflow-hidden">
-                {/* New Sidebar v2 with bookmarks from Header */}
                 <Sidebar
-                    version={headerVersion}
                     bookmarks={bookmarksData?.bookmarks ?? []}
                     onSelect={bookmarksData?.handleSelect}
                     onToggleBookmark={bookmarksData?.toggleBookmark}
                 />
 
-                {/* Main Application Area Wrapper */}
                 <div className="flex flex-col flex-1 min-w-0 overflow-hidden relative">
-                    {/* Existing App Header (View Controls) */}
                     <AppHeader />
-                    
-                    {/* Existing Content Area */}
                     <div className="flex flex-1 overflow-hidden relative">
                         <main ref={mainContentRef} className="flex-1 overflow-auto transition-all duration-300 ease-in-out">
                             <MainContent isScrolled={isScrolled} />
                         </main>
-                        <ItemDetailsPanel 
-                            task={detailedTask} 
-                            onClose={() => setDetailedTaskId(null)} 
-                            onPriorityChange={handlePriorityChange} 
+                        <ItemDetailsPanel
+                            task={detailedTask}
+                            onClose={() => setDetailedTaskId(null)}
+                            onPriorityChange={handlePriorityChange}
                         />
                     </div>
                 </div>

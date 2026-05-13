@@ -1,8 +1,8 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { BudgetLineItem, BudgetLineItemStyle, SpreadsheetColumn } from '../../../types';
 import { useProject } from '../../../context/ProjectContext';
-import SpreadsheetToolbar from '../spreadsheet/components/SpreadsheetToolbar';
-import SpreadsheetHeader from '../spreadsheet/components/SpreadsheetHeader';
+import SpreadsheetToolbar from './components/SpreadsheetToolbar';
+import SpreadsheetHeader from './components/SpreadsheetHeader';
 import SpreadsheetRowV2 from './components/SpreadsheetRowV2';
 import { ContextMenu, ContextMenuItem } from '../../common/ui/ContextMenu';
 import { ScissorsIcon, CopyIcon, ClipboardIcon, TrashIcon, PlusIcon, FillColorIcon, BorderColorIcon, TextColorIcon } from '../../common/Icons';

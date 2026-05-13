@@ -140,7 +140,7 @@ export interface SpreadsheetColumn {
     visible?: boolean;
 }
 
-export type ViewMode = 'table' | 'spreadsheet' | 'spreadsheetV2' | 'spreadsheetV3' | 'spreadsheetV4' | 'board' | 'gantt' | 'lookahead' | 'dashboard';
+export type ViewMode = 'table' | 'spreadsheetV2' | 'spreadsheetV4';
 
 export enum ViewCategory {
   System = 'system',
@@ -186,4 +186,18 @@ export interface View {
   metadata: ViewMetadata;
   v3Sheets?: import('../components/views/spreadsheetV3/types').V3Sheet[] | null;
   v3ActiveSheetId?: string | null;
+}
+
+export interface ContractData {
+  executedDate:     Date | null;
+  startDate:        Date | null;
+  endDate:          Date | null;
+  finalCompletion:  Date | null;
+  contractSum:      number | null;
+  owner:            string;
+  contractor:       string;
+  projectName:      string;
+  fileName:         string;
+  uploadedAt:       string;
+  extractionMethod: 'parsed' | 'fallback';
 }

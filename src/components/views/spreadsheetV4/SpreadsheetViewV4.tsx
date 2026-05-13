@@ -4,15 +4,17 @@ import { createTemplateSheets } from './templates';
 import FormulaBar from './components/FormulaBar';
 import V3Header, { ROW_NUM_WIDTH, ACTIONS_WIDTH } from './components/V3Header';
 import V3RowComponent from './components/V3Row';
-import SpreadsheetToolbar from '../spreadsheet/components/SpreadsheetToolbar';
+import SpreadsheetToolbar from '../spreadsheetV2/components/SpreadsheetToolbar';
 import AddColumnModal from './components/AddColumnModal';
+import ContractDetailsForm from './ContractDetailsForm';
+import ContractSummaryHeader from './ContractSummaryHeader';
 import { ContextMenu, ContextMenuItem } from '../../common/ui/ContextMenu';
 import ColorPicker from '../../common/ui/ColorPicker';
 import {
   PlusIcon, ScissorsIcon, CopyIcon, ClipboardIcon, TrashIcon,
   ArrowUpIcon, ArrowDownIcon, ChevronLeftIcon, ChevronRightIcon, XIcon,
   FillColorIcon, IndentIcon, OutdentIcon, TextColorIcon, BorderColorIcon,
-  AlertTriangleIcon,
+  AlertTriangleIcon, PaperclipIcon,
 } from '../../common/Icons';
 import { BACKGROUND_COLORS, TEXT_BORDER_COLORS } from '../../../constants/designTokens';
 import { SPREADSHEET_INDEX_COLUMN_WIDTH } from '../../../constants/spreadsheetLayout';
@@ -117,7 +119,7 @@ const getModKeyLabel = () => (typeof navigator !== 'undefined' && /Mac/i.test(na
 
 // ─── Main component ──────────────────────────────────────────────────────────
 const SpreadsheetViewV4: React.FC = () => {
-  const { activeView, updateView } = useProject();
+  const { activeView, updateView, contractData, setIsContractUploadOpen, contractConfirmed } = useProject();
 
   // ── Single-sheet state + persistence sync ──────────────────────────────────
   const [localSheet, setLocalSheet] = useState<V3Sheet>(() => {
@@ -1539,6 +1541,34 @@ const SpreadsheetViewV4: React.FC = () => {
   // ── Early returns (AFTER all hooks) ──────────────────────────────────
   if (!activeSheet) return null;
 
+  // Show empty state if no contract attached
+  if (!contractData) {
+    return (
+      <div className="flex flex-col h-full items-center justify-center gap-4 px-4">
+        <div className="text-center max-w-md">
+          <PaperclipIcon className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+          <h2 className="text-2xl font-semibold text-gray-900 mb-2">No Contract Attached</h2>
+          <p className="text-gray-600 mb-6">
+            Upload your prime contract to get started. We'll extract key dates and help you build your project schedule.
+          </p>
+          <button
+            onClick={() => setIsContractUploadOpen(true)}
+            className="inline-flex items-center gap-2 px-6 py-3 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <PaperclipIcon className="w-4 h-4" />
+            Upload Contract
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Show contract details form if contract not confirmed
+  if (!contractConfirmed) {
+    return <ContractDetailsForm />;
+  }
+
+  // Otherwise show spreadsheet
   return (
     <div
       ref={containerRef}
@@ -1571,6 +1601,9 @@ const SpreadsheetViewV4: React.FC = () => {
           onDeselectAll={() => setSelectedRowIds(new Set())}
         />
       </div>
+
+      {/* ── Contract Summary Header ── */}
+      {contractData && <ContractSummaryHeader />}
 
       {/* ── Table card ── */}
       <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden relative flex flex-col focus:outline-none max-h-full min-h-0 flex-grow">

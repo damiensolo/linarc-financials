@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ScissorsIcon, CopyIcon, TrashIcon, ClipboardIcon, FillColorIcon, BorderColorIcon, TextColorIcon, SettingsIcon, XIcon, DownloadIcon } from '../../../common/Icons';
+import { ScissorsIcon, CopyIcon, TrashIcon, ClipboardIcon, FillColorIcon, BorderColorIcon, TextColorIcon, SettingsIcon, XIcon, DownloadIcon, PaperclipIcon } from '../../../common/Icons';
 import { PDFIcon } from '../../../shared/PDFExportModal';
 import { useProject } from '../../../../context/ProjectContext';
 import ViewControls from '../../../layout/ViewControls';
@@ -40,7 +40,7 @@ const SpreadsheetToolbar: React.FC<SpreadsheetToolbarProps> = ({
     onDelete,
     onDeselectAll
 }) => {
-    const { setIsDownloadModalOpen, setIsPDFModalOpen } = useProject();
+    const { setIsDownloadModalOpen, setIsPDFModalOpen, contractData, setIsContractUploadOpen } = useProject();
     return (
         <div className="flex items-center flex-1 transition-all z-40 relative gap-2">
             <AnimatePresence mode="wait">
@@ -160,7 +160,7 @@ const SpreadsheetToolbar: React.FC<SpreadsheetToolbarProps> = ({
                             <PDFIcon className="w-4 h-4" />
                         </button>
 
-                        <button 
+                        <button
                             onClick={() => setIsDownloadModalOpen(true)}
                             className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
                             aria-label="Download view"

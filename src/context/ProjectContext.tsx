@@ -1,6 +1,6 @@
 import React, { createContext, useState, useMemo, useCallback, useContext, useRef, useEffect, SetStateAction, ReactNode } from 'react';
 import { MOCK_TASKS, MOCK_BUDGET_DATA } from '../data';
-import { Task, View, FilterRule, HighlightRule, Priority, ColumnId, Status, DisplayDensity, Column, ViewMode, ViewCategory } from '../types';
+import { Task, View, FilterRule, HighlightRule, Priority, ColumnId, Status, DisplayDensity, Column, ViewMode, ViewCategory, ContractData } from '../types';
 import { getDefaultTableColumns, getDefaultSpreadsheetColumns } from '../constants';
 
 type SortConfig = {
@@ -15,41 +15,30 @@ const getDefaultViewConfig = (viewMode: ViewMode): Omit<View, 'id' | 'name' | 'c
     sort: null,
     displayDensity: 'comfortable' as DisplayDensity,
     showGridLines: false,
-
     fontSize: 12,
     groupBy: [],
-    showToolbarLabels: true,
+    showToolbarLabels: false,
   };
 
   switch (viewMode) {
-    case 'dashboard':
-      return { ...baseConfig, type: 'dashboard', columns: [] };
-    case 'spreadsheet':
     case 'spreadsheetV2':
       return {
         ...baseConfig,
-        type: viewMode,
+        type: 'spreadsheetV2',
         displayDensity: 'compact' as DisplayDensity,
         columns: [],
         spreadsheetData: JSON.parse(JSON.stringify(MOCK_BUDGET_DATA)),
         spreadsheetColumns: getDefaultSpreadsheetColumns(),
       };
-    case 'spreadsheetV3':
     case 'spreadsheetV4':
       return {
         ...baseConfig,
-        type: viewMode,
+        type: 'spreadsheetV4',
         displayDensity: 'compact' as DisplayDensity,
         columns: [],
         v3Sheets: null,
         v3ActiveSheetId: null,
       };
-    case 'lookahead':
-       return { ...baseConfig, displayDensity: 'standard' as DisplayDensity, type: 'lookahead', columns: JSON.parse(JSON.stringify(getDefaultTableColumns())) };
-    case 'gantt':
-      return { ...baseConfig, displayDensity: 'compact' as DisplayDensity, type: 'gantt', columns: [] };
-    case 'board':
-      return { ...baseConfig, type: viewMode, columns: [] };
     case 'table':
     default:
       return {
@@ -158,6 +147,12 @@ interface ProjectContextType {
   setIsDownloadModalOpen: (open: boolean) => void;
   isPDFModalOpen: boolean;
   setIsPDFModalOpen: (open: boolean) => void;
+  contractData: ContractData | null;
+  setContractData: React.Dispatch<SetStateAction<ContractData | null>>;
+  isContractUploadOpen: boolean;
+  setIsContractUploadOpen: (open: boolean) => void;
+  contractConfirmed: boolean;
+  setContractConfirmed: (confirmed: boolean) => void;
 }
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
@@ -187,6 +182,9 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [isViewManagerOpen, setIsViewManagerOpen] = useState(false);
   const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
   const [isPDFModalOpen, setIsPDFModalOpen] = useState(false);
+  const [contractData, setContractData] = useState<ContractData | null>(null);
+  const [isContractUploadOpen, setIsContractUploadOpen] = useState(false);
+  const [contractConfirmed, setContractConfirmed] = useState(false);
 
   // Initialize with System Views
   useEffect(() => {
@@ -587,7 +585,13 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     deleteSystemView,
     handleSaveNewView,
     isDownloadModalOpen,
-    setIsDownloadModalOpen
+    setIsDownloadModalOpen,
+    contractData,
+    setContractData,
+    isContractUploadOpen,
+    setIsContractUploadOpen,
+    contractConfirmed,
+    setContractConfirmed
   };
 
   return <ProjectContext.Provider value={value}>{children}</ProjectContext.Provider>;

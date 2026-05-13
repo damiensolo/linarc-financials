@@ -6,18 +6,13 @@ import { useProject } from '../../context/ProjectContext';
 import FilterMenu from './FilterMenu';
 import HighlightMenu from './HighlightMenu';
 import GroupMenu from './GroupMenu';
-import { PlusIcon, MoreHorizontalIcon, MoreVerticalIcon, TableIcon, BoardIcon, GanttIcon, LookaheadIcon, SearchIcon, FilterIcon, SpreadsheetIcon, AdvancedSheetIcon, GridPlusIcon, DashboardIcon, ShareIcon, FillColorIcon, CopyIcon, GroupIcon, ChevronDownIcon, ChevronUpIcon, ChevronsDownIcon, XIcon, SettingsIcon, ViewManagerIcon } from '../common/Icons';
+import { PlusIcon, MoreHorizontalIcon, MoreVerticalIcon, TableIcon, SearchIcon, FilterIcon, SpreadsheetIcon, GridPlusIcon, ShareIcon, FillColorIcon, CopyIcon, GroupIcon, ChevronDownIcon, ChevronUpIcon, ChevronsDownIcon, XIcon, SettingsIcon, ViewManagerIcon } from '../common/Icons';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../common/ui/Tooltip';
 
 const modes: { id: ViewMode; label: string; icon: React.FC<React.SVGProps<SVGSVGElement>> }[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: DashboardIcon },
   { id: 'table', label: 'Table', icon: TableIcon },
   { id: 'spreadsheetV2', label: 'Spreadsheet', icon: SpreadsheetIcon },
   { id: 'spreadsheetV4', label: 'Spreadsheet +', icon: GridPlusIcon },
-  { id: 'spreadsheetV3', label: 'Advanced Spreadsheet (v3.1)', icon: AdvancedSheetIcon },
-  { id: 'board', label: 'Board', icon: BoardIcon },
-  { id: 'gantt', label: 'Gantt', icon: GanttIcon },
-  { id: 'lookahead', label: 'Lookahead', icon: LookaheadIcon },
 ];
 
 const TabMenu: React.FC<{ view: View, isDefault: boolean, onRename: () => void, onDelete: () => void, onSetDefault: () => void, onShare: () => void, onClone: () => void, canDelete: boolean }> = 
@@ -332,8 +327,8 @@ const ViewControls: React.FC = () => {
       handleDuplicateView(viewId);
   };
 
-  const searchPlaceholder = activeViewMode === 'spreadsheet' || activeViewMode === 'spreadsheetV2' || activeViewMode === 'spreadsheetV3' || activeViewMode === 'spreadsheetV4' ? 'Search...' : 'Search tasks...';
-  const showSearchAndFilter = activeViewMode !== 'dashboard';
+  const searchPlaceholder = activeViewMode === 'spreadsheetV2' || activeViewMode === 'spreadsheetV4' ? 'Search...' : 'Search tasks...';
+  const showSearchAndFilter = true;
 
   type ToolbarItem = 
       | { type: 'mode'; mode: typeof modes[0]; isFirst: boolean; isLast: boolean }

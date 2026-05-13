@@ -65,19 +65,15 @@ const FieldsMenu: React.FC<SettingsMenuProps> = ({ onClose, className, disableCl
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dropIndicatorIndex, setDropIndicatorIndex] = useState<number | null>(null);
   
-  const isSpreadsheet = activeViewMode === 'spreadsheet';
   const isSpreadsheetV2 = activeViewMode === 'spreadsheetV2';
-  const isSpreadsheetV3 = activeViewMode === 'spreadsheetV3';
   const isSpreadsheetV4 = activeViewMode === 'spreadsheetV4';
-  const isV3OrV4 = isSpreadsheetV3 || isSpreadsheetV4;
-  const isAnySpreadsheet = isSpreadsheet || isSpreadsheetV2 || isV3OrV4;
-  const isDashboard = activeViewMode === 'dashboard';
-  const showFields = !isDashboard; 
+  const isAnySpreadsheet = isSpreadsheetV2 || isSpreadsheetV4;
+  const showFields = true;
 
   const activeSheetId = activeView.v3ActiveSheetId;
-  const activeSheet = isV3OrV4 ? (activeView.v3Sheets?.find(s => s.id === activeSheetId) || activeView.v3Sheets?.[0]) : null;
+  const activeSheet = isSpreadsheetV4 ? (activeView.v3Sheets?.find(s => s.id === activeSheetId) || activeView.v3Sheets?.[0]) : null;
 
-  const columns = isV3OrV4
+  const columns = isSpreadsheetV4
       ? (activeSheet?.columns || [])
       : (isAnySpreadsheet ? (activeView.spreadsheetColumns || []) : activeView.columns);
 

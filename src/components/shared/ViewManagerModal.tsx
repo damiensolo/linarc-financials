@@ -2,13 +2,10 @@ import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useProject } from '../../context/ProjectContext';
 import { View, ViewCategory, ViewMode, Column, FilterRule, GroupByRule, FilterOperator, ColumnId } from '../../types';
-import { 
-    DashboardIcon, 
-    TableIcon, 
-    SpreadsheetIcon, 
-    BoardIcon, 
-    GanttIcon, 
-    LookaheadIcon, 
+import {
+    TableIcon,
+    SpreadsheetIcon,
+    GridPlusIcon,
     MoreVerticalIcon,
     ShareIcon,
     LockIcon,
@@ -46,13 +43,9 @@ const Toggle: React.FC<{ checked: boolean; onChange: (checked: boolean) => void 
 
 const ViewIcon: React.FC<{ type: ViewMode; className?: string }> = ({ type, className }) => {
     switch(type) {
-        case 'dashboard': return <DashboardIcon className={className} />;
         case 'table': return <TableIcon className={className} />;
-        case 'spreadsheetV2':
-        case 'spreadsheet': return <SpreadsheetIcon className={className} />;
-        case 'board': return <BoardIcon className={className} />;
-        case 'gantt': return <GanttIcon className={className} />;
-        case 'lookahead': return <LookaheadIcon className={className} />;
+        case 'spreadsheetV2': return <SpreadsheetIcon className={className} />;
+        case 'spreadsheetV4': return <GridPlusIcon className={className} />;
         default: return <TableIcon className={className} />;
     }
 }
@@ -251,9 +244,7 @@ const ViewConfigPanel: React.FC<{
     const viewModes: { id: ViewMode; label: string; icon: any }[] = [
         { id: 'table', label: 'Standard Table', icon: TableIcon },
         { id: 'spreadsheetV2', label: 'Spreadsheet', icon: SpreadsheetIcon },
-        { id: 'gantt', label: 'Gantt', icon: GanttIcon },
-        { id: 'board', label: 'Board', icon: BoardIcon },
-        { id: 'lookahead', label: 'Lookahead', icon: LookaheadIcon }
+        { id: 'spreadsheetV4', label: 'Spreadsheet +', icon: GridPlusIcon }
     ];
 
     const handleSave = () => {

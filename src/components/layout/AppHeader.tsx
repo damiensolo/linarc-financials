@@ -8,24 +8,19 @@ const formatValue = (val: number) =>
 const AppHeader: React.FC = () => {
     const { activeViewMode, activeView } = useProject();
     
-    // Dynamic title based on view mode
     const getTitle = () => {
-        if (activeViewMode === 'dashboard') return 'Project Dashboard';
-        if (activeViewMode === 'table' || activeViewMode === 'board') return 'RFIs';
-        if (activeViewMode === 'gantt') return 'Schedule';
-        if (activeViewMode === 'lookahead') return 'Lookahead';
-        if (activeViewMode === 'spreadsheetV3') return 'Advanced Spreadsheet (v3.1)';
-        if (activeViewMode === 'spreadsheetV4') return 'Spreadsheet +';
+        if (activeViewMode === 'table') return 'RFIs';
+        if (activeViewMode === 'spreadsheetV2') return 'Budget';
+        if (activeViewMode === 'spreadsheetV4') return 'Prime Contract';
         return 'Budget';
     };
 
     const title = getTitle();
-    
-    // Aggregate budget metadata from root-level items
+
     const budgetTotals = useMemo(() => {
         const data = activeView.spreadsheetData;
         if (!data || data.length === 0) return { total: 0, distributed: 0, unallocated: 0 };
-        
+
         return data.reduce((acc, curr) => {
             const rowBudget = curr.totalBudget || 0;
             const rowRemaining = curr.remainingContract || 0;
@@ -40,10 +35,9 @@ const AppHeader: React.FC = () => {
     const { total, distributed, unallocated } = budgetTotals;
 
     const isScheduleActiveSheet = activeView.v3ActiveSheetId === 'sheet-schedule';
-    const isSpreadsheetView = (activeViewMode === 'spreadsheet' || activeViewMode === 'spreadsheetV2') && !isScheduleActiveSheet;
-    const isSpreadsheetV3 = activeViewMode === 'spreadsheetV3' || activeViewMode === 'spreadsheetV4';
+    const isSpreadsheetView = activeViewMode === 'spreadsheetV2' && !isScheduleActiveSheet;
     const isReadyToLock = isSpreadsheetView && unallocated === 0;
-    const showCreateButton = !isSpreadsheetView && activeViewMode !== 'dashboard' && !isScheduleActiveSheet;
+    const showCreateButton = !isSpreadsheetView && !isScheduleActiveSheet;
 
     // Status colors based on unallocated amount - used only for the status pill
     const statusClasses = unallocated === 0 

@@ -20,7 +20,21 @@
       "Bash(findstr \":5173\")",
       "Bash(taskkill /F /PID 36912 /PID 37660)",
       "Bash(npx vite *)",
-      "Bash(curl -s http://localhost:5174/)"
+      "Bash(curl -s http://localhost:5174/)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\damie\\\\Projects\\\\linarc-financials\" -Force)",
+      "Bash(Select-Object Name, PSIsContainer)",
+      "Bash(cd \"c:\\\\Users\\\\damie\\\\Projects\\\\linarc-financials\" && rm -rf src/components/views/dashboard src/components/views/lookahead src/components/views/gantt src/components/views/board src/components/views/spreadsheet src/components/views/spreadsheetV3 && echo \"✓ Deleted 6 view directories\")",
+      "Bash(awk '{print $2}')",
+      "Bash(xargs kill -9)",
+      "Bash(curl -s http://localhost:3001)",
+      "Bash(npm install *)",
+      "Bash(Start-Sleep -Seconds 10)",
+      "Bash(Get-Content C:\\\\Users\\\\damie\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-damie-Projects-linarc-financials\\\\820b5506-550d-449c-9c81-33b4736abbc8\\\\tasks\\\\bl0bwhh5h.output -Tail 20)",
+      "Bash(cat)",
+      "Read(//tmp/**)"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\damie\\Projects\\linarc-financials\\src\\components\\views\\dashboard"
     ]
   }
 }
