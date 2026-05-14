@@ -49,14 +49,14 @@ const StepDetailCard: React.FC = () => {
             {!contractData ? (
               <button
                 onClick={() => setIsContractUploadOpen(true)}
-                className="w-full py-3 px-4 bg-orange-500 text-white font-medium rounded-lg hover:bg-orange-600 transition-colors flex items-center justify-center gap-2"
+                className="w-full py-3 px-4 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
               >
                 Upload Contract
                 <ChevronRight size={18} />
               </button>
             ) : (
               <div className="space-y-4">
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className="bg-green-50 border border-green-200 rounded-md p-4">
                   <div className="flex items-start gap-3">
                     <Check size={20} className="text-green-600 mt-0.5 flex-shrink-0" />
                     <div>
@@ -87,7 +87,7 @@ const StepDetailCard: React.FC = () => {
 
                 <button
                   onClick={() => setFinancialSetupStep(2)}
-                  className="w-full py-3 px-4 bg-orange-500 text-white font-medium rounded-lg hover:bg-orange-600 transition-colors flex items-center justify-center gap-2"
+                  className="w-full py-3 px-4 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
                 >
                   Lock Prime Contract
                   <ChevronRight size={18} />
@@ -110,7 +110,7 @@ const StepDetailCard: React.FC = () => {
               <div className="border-t border-gray-200 px-6 py-4 flex items-center justify-between gap-3">
                 <button
                   onClick={handleLockPrimeContract}
-                  className="flex items-center gap-2 px-6 py-2 bg-orange-500 text-white font-medium rounded-lg hover:bg-orange-600 transition-colors"
+                  className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 transition-colors"
                 >
                   Lock Prime Contract
                   <ChevronRight size={18} />
@@ -131,7 +131,7 @@ const StepDetailCard: React.FC = () => {
 
             <button
               onClick={() => setIsContractUploadOpen(true)}
-              className="w-full py-3 px-4 bg-orange-500 text-white font-medium rounded-lg hover:bg-orange-600 transition-colors flex items-center justify-center gap-2"
+              className="w-full py-3 px-4 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
             >
               Upload Contract
               <ChevronRight size={18} />
@@ -152,7 +152,7 @@ const StepDetailCard: React.FC = () => {
               </div>
               <div className="border-t border-gray-200 px-6 py-4 flex items-center justify-between gap-3">
                 {budgetLocked && (
-                  <div className="flex items-center gap-2 text-sm font-medium text-green-900 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                  <div className="flex items-center gap-2 text-sm font-medium text-green-900 bg-green-50 border border-green-200 rounded-md px-3 py-2">
                     <Check size={16} />
                     Budget Locked
                   </div>
@@ -160,7 +160,7 @@ const StepDetailCard: React.FC = () => {
                 <button
                   onClick={handleLockBudget}
                   disabled={budgetLocked}
-                  className="flex items-center gap-2 px-6 py-2 bg-orange-500 text-white font-medium rounded-lg hover:bg-orange-600 transition-colors disabled:bg-gray-300 disabled:cursor-default"
+                  className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-default"
                 >
                   Lock Budget
                   <ChevronRight size={18} />
@@ -182,20 +182,20 @@ const StepDetailCard: React.FC = () => {
             <div className="space-y-4">
               <button
                 onClick={() => setIsContractUploadOpen(true)}
-                className="w-full py-3 px-4 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
+                className="w-full py-3 px-4 border border-gray-300 text-gray-700 font-medium rounded-md hover:bg-gray-50 transition-colors"
               >
                 Re-upload Contract
               </button>
 
               <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-r from-gray-100 to-gray-50 rounded-lg" />
+                <div className="absolute inset-0 bg-gradient-to-r from-gray-100 to-gray-50 rounded-md" />
                 <div className="relative p-4 text-center text-gray-500 text-sm">
                   Budget spreadsheet (inline view coming soon)
                 </div>
               </div>
 
               {budgetLocked && (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                <div className="bg-green-50 border border-green-200 rounded-md p-3">
                   <p className="text-sm font-medium text-green-900 flex items-center gap-2">
                     <Check size={16} />
                     Budget Locked
@@ -206,7 +206,7 @@ const StepDetailCard: React.FC = () => {
               <button
                 onClick={handleLockBudget}
                 disabled={budgetLocked}
-                className="w-full py-3 px-4 bg-orange-500 text-white font-medium rounded-lg hover:bg-orange-600 transition-colors disabled:bg-gray-300 disabled:cursor-default flex items-center justify-center gap-2"
+                className="w-full py-3 px-4 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-default flex items-center justify-center gap-2"
               >
                 Lock Budget
                 <ChevronRight size={18} />
@@ -232,7 +232,7 @@ const StepDetailCard: React.FC = () => {
                 onClick={() => setActiveTab('sov')}
                 className={`px-4 py-2 font-medium border-b-2 transition-colors ${
                   activeTab === 'sov'
-                    ? 'border-orange-500 text-orange-600'
+                    ? 'border-blue-600 text-blue-600'
                     : 'border-transparent text-gray-600 hover:text-gray-900'
                 }`}
               >
@@ -242,7 +242,7 @@ const StepDetailCard: React.FC = () => {
                 onClick={() => setActiveTab('schedule')}
                 className={`px-4 py-2 font-medium border-b-2 transition-colors ${
                   activeTab === 'schedule'
-                    ? 'border-orange-500 text-orange-600'
+                    ? 'border-blue-600 text-blue-600'
                     : 'border-transparent text-gray-600 hover:text-gray-900'
                 }`}
               >
@@ -250,7 +250,7 @@ const StepDetailCard: React.FC = () => {
               </button>
             </div>
 
-            <div className="bg-gray-50 rounded-lg p-6 text-center text-gray-500 min-h-[300px] flex items-center justify-center">
+            <div className="bg-gray-50 rounded-md p-6 text-center text-gray-500 min-h-[300px] flex items-center justify-center">
               {activeTab === 'sov' ? (
                 <div className="text-center">
                   <p className="font-medium mb-2">Draft SOV Review</p>
@@ -264,7 +264,7 @@ const StepDetailCard: React.FC = () => {
               )}
             </div>
 
-            <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <div className="mt-6 bg-blue-50 border border-blue-200 rounded-md p-3">
               <p className="text-sm text-blue-900 flex items-center gap-2">
                 <AlertCircle size={16} />
                 4 SOV lines are missing WBS links
@@ -273,7 +273,7 @@ const StepDetailCard: React.FC = () => {
 
             <button
               onClick={handlePublishSOV}
-              className="w-full mt-6 py-3 px-4 bg-orange-500 text-white font-medium rounded-lg hover:bg-orange-600 transition-colors flex items-center justify-center gap-2"
+              className="w-full mt-6 py-3 px-4 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
             >
               Lock & Publish SOV
               <ChevronRight size={18} />
@@ -296,7 +296,7 @@ const StepDetailCard: React.FC = () => {
               </p>
             </div>
 
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm text-green-900">
+            <div className="bg-green-50 border border-green-200 rounded-md p-4 text-sm text-green-900">
               <p className="font-medium mb-2">Setup Complete</p>
               <p>All 6 mandatory financial setup steps have been completed successfully.</p>
             </div>

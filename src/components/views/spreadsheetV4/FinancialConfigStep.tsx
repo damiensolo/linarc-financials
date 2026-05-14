@@ -9,7 +9,7 @@ const FinancialConfigStep: React.FC = () => {
   const [overhead, setOverhead] = useState(financialConfig?.defaultOverhead ?? 5);
   const [billingDay, setBillingDay] = useState(financialConfig?.billingCutoffDay ?? 1);
   const [allowMultiplePayApps, setAllowMultiplePayApps] = useState(
-    financialConfig?.allowMultiplePayApps ?? false
+    financialConfig?.allowMultiplePayApps ?? true
   );
 
   const handleSave = () => {
@@ -51,7 +51,7 @@ const FinancialConfigStep: React.FC = () => {
             step="0.5"
             value={retainage}
             onChange={(e) => setRetainage(parseFloat(e.target.value))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <p className="text-xs text-gray-500 mt-1">
             Amount withheld from each payment (typically 5-10%)
@@ -71,7 +71,7 @@ const FinancialConfigStep: React.FC = () => {
             step="0.5"
             value={overhead}
             onChange={(e) => setOverhead(parseFloat(e.target.value))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <p className="text-xs text-gray-500 mt-1">
             Standard overhead markup for all line items
@@ -90,7 +90,7 @@ const FinancialConfigStep: React.FC = () => {
             max="28"
             value={billingDay}
             onChange={(e) => setBillingDay(parseInt(e.target.value))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <p className="text-xs text-gray-500 mt-1">
             Day of the month when invoicing periods end (1-28)
@@ -104,7 +104,7 @@ const FinancialConfigStep: React.FC = () => {
               type="checkbox"
               checked={allowMultiplePayApps}
               onChange={(e) => setAllowMultiplePayApps(e.target.checked)}
-              className="w-4 h-4 rounded border-gray-300 text-orange-500 focus:ring-orange-500"
+              className="w-4 h-4 rounded border-gray-300 text-orange-500 focus:ring-blue-500"
             />
             <span className="text-sm font-medium text-gray-700">
               Allow Multiple Pay Applications per Month
@@ -120,14 +120,14 @@ const FinancialConfigStep: React.FC = () => {
           <button
             type="button"
             onClick={handleSkip}
-            className="flex-1 py-2 px-4 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
+            className="flex-1 py-2 px-4 border border-gray-300 text-gray-700 font-medium rounded-md hover:bg-gray-50 transition-colors"
           >
             Skip for Now
           </button>
           <button
             type="submit"
             disabled={!isValid}
-            className="flex-1 py-2 px-4 bg-orange-500 text-white font-medium rounded-lg hover:bg-orange-600 transition-colors disabled:bg-gray-300 disabled:cursor-default flex items-center justify-center gap-2"
+            className="flex-1 py-2 px-4 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-default flex items-center justify-center gap-2"
           >
             Continue
             <ChevronRight size={16} />
