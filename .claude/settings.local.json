@@ -38,10 +38,14 @@
       "mcp__claude_ai_Figma__get_screenshot",
       "mcp__claude_ai_Figma__search_design_system",
       "mcp__claude_ai_Figma__use_figma",
-      "PowerShell(start \"http://localhost:3001/#figmacapture=4d89c100-f1ed-4688-bdd5-1d77a9e939be&figmaendpoint=https%3A%2F%2Fmcp.figma.com%2Fmcp%2Fcapture%2F4d89c100-f1ed-4688-bdd5-1d77a9e939be%2Fsubmit&figmadelay=1000\")"
+      "PowerShell(start \"http://localhost:3001/#figmacapture=4d89c100-f1ed-4688-bdd5-1d77a9e939be&figmaendpoint=https%3A%2F%2Fmcp.figma.com%2Fmcp%2Fcapture%2F4d89c100-f1ed-4688-bdd5-1d77a9e939be%2Fsubmit&figmadelay=1000\")",
+      "mcp__Claude_Preview__preview_start",
+      "mcp__012da11d-c7f7-4dc7-b6ca-880b7a56c8ec__get_screenshot",
+      "mcp__012da11d-c7f7-4dc7-b6ca-880b7a56c8ec__get_metadata",
+      "mcp__012da11d-c7f7-4dc7-b6ca-880b7a56c8ec__get_design_context",
+      "mcp__012da11d-c7f7-4dc7-b6ca-880b7a56c8ec__use_figma",
+      "mcp__Claude_in_Chrome__tabs_context_mcp"
     ],
-    "additionalDirectories": [
-      "c:\\Users\\damie\\Projects\\linarc-financials\\src\\components\\views\\dashboard"
-    ]
+    "additionalDirectories": []
   }
 }
