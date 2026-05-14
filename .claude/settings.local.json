@@ -32,7 +32,13 @@
       "Bash(Get-Content C:\\\\Users\\\\damie\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-damie-Projects-linarc-financials\\\\820b5506-550d-449c-9c81-33b4736abbc8\\\\tasks\\\\bl0bwhh5h.output -Tail 20)",
       "Bash(cat)",
       "Read(//tmp/**)",
-      "Bash(curl -s http://localhost:3001/)"
+      "Bash(curl -s http://localhost:3001/)",
+      "mcp__Claude_Preview__preview_start",
+      "mcp__012da11d-c7f7-4dc7-b6ca-880b7a56c8ec__get_screenshot",
+      "mcp__012da11d-c7f7-4dc7-b6ca-880b7a56c8ec__get_metadata",
+      "mcp__012da11d-c7f7-4dc7-b6ca-880b7a56c8ec__get_design_context",
+      "mcp__012da11d-c7f7-4dc7-b6ca-880b7a56c8ec__use_figma",
+      "mcp__Claude_in_Chrome__tabs_context_mcp"
     ],
     "additionalDirectories": [
       "c:\\Users\\damie\\Projects\\linarc-financials\\src\\components\\views\\dashboard"
