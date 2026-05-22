@@ -14,7 +14,7 @@ const ContractMetadataBar: React.FC<ContractMetadataBarProps> = ({ isLocked = fa
   const [executedDate, setExecutedDate] = useState(contractData?.executedDate || null);
   const [startDate, setStartDate] = useState(contractData?.startDate || null);
   const [endDate, setEndDate] = useState(contractData?.endDate || null);
-  const [contractSum, setContractSum] = useState(contractData?.contractSum || 0);
+  const [contractSum, setContractSum] = useState<string | number>(contractData?.contractSum || '');
   const [owner, setOwner] = useState(contractData?.owner || '');
   const [contractor, setContractor] = useState(contractData?.contractor || '');
 
@@ -31,24 +31,38 @@ const ContractMetadataBar: React.FC<ContractMetadataBarProps> = ({ isLocked = fa
     });
   };
 
-  const handleTextChange = (field: 'contractSum' | 'owner' | 'contractor', value: string | number) => {
+  const handleContractSumChange = (value: string) => {
     if (!isEditable || isLocked || !contractData) return;
 
-    if (field === 'contractSum') {
-      setContractSum(Number(value) || 0);
+    setContractSum(value);
+
+    const numValue = value === '' ? 0 : Number(value);
+    if (!isNaN(numValue)) {
       setContractData({
         ...contractData,
-        contractSum: Number(value) || 0,
-      });
-    } else {
-      const fieldValue = field === 'contractSum' ? Number(value) : value;
-      if (field === 'owner') setOwner(value as string);
-      if (field === 'contractor') setContractor(value as string);
-      setContractData({
-        ...contractData,
-        [field]: fieldValue,
+        contractSum: numValue,
       });
     }
+  };
+
+  const handleOwnerChange = (value: string) => {
+    if (!isEditable || isLocked || !contractData) return;
+
+    setOwner(value);
+    setContractData({
+      ...contractData,
+      owner: value,
+    });
+  };
+
+  const handleContractorChange = (value: string) => {
+    if (!isEditable || isLocked || !contractData) return;
+
+    setContractor(value);
+    setContractData({
+      ...contractData,
+      contractor: value,
+    });
   };
 
   const handleReplaceContract = () => {
@@ -157,15 +171,17 @@ const ContractMetadataBar: React.FC<ContractMetadataBarProps> = ({ isLocked = fa
               <div className="relative">
                 <span className="absolute left-3 top-2 text-gray-500 font-medium">$</span>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
                   value={contractSum}
-                  onChange={(e) => handleTextChange('contractSum', e.target.value)}
+                  onChange={(e) => handleContractSumChange(e.target.value)}
+                  placeholder="0"
                   className="w-full pl-7 pr-3 py-2 bg-white border border-gray-300 rounded text-gray-900 font-semibold focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                 />
               </div>
             ) : (
               <p className="text-gray-900 font-semibold px-3 py-2 bg-gray-50 rounded border border-gray-200">
-                {formatCurrency(contractSum || contractData.contractSum)}
+                {formatCurrency(typeof contractSum === 'string' ? Number(contractSum) || 0 : contractSum)}
               </p>
             )}
           </div>
@@ -179,7 +195,7 @@ const ContractMetadataBar: React.FC<ContractMetadataBarProps> = ({ isLocked = fa
               <input
                 type="text"
                 value={owner}
-                onChange={(e) => handleTextChange('owner', e.target.value)}
+                onChange={(e) => handleOwnerChange(e.target.value)}
                 placeholder="Enter owner name"
                 className="w-full px-3 py-2 bg-white border border-gray-300 rounded text-gray-900 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
               />
@@ -199,7 +215,7 @@ const ContractMetadataBar: React.FC<ContractMetadataBarProps> = ({ isLocked = fa
               <input
                 type="text"
                 value={contractor}
-                onChange={(e) => handleTextChange('contractor', e.target.value)}
+                onChange={(e) => handleContractorChange(e.target.value)}
                 placeholder="Enter contractor name"
                 className="w-full px-3 py-2 bg-white border border-gray-300 rounded text-gray-900 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
               />
