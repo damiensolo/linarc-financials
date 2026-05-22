@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { ChevronRight, Check, AlertCircle } from 'lucide-react';
+import { ChevronRight, Check, AlertCircle, Cloud, Plus } from 'lucide-react';
 import { useProject } from '../../../context/ProjectContext';
 import FinancialConfigStep from './FinancialConfigStep';
 import PrimeContractTable from './PrimeContractTable';
+import ContractReviewLockScreen from './ContractReviewLockScreen';
 
 const StepDetailCard: React.FC = () => {
   const {
@@ -10,10 +11,13 @@ const StepDetailCard: React.FC = () => {
     setFinancialSetupStep,
     financialConfig,
     contractData,
+    setContractData,
     budgetLocked,
     setIsContractUploadOpen,
     setBudgetLocked,
     activeView,
+    updateView,
+    setContractLocked,
   } = useProject();
 
   const [activeTab, setActiveTab] = useState<'sov' | 'schedule'>('sov');
@@ -47,13 +51,74 @@ const StepDetailCard: React.FC = () => {
             </p>
 
             {!contractData ? (
-              <button
-                onClick={() => setIsContractUploadOpen(true)}
-                className="w-full py-3 px-4 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
-              >
-                Upload Contract
-                <ChevronRight size={18} />
-              </button>
+              <div className="space-y-4">
+                <p className="text-sm text-gray-600 mb-4">Choose how you'd like to set up your contract</p>
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Upload Document Option */}
+                  <button
+                    onClick={() => setIsContractUploadOpen(true)}
+                    className="p-6 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all text-left group"
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-200 transition-colors">
+                        <Cloud className="w-6 h-6 text-blue-600" />
+                      </div>
+                      <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-blue-600 transition-colors" />
+                    </div>
+                    <h3 className="font-semibold text-gray-900 mb-1">Upload Document</h3>
+                    <p className="text-xs text-gray-600">PDF, DOCX, TXT, or MD file</p>
+                  </button>
+
+                  {/* Enter Manually Option */}
+                  <button
+                    onClick={() => {
+                      setContractData({
+                        executedDate: null,
+                        startDate: null,
+                        endDate: null,
+                        finalCompletion: null,
+                        contractSum: 0,
+                        owner: '',
+                        contractor: '',
+                        projectName: '',
+                        fileName: 'Manual Entry',
+                        uploadedAt: new Date().toISOString(),
+                        extractionMethod: 'manual',
+                      });
+
+                      // Create empty budget sheet
+                      const budgetSheet = {
+                        id: 'sheet-budget',
+                        name: 'Prime Contract Budget',
+                        columns: [
+                          { id: 'sno', label: 'S.No', type: 'number' as const, width: 60, align: 'right' as const, editable: false, visible: true },
+                          { id: 'name', label: 'Contract Line', type: 'text' as const, width: 400, editable: true, visible: true },
+                          { id: 'totalBudget', label: 'Contract Value', type: 'currency' as const, width: 150, align: 'right' as const, editable: true, visible: true, isTotal: true },
+                        ],
+                        rows: [{ id: 'empty-row', cells: {} }],
+                      };
+
+                      updateView({
+                        v3Sheets: [budgetSheet],
+                        v3ActiveSheetId: 'sheet-budget',
+                      });
+
+                      setContractLocked(false);
+                      setFinancialSetupStep(2);
+                    }}
+                    className="p-6 border-2 border-gray-200 rounded-lg hover:border-green-500 hover:bg-green-50 transition-all text-left group"
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center group-hover:bg-green-200 transition-colors">
+                        <Plus className="w-6 h-6 text-green-600" />
+                      </div>
+                      <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-green-600 transition-colors" />
+                    </div>
+                    <h3 className="font-semibold text-gray-900 mb-1">Enter Manually</h3>
+                    <p className="text-xs text-gray-600">Type in dates and line items</p>
+                  </button>
+                </div>
+              </div>
             ) : (
               <div className="space-y-4">
                 <div className="bg-green-50 border border-green-200 rounded-md p-4">
@@ -101,23 +166,8 @@ const StepDetailCard: React.FC = () => {
         const budgetSheet = activeView?.v3Sheets?.find(s => s.id === 'sheet-budget');
         const hasRows = budgetSheet && budgetSheet.rows.length > 0 && budgetSheet.rows[0].id !== 'empty-row';
 
-        if (hasRows && contractData) {
-          return (
-            <div className="w-full h-full flex flex-col">
-              <div className="flex-1 overflow-auto">
-                <PrimeContractTable isLocked={false} />
-              </div>
-              <div className="border-t border-gray-200 px-6 py-4 flex items-center justify-between gap-3">
-                <button
-                  onClick={handleLockPrimeContract}
-                  className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 transition-colors"
-                >
-                  Lock Prime Contract
-                  <ChevronRight size={18} />
-                </button>
-              </div>
-            </div>
-          );
+        if (contractData && (hasRows || budgetSheet)) {
+          return <ContractReviewLockScreen />;
         }
 
         return (
@@ -126,14 +176,14 @@ const StepDetailCard: React.FC = () => {
               Prime Contract
             </h2>
             <p className="text-gray-600 mb-6">
-              Upload your prime contract to extract and review contract line items.
+              Review and lock your prime contract before proceeding to budget setup.
             </p>
 
             <button
               onClick={() => setIsContractUploadOpen(true)}
               className="w-full py-3 px-4 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
             >
-              Upload Contract
+              Upload Different Contract
               <ChevronRight size={18} />
             </button>
           </div>
@@ -224,7 +274,7 @@ const StepDetailCard: React.FC = () => {
               SOV & Schedule Linking
             </h2>
             <p className="text-gray-600 mb-6">
-              Review your Statement of Values and link budget items to the project schedule.
+              Review your Schedule of Values and link budget items to the project schedule.
             </p>
 
             <div className="mb-6 flex gap-2 border-b border-gray-200">
@@ -254,7 +304,7 @@ const StepDetailCard: React.FC = () => {
               {activeTab === 'sov' ? (
                 <div className="text-center">
                   <p className="font-medium mb-2">Draft SOV Review</p>
-                  <p className="text-sm">Review and edit your Statement of Values</p>
+                  <p className="text-sm">Review and edit your Schedule of Values</p>
                 </div>
               ) : (
                 <div className="text-center">

@@ -52,25 +52,36 @@ This document is synthesized from the "Journey-First" UX strategy, the business 
 * The widget directs the user to upload a contract file (PDF, DOCX, TXT, or MD).  
 * *Feature:* AI-assisted document parsing automatically extracts contract metadata (executed date, construction start, substantial completion, contract sum, owner, contractor, project name) and line items with cost allocations.  
 * Extraction uses regex pattern matching with fallback to demo data if parsing is incomplete.
-* **Outcome:** Contract file is stored and extracted data (dates + line items) is displayed for review in Step 2.
-* **Gate Rule:** Upload must complete successfully and user must confirm extracted data to unlock Step 2.
+* **Contract Replacement:** Users can upload a new contract at any time from the Review & Edit screen (Step 2), which will re-process the document and reset the contract lock state.
+* **Outcome:** Upon successful upload and confirmation, users are **immediately taken to Step 2** (Review & Edit Prime Contract screen) with extracted data ready for review and editing.
+* **Gate Rule:** Upload must complete successfully to proceed to Step 2. Users can replace contracts as needed before locking.
 
-**Requirement 3: Step 2 \- Review & Edit Prime Contract (Editable Spreadsheet Table)**
+**Requirement 3: Step 2 \- Review & Edit Prime Contract (Full-Screen Review & Lock)**
 
-* *Primary Task:* Users review the extracted contract data and make corrections/edits before locking.  
+* *Primary Task:* Users review extracted contract data, make corrections/edits, and lock the contract as the authoritative baseline.  
 * **Contract Metadata Bar** (sticky header at top):
-  - Displays: Project Name (with pin icon) | Executed Date | Construction Start | Substantial Completion | Contract Sum | Contract File (link)
-  - All date fields are editable via date picker
-  - Contract Sum is auto-calculated from line item totals but may be manually adjusted if extraction was incomplete
+  - Displays: Project Name (with pin icon) | Executed Date | Construction Start | Substantial Completion | Contract Sum | Owner | Contractor | Contract File reference
+  - **All date fields are clickable date pickers** with clear input-field styling (border, hover states, calendar icon)
+  - Date format: "MMM d, yyyy" (e.g., "May 20, 2026") for readability
+  - Non-locked state: All dates fully editable via intuitive date picker UI
+  - Locked state: All fields display as read-only with visual distinction (gray background)
+  - **Replace Contract Button** (shown only when unlocked): Allows users to upload a new contract file, which re-processes and resets the lock state
 * **Prime Contract Table** (full editable spreadsheet):
-  - **Columns (L→R):** S.No (auto) | CONTRACT LINE (editable text) | COST CODE (editable) | QTY (editable) | UOM (editable) | HOURS (editable) | LABOR (editable $) | MATERIAL (editable $) | EQUIPMENT (editable $) | SUB (editable $) | OTHERS (editable $) | TOTAL BUDGET (auto-calculated, highlighted blue) | ACTIONS (edit/delete)
-  - **Editable fields:** Contract Line name, Cost Code, Qty, UOM, Hours, Labor, Material, Equipment, Sub, Others — users can update allocations and breakdown
-  - **Auto-calculated:** TOTAL BUDGET per row = Labor + Material + Equipment + Sub + Others
-  - **Totals row (sticky footer):** Dark background showing sums for each numeric/currency column; Grand Total shows across all line items
-  - **Table toolbar (above header):** Search, Filter, Sort, Help icon, Visibility toggle, Grid view options (3 layouts), Add Row button (+)
-  - **Locked state:** When locked, entire table becomes read-only; "LOCKED" badge appears in header; no further edits allowed
+  - **Columns (L→R):** CONTRACT LINE | COST CODE | QTY | UOM | HOURS | LABOR | MATERIAL | EQUIPMENT | SUB | OTHERS | TOTAL BUDGET
+  - **Editable fields:** Contract Line name, Cost Code, Qty, UOM, Hours, Labor, Material, Equipment, Sub, Others — users click any cell to edit inline
+  - **Auto-calculated:** TOTAL BUDGET per row = Labor + Material + Equipment + Sub + Others (formula-based, blue-highlighted)
+  - **Totals row (sticky footer):** Dark background showing sums for each numeric/currency column
+  - **Visual feedback:** Hover states and click-to-edit indicators make it clear rows are editable
+  - **Locked state:** When locked, entire table becomes read-only; "🔒 LOCKED" badge appears in header; table styling changes to indicate frozen state
+* **Lock Controls:**
+  - **Lock Button:** "Lock Contract" button in table header (only visible when unlocked)
+  - **Smart Footer:** Contextual messaging shows:
+    - "Lock the contract to proceed to Step 3" (before lock)
+    - "✓ Contract locked and ready for budget setup" (after lock)
+    - "Proceed to Budget Setup" button appears only after contract is locked
 * **Gate Rule:** The Prime Contract must be strictly locked before the user can move to Step 3. Locking:
   - Freezes all contract dates and line items (read-only)
+  - Disables the "Replace Contract" button (no changes allowed)
   - Establishes contract as the authoritative baseline for budget setup
   - Enables next step (Budget Setup) to auto-populate from locked data
   - Triggers system notification to project stakeholders
@@ -103,22 +114,32 @@ This document is synthesized from the "Journey-First" UX strategy, the business 
 
 ### 3.2 Information Architecture & Layouts
 
-#### Screen A: The Financial Setup Hub (Steps 1–3, 6\)
+#### Screen A: The Financial Setup Hub (Steps 0–3, 6\)
 
 This is the default view when configuring a new project's financials.
 
-* **Left Panel: Persistent Setup Tracker Widget**.  
+* **Left Panel: Persistent Setup Tracker Widget** (collapsible).  
   - A vertical navigation tracker showing the 6 mandatory setup steps.  
   - States clearly indicated: *Complete* (Green Check), *Active* (Blue Highlight), *Locked* (Gray Padlock).  
+  - Users can collapse/expand to maximize workspace on smaller screens.
 * **Center Workspace: Active Step Detail Card**.  
-  - **Step 1 (Upload):** File upload interface with drag-drop zone
-  - **Step 2 (Review & Edit Prime Contract):** Editable contract table with metadata bar, toolbar, and Lock button
+  - **Step 0 (Preliminary Config):** Global financial settings (retainage, overhead, billing dates, pay app toggle)
+  - **Step 1 (Upload Prime Contract):** Full-screen file upload interface with drag-drop zone. Upon confirmation, immediately transitions to Step 2.
+  - **Step 2 (Review & Edit Prime Contract):** Full-screen review & lock experience with sticky metadata bar, editable table, and lock controls
+    - Contract metadata with clickable date pickers (clearly styled as input fields)
+    - Editable prime contract line items table
+    - "Replace Contract" option to re-upload before locking
+    - "Lock Contract" button and contextual footer messaging
   - **Step 3 (Budget Setup):** Budget configuration interface, auto-populated from locked contract
   - **Step 6 (Final Publish):** Final readiness summary and "Publish SOV" CTA
-  - Displays an auto-save timestamp to build trust against data loss.  
-* **Right Panel: The Blockers & Readiness Rail**.  
+  - Auto-save indicator to build trust against data loss.  
+* **Right Panel: The Blockers & Readiness Rail** (collapsible).  
   - A sticky panel summarizing unmet dependencies.  
   - *Copy Example:* "Generate SOV is locked. Blocked because Budget has 3 unmapped cost codes."
+* **Header Controls:**
+  - Title shows current step (e.g., "Prime Contract")
+  - Create/Add buttons are **hidden** in financial setup context (only shown in Table/RFI view)
+  - Step-specific actions (Lock, Proceed, etc.) appear contextually in footers or headers
 
 #### Screen B: Coordinated Workspace (Steps 4 & 5\)
 

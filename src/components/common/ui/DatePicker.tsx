@@ -38,16 +38,19 @@ export const DatePicker: React.FC<DatePickerProps> = ({ date, setDate, className
                 <button
                     type="button"
                     className={cn(
-                        "flex w-full h-full items-center justify-between text-left bg-transparent p-0 group focus:outline-none transition-colors",
-                        !date && "text-slate-500 italic",
-                        isOpen && "bg-blue-50/50",
+                        "flex w-full items-center justify-between text-left px-3 py-2 bg-white border border-gray-300 rounded-md group focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all hover:border-gray-400",
+                        !date && "text-gray-500",
+                        date && "text-gray-900 font-medium",
+                        isOpen && "border-blue-500 bg-blue-50",
                         className
                     )}
                 >
-                    <span className="truncate flex-1 text-left px-2">{date && isValid(date) ? format(date, "M/d/yyyy") : "Pick a date"}</span>
+                    <span className="truncate flex-1 text-left text-sm">
+                        {date && isValid(date) ? format(date, "MMM d, yyyy") : "Pick a date"}
+                    </span>
                     <ChevronDownIcon className={cn(
-                        "w-4 h-4 text-gray-400 transition-all duration-200 mr-2 flex-shrink-0",
-                        isOpen ? "opacity-100 rotate-180" : "opacity-0 group-hover:opacity-100"
+                        "w-4 h-4 text-gray-600 transition-all duration-200 ml-2 flex-shrink-0",
+                        isOpen && "rotate-180"
                     )} />
                 </button>
             }

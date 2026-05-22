@@ -4,18 +4,20 @@ import { motion, AnimatePresence } from 'framer-motion';
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { useProject } from '../../context/ProjectContext';
-import { XIcon, CloudIcon } from '../common/Icons';
+import { XIcon, CloudIcon, ChevronRightIcon, PlusIcon, TrashIcon } from '../common/Icons';
 import { DatePicker } from '../common/ui/DatePicker';
 import { extractLineItems, createBudgetRowsFromLineItems } from '../../lib/contractLineExtraction';
 import type { ContractData } from '../../types';
-import { V3Sheet } from '../views/spreadsheetV4/types';
+import { V3Sheet, V3Row } from '../views/spreadsheetV4/types';
+import { uid } from '../views/spreadsheetV4/SpreadsheetViewV4';
 
 // Set up PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
-type ModalStep = 'upload' | 'processing' | 'review';
+type ModalStep = 'method' | 'upload' | 'processing' | 'review' | 'manual-entry';
+type EntryMethod = 'file' | 'manual' | null;
 
-// Fallback demo values (from Prime Contract.md)
+// Fallback demo values
 const DEMO_CONTRACT = {
   executedDate:    new Date(2026, 4, 20),
   startDate:       new Date(2026, 5, 10),
@@ -38,7 +40,6 @@ interface ExtractedContract {
   projectName:     string;
 }
 
-// Extract text from PDF file
 async function extractTextFromPDF(file: File): Promise<string> {
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
@@ -54,35 +55,28 @@ async function extractTextFromPDF(file: File): Promise<string> {
   return text;
 }
 
-// Pattern matching for contract field extraction
 function extractContractFields(text: string): ExtractedContract {
   const t = text.replace(/\s+/g, ' ');
 
-  // Executed date: "entered into on May 20, 2026"
   const executedMatch = t.match(
     /entered\s+into\s+on\s+([A-Za-z]+\s+\d{1,2},?\s+\d{4})/i
   ) || t.match(/effective\s+date[^:]*:\s*([A-Za-z]+\s+\d{1,2},?\s+\d{4})/i);
 
-  // Start date: "Construction Start" or "June 10, 2026"
   const startMatch = t.match(
     /(?:construction\s+start|start\s+date|commence)[^:]*:?\s*([A-Za-z]+\s+\d{1,2},?\s+\d{4})/i
   );
 
-  // End date: "Substantial Completion: September 30, 2026"
   const endMatch = t.match(
     /substantial\s+completion[^:]*:?\s*([A-Za-z]+\s+\d{1,2},?\s+\d{4})/i
   );
 
-  // Final completion: "October 14, 2026"
   const finalMatch = t.match(
     /final\s+completion[^:]*:?\s*([A-Za-z]+\s+\d{1,2},?\s+\d{4})/i
   );
 
-  // Contract sum: "$296,000.00"
   const sumMatch = t.match(/contract\s+sum[^$\d]*\$\s*([\d,]+(?:\.\d{2})?)/i)
                 || t.match(/\$\s*([\d,]+(?:\.\d{2})?)/);
 
-  // Owner, Contractor, Project name
   const ownerMatch = t.match(/owner[^:]*:\s*\*?\*?([A-Z][A-Za-z &]+(?:LLC|Inc|Corp|Ltd)?)/i);
   const contractorMatch = t.match(/contractor[^:]*:\s*\*?\*?([A-Z][A-Za-z &]+(?:LLC|Inc|Corp|Ltd)?)/i);
   const projectMatch = t.match(/project\s*(?:name)?[^:]*:\s*\*?\*?([A-Z][A-Za-z &]+(?:Apartments|Building|Complex)?)/i)
@@ -111,36 +105,55 @@ function extractContractFields(text: string): ExtractedContract {
 }
 
 const ContractUploadModal: React.FC = () => {
-  const { isContractUploadOpen, setIsContractUploadOpen, contractData, setContractData, updateView, activeView } = useProject();
+  const { isContractUploadOpen, setIsContractUploadOpen, setIsManualEntryOpen, contractData, setContractData, updateView, activeView, setFinancialSetupStep, setContractLocked } = useProject();
 
   const [step, setStep] = useState<ModalStep>('upload');
+  const [entryMethod, setEntryMethod] = useState<EntryMethod>('file');
   const [dragActive, setDragActive] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [scanLines, setScanLines] = useState<string[]>([]);
   const [scanComplete, setScanComplete] = useState(false);
   const [rawContractText, setRawContractText] = useState('');
 
-  // Review form state (editable)
-  const [executedDate, setExecutedDate] = useState<Date | undefined>(undefined);
-  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
-  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
-
-  // Read-only summary fields
-  const [finalCompletion, setFinalCompletion] = useState<Date | null>(null);
-  const [contractSum, setContractSum] = useState<number | null>(null);
-  const [owner, setOwner] = useState('');
-  const [contractor, setContractor] = useState('');
-  const [projectName, setProjectName] = useState('');
+  // Review state (used for file upload only now)
+  const [reviewData, setReviewData] = useState<ExtractedContract | null>(null);
+  const [reviewExecutedDate, setReviewExecutedDate] = useState<Date | undefined>(undefined);
+  const [reviewStartDate, setReviewStartDate] = useState<Date | undefined>(undefined);
+  const [reviewEndDate, setReviewEndDate] = useState<Date | undefined>(undefined);
+  const [reviewContractSum, setReviewContractSum] = useState<number | null>(null);
   const [extractionMethod, setExtractionMethod] = useState<'parsed' | 'fallback'>('fallback');
+
+  // Manual entry state
+  const [manualConstructionStart, setManualConstructionStart] = useState<Date | undefined>(undefined);
+  const [manualConstructionEnd, setManualConstructionEnd] = useState<Date | undefined>(undefined);
+  const [manualDateExecuted, setManualDateExecuted] = useState<Date | undefined>(undefined);
+  const [manualContractSum, setManualContractSum] = useState<string>('');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Scan animation messages
+  const handleClose = () => {
+    setIsContractUploadOpen(false);
+    // Reset modal state
+    setStep('upload');
+    setEntryMethod('file');
+    setDragActive(false);
+    setUploadedFile(null);
+    setScanLines([]);
+    setScanComplete(false);
+    setRawContractText('');
+    setReviewData(null);
+    setReviewContractSum(null);
+    setManualConstructionStart(undefined);
+    setManualConstructionEnd(undefined);
+    setManualDateExecuted(undefined);
+    setManualContractSum('');
+  };
+
   const SCAN_MESSAGES = [
     'Reading document structure…',
     'Detecting contract parties…',
-    `Extracting Owner: ${owner || '—'}`,
-    `Extracting Contractor: ${contractor || '—'}`,
+    'Extracting Owner…',
+    'Extracting Contractor…',
     'Parsing Effective Date…',
     'Parsing Construction Start…',
     'Parsing Substantial Completion…',
@@ -148,17 +161,7 @@ const ContractUploadModal: React.FC = () => {
   ];
 
   const runScanAnimation = (data: ExtractedContract, onDone: () => void) => {
-    const lines = [
-      'Reading document structure…',
-      'Detecting contract parties…',
-      `Extracting Owner: ${data.owner || '—'}`,
-      `Extracting Contractor: ${data.contractor || '—'}`,
-      'Parsing Effective Date…',
-      'Parsing Construction Start…',
-      'Parsing Substantial Completion…',
-      'Validation complete.',
-    ];
-
+    const lines = SCAN_MESSAGES;
     let i = 0;
     const totalDuration = 1800;
     const interval = totalDuration / lines.length;
@@ -184,11 +187,9 @@ const ContractUploadModal: React.FC = () => {
     try {
       let rawText = '';
 
-      // Handle PDF files with PDF.js
       if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
         rawText = await extractTextFromPDF(file);
       } else {
-        // Handle text-based files with FileReader
         rawText = await new Promise<string>((resolve) => {
           const reader = new FileReader();
           reader.onload = (e) => {
@@ -199,7 +200,6 @@ const ContractUploadModal: React.FC = () => {
       }
 
       const extracted = extractContractFields(rawText);
-
       const hasValidExtraction = Object.values(extracted).some(
         v => v !== null && v !== '' && v !== 0
       );
@@ -213,32 +213,25 @@ const ContractUploadModal: React.FC = () => {
       setRawContractText(rawText);
 
       runScanAnimation(final, () => {
-        setExecutedDate(final.executedDate ?? undefined);
-        setStartDate(final.startDate ?? undefined);
-        setEndDate(final.endDate ?? undefined);
-        setFinalCompletion(final.finalCompletion);
-        setContractSum(final.contractSum);
-        setOwner(final.owner);
-        setContractor(final.contractor);
-        setProjectName(final.projectName);
+        setReviewData(final);
+        setReviewExecutedDate(final.executedDate ?? undefined);
+        setReviewStartDate(final.startDate ?? undefined);
+        setReviewEndDate(final.endDate ?? undefined);
+        setReviewContractSum(final.contractSum ?? null);
         setScanComplete(true);
         setStep('review');
       });
     } catch (error) {
       console.error('Error processing file:', error);
-      // Fall back to demo values on error
       const final = DEMO_CONTRACT;
       setExtractionMethod('fallback');
       setRawContractText('');
       runScanAnimation(final, () => {
-        setExecutedDate(final.executedDate ?? undefined);
-        setStartDate(final.startDate ?? undefined);
-        setEndDate(final.endDate ?? undefined);
-        setFinalCompletion(final.finalCompletion);
-        setContractSum(final.contractSum);
-        setOwner(final.owner);
-        setContractor(final.contractor);
-        setProjectName(final.projectName);
+        setReviewData(final);
+        setReviewExecutedDate(final.executedDate ?? undefined);
+        setReviewStartDate(final.startDate ?? undefined);
+        setReviewEndDate(final.endDate ?? undefined);
+        setReviewContractSum(final.contractSum ?? null);
         setScanComplete(true);
         setStep('review');
       });
@@ -267,93 +260,89 @@ const ContractUploadModal: React.FC = () => {
     if (file) processFile(file).catch(console.error);
   };
 
+
   const handleConfirm = () => {
+    if (!reviewData) return;
+
     setContractData({
-      executedDate:     executedDate ?? null,
-      startDate:        startDate ?? null,
-      endDate:          endDate ?? null,
-      finalCompletion,
-      contractSum,
-      owner,
-      contractor,
-      projectName,
-      fileName:         uploadedFile?.name ?? 'Unknown',
+      executedDate:     reviewExecutedDate ?? null,
+      startDate:        reviewStartDate ?? null,
+      endDate:          reviewEndDate ?? null,
+      finalCompletion:  reviewData.finalCompletion,
+      contractSum:      reviewContractSum ?? reviewData.contractSum,
+      owner:            reviewData.owner,
+      contractor:       reviewData.contractor,
+      projectName:      reviewData.projectName,
+      fileName:         uploadedFile?.name ?? 'Contract Upload',
       uploadedAt:       new Date().toISOString(),
       extractionMethod,
     });
 
-    // Extract line items from contract and populate spreadsheet
-    if (rawContractText && activeView?.type === 'spreadsheetV4') {
-      const lineItems = extractLineItems(rawContractText);
-      const budgetRows = createBudgetRowsFromLineItems(lineItems);
+    // Create budget sheet from file upload
+    let budgetRows: V3Row[] = [];
 
-      // Create budget sheet with extracted line items
-      const budgetSheet: V3Sheet = {
-        id: 'sheet-budget',
-        name: 'Prime Contract Budget',
-        columns: [
-          { id: 'name',          label: 'Contract Line',     type: 'text',     width: 220, editable: true,  visible: true },
-          { id: 'costCode',      label: 'Cost Code',         type: 'text',     width: 100, editable: true,  visible: true },
-          { id: 'quantity',      label: 'Qty',               type: 'number',   width: 70,  align: 'right',  editable: true, visible: true },
-          { id: 'unit',          label: 'UOM',               type: 'text',     width: 60,  editable: true,  visible: true },
-          { id: 'effortHours',   label: 'Hours',             type: 'number',   width: 80,  align: 'right',  editable: true, visible: true, isTotal: true },
-          { id: 'labor',         label: 'Labor',             type: 'currency', width: 110, align: 'right',  editable: true, visible: true, isTotal: true },
-          { id: 'material',      label: 'Material',          type: 'currency', width: 110, align: 'right',  editable: true, visible: true, isTotal: true },
-          { id: 'equipment',     label: 'Equipment',         type: 'currency', width: 110, align: 'right',  editable: true, visible: true, isTotal: true },
-          { id: 'subcontractor', label: 'Sub',               type: 'currency', width: 110, align: 'right',  editable: true, visible: true, isTotal: true },
-          { id: 'others',        label: 'Others',            type: 'currency', width: 100, align: 'right',  editable: true, visible: true, isTotal: true },
-          { id: 'totalBudget',   label: 'Total Budget',      type: 'formula',  width: 130, align: 'right',  editable: false, visible: true, isTotal: true,
-            formula: '=labor+material+equipment+subcontractor+others' },
-        ],
-        rows: budgetRows.length > 0 ? budgetRows : [{ id: 'empty-row', cells: {} }],
-      };
-
-      updateView({
-        v3Sheets: [budgetSheet],
-        v3ActiveSheetId: 'sheet-budget',
-      });
+    if (rawContractText) {
+      // Extract line items from uploaded file
+      const extracted = extractLineItems(rawContractText);
+      budgetRows = createBudgetRowsFromLineItems(extracted).map((row, idx) => ({
+        ...row,
+        cells: { ...row.cells, sno: idx + 1 }
+      }));
     }
 
+    const budgetSheet: V3Sheet = {
+      id: 'sheet-budget',
+      name: 'Prime Contract Budget',
+      columns: [
+        { id: 'sno',           label: 'S.No',              type: 'number',   width: 60,  align: 'right',  editable: false, visible: true },
+        { id: 'name',          label: 'Contract Line',     type: 'text',     width: 400, editable: true,  visible: true },
+        { id: 'totalBudget',   label: 'Contract Value',    type: 'currency', width: 150, align: 'right',  editable: true, visible: true, isTotal: true },
+      ],
+      rows: budgetRows.length > 0 ? budgetRows : [{ id: 'empty-row', cells: {} }],
+    };
+
+    updateView({
+      v3Sheets: [budgetSheet],
+      v3ActiveSheetId: 'sheet-budget',
+    });
+
+    setContractLocked(false);
+    setFinancialSetupStep(2);
     handleClose();
   };
 
-  const handleClose = () => {
-    setIsContractUploadOpen(false);
-    setTimeout(() => {
-      setStep('upload');
-      setUploadedFile(null);
-      setScanLines([]);
-      setScanComplete(false);
-      setExecutedDate(undefined);
-      setStartDate(undefined);
-      setEndDate(undefined);
-    }, 300);
+  const handleManualEntryConfirm = () => {
+    const contractSum = manualContractSum ? parseFloat(manualContractSum.replace(/[^0-9.]/g, '')) : null;
+
+    setContractData({
+      executedDate:     manualDateExecuted ?? null,
+      startDate:        manualConstructionStart ?? null,
+      endDate:          manualConstructionEnd ?? null,
+      finalCompletion:  manualConstructionEnd ?? null,
+      contractSum:      contractSum,
+      owner:            'Owner',
+      contractor:       'Contractor',
+      projectName:      'Project',
+      fileName:         'Manual Entry',
+      uploadedAt:       new Date().toISOString(),
+      extractionMethod: 'manual',
+    } as ContractData);
+
+    setContractLocked(false);
+    setFinancialSetupStep(2);
+    handleClose();
   };
 
-  if (!isContractUploadOpen) return null;
-
   return createPortal(
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-      {/* Backdrop */}
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <motion.div
-        key="backdrop"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={handleClose}
-        className="absolute inset-0 bg-zinc-950/40 backdrop-blur-[2px]"
-      />
-
-      {/* Modal Card */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 10 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 10 }}
-        className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl
-                   border border-zinc-200 overflow-visible min-h-[460px]"
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="bg-white rounded-lg shadow-lg max-w-2xl w-full max-h-[90vh] overflow-auto"
       >
-        {/* Step Router */}
         <AnimatePresence mode="wait">
+          {/* File Upload Step */}
           {step === 'upload' && (
             <motion.div
               key="upload"
@@ -363,68 +352,68 @@ const ContractUploadModal: React.FC = () => {
               transition={{ duration: 0.2 }}
               className="flex flex-col h-full"
             >
-              {/* Header */}
-              <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200">
-                <h2 className="text-lg font-semibold text-zinc-900">Attach Prime Contract</h2>
+              <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-gray-900">Upload Contract</h2>
                 <button
                   onClick={handleClose}
-                  className="text-zinc-400 hover:text-zinc-600 transition-colors p-1"
+                  className="text-gray-400 hover:text-gray-600 transition-colors p-1"
                 >
                   <XIcon className="w-5 h-5" />
                 </button>
               </div>
 
-              {/* Content */}
-              <div className="flex-1 flex flex-col items-center justify-center px-6 py-8 gap-4">
-                {/* Drop Zone */}
+              <div className="flex-1 overflow-y-auto px-6 py-6 space-y-4">
                 <div
                   onDragOver={handleDragOver}
                   onDragLeave={handleDragLeave}
                   onDrop={handleDrop}
-                  className={`w-full border-2 border-dashed rounded-xl p-6 transition-colors flex flex-col items-center justify-center gap-3 cursor-pointer ${
-                    dragActive ? 'border-blue-400 bg-blue-50/30' : 'border-zinc-300 bg-zinc-50/50 hover:bg-zinc-100/50'
+                  className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                    dragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-gray-50'
                   }`}
                 >
-                  <CloudIcon className="w-10 h-10 text-zinc-400" />
-                  <p className="text-sm font-semibold text-zinc-900">Drop your contract here</p>
-                  <p className="text-xs text-zinc-500">
-                    PDF, Word (.docx), Excel (.xlsx), or plain text
-                  </p>
-                </div>
-
-                {/* Browse Button */}
-                <div className="text-xs text-zinc-500">
-                  or{' '}
+                  <CloudIcon className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                  <p className="text-sm font-medium text-gray-900 mb-1">Drag and drop your contract file here</p>
+                  <p className="text-xs text-gray-600 mb-4">or</p>
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     className="text-blue-600 hover:text-blue-700 font-semibold underline"
                   >
                     browse files
                   </button>
+                  <p className="text-xs text-gray-600 mt-4">PDF, DOCX, XLSX, TXT, or MD</p>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".pdf,.docx,.xlsx,.txt,.md"
+                    onChange={handleFileInput}
+                    hidden
+                  />
                 </div>
 
-                {/* Hidden File Input */}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".pdf,.docx,.xlsx,.txt,.md"
-                  onChange={handleFileInput}
-                  hidden
-                />
-              </div>
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-gray-300" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-white px-2 text-gray-500 font-medium">Or</span>
+                  </div>
+                </div>
 
-              {/* Footer */}
-              <div className="flex justify-end gap-2 px-6 py-4 border-t border-zinc-200">
                 <button
-                  onClick={handleClose}
-                  className="px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 rounded-lg transition-colors"
+                  onClick={() => {
+                    setEntryMethod('manual');
+                    setStep('manual-entry');
+                  }}
+                  className="w-full px-4 py-3 text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
                 >
-                  Cancel
+                  Enter Contract Details Manually
                 </button>
               </div>
+
             </motion.div>
           )}
 
+          {/* Processing Step */}
           {step === 'processing' && (
             <motion.div
               key="processing"
@@ -434,30 +423,27 @@ const ContractUploadModal: React.FC = () => {
               transition={{ duration: 0.2 }}
               className="flex flex-col h-full"
             >
-              {/* Header */}
-              <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200">
+              <div className="px-6 py-4 border-b border-gray-200">
                 <div className="flex items-center gap-2">
                   <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                  <h2 className="text-lg font-semibold text-zinc-900">Scanning Contract…</h2>
+                  <h2 className="text-lg font-semibold text-gray-900">Scanning Contract…</h2>
                 </div>
               </div>
 
-              {/* Scan Log */}
-              <div className="flex-1 overflow-y-auto px-6 py-4 max-h-48 bg-zinc-50">
+              <div className="flex-1 overflow-y-auto px-6 py-4 max-h-48 bg-gray-50">
                 {scanLines.map((line, i) => (
                   <motion.p
                     key={i}
                     initial={{ opacity: 0, y: 4 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.2 }}
-                    className="text-xs text-zinc-600 font-mono py-0.5"
+                    className="text-xs text-gray-600 font-mono py-0.5"
                   >
                     {line}
                   </motion.p>
                 ))}
               </div>
 
-              {/* Progress Bar */}
               <motion.div
                 initial={{ width: '0%' }}
                 animate={{ width: '100%' }}
@@ -467,7 +453,8 @@ const ContractUploadModal: React.FC = () => {
             </motion.div>
           )}
 
-          {step === 'review' && (
+          {/* Review Step */}
+          {step === 'review' && reviewData && (
             <motion.div
               key="review"
               initial={{ opacity: 0, x: 20 }}
@@ -476,78 +463,174 @@ const ContractUploadModal: React.FC = () => {
               transition={{ duration: 0.2 }}
               className="flex flex-col h-full"
             >
-              {/* Header */}
-              <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200">
-                <h2 className="text-lg font-semibold text-zinc-900">Review Extracted Details</h2>
+              <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-gray-900">Review Contract Details</h2>
                 <button
                   onClick={handleClose}
-                  className="text-zinc-400 hover:text-zinc-600 transition-colors p-1"
+                  className="text-gray-400 hover:text-gray-600 transition-colors p-1"
                 >
                   <XIcon className="w-5 h-5" />
                 </button>
               </div>
 
-              {/* Content */}
-              <div className="flex-1 overflow-visible px-6 py-4 space-y-4">
-                {/* Read-only Summary */}
-                <div className="grid grid-cols-2 gap-3 py-3 border-b border-zinc-200">
+              <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+                <div className="grid grid-cols-2 gap-3 py-3 border-b border-gray-200">
                   <div>
-                    <p className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wide">Project</p>
-                    <p className="text-sm font-semibold text-zinc-900 mt-1">{projectName || '—'}</p>
+                    <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Project</p>
+                    <p className="text-sm font-semibold text-gray-900 mt-1">{reviewData.projectName || '—'}</p>
                   </div>
                   <div>
-                    <p className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wide">Contract Sum</p>
-                    <p className="text-sm font-semibold text-zinc-900 mt-1">
-                      {contractSum ? `$${contractSum.toLocaleString()}` : '—'}
-                    </p>
+                    <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Owner</p>
+                    <p className="text-xs text-gray-700 mt-1">{reviewData.owner || '—'}</p>
                   </div>
                   <div>
-                    <p className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wide">Owner</p>
-                    <p className="text-xs text-zinc-700 mt-1">{owner || '—'}</p>
-                  </div>
-                  <div>
-                    <p className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wide">Contractor</p>
-                    <p className="text-xs text-zinc-700 mt-1">{contractor || '—'}</p>
+                    <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Contractor</p>
+                    <p className="text-xs text-gray-700 mt-1">{reviewData.contractor || '—'}</p>
                   </div>
                 </div>
 
-                {/* Editable Dates */}
                 <div className="space-y-3">
                   <div>
-                    <label className="text-[11px] font-semibold text-zinc-600 uppercase tracking-wide block mb-1">
-                      Executed Date
-                    </label>
-                    <DatePicker date={executedDate} setDate={setExecutedDate} />
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-semibold text-zinc-600 uppercase tracking-wide block mb-1">
+                    <label className="text-[11px] font-semibold text-gray-600 uppercase tracking-wide block mb-1">
                       Construction Start
                     </label>
-                    <DatePicker date={startDate} setDate={setStartDate} />
+                    <DatePicker date={reviewStartDate} setDate={setReviewStartDate} />
                   </div>
                   <div>
-                    <label className="text-[11px] font-semibold text-zinc-600 uppercase tracking-wide block mb-1">
-                      Substantial Completion
+                    <label className="text-[11px] font-semibold text-gray-600 uppercase tracking-wide block mb-1">
+                      Construction End
                     </label>
-                    <DatePicker date={endDate} setDate={setEndDate} />
+                    <DatePicker date={reviewEndDate} setDate={setReviewEndDate} />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-semibold text-gray-600 uppercase tracking-wide block mb-1">
+                      Date Executed
+                    </label>
+                    <DatePicker date={reviewExecutedDate} setDate={setReviewExecutedDate} />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-semibold text-gray-600 uppercase tracking-wide block mb-1">
+                      Contract Sum
+                    </label>
+                    <input
+                      type="text"
+                      value={reviewContractSum ? reviewContractSum.toString() : ''}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/[^0-9.]/g, '');
+                        setReviewContractSum(value ? parseFloat(value) : null);
+                      }}
+                      placeholder="0.00"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
                   </div>
                 </div>
+
+                {extractionMethod === 'fallback' && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+                    <p className="text-sm font-medium text-amber-900">
+                      ⚠️ Please verify all dates and amounts are correct before proceeding.
+                    </p>
+                  </div>
+                )}
               </div>
 
-              {/* Footer */}
-              <div className="flex justify-end gap-2 px-6 py-4 border-t border-zinc-200">
+              <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-200">
                 <button
                   onClick={handleClose}
-                  className="px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 rounded-lg transition-colors"
+                  className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleConfirm}
-                  className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700
-                             rounded-lg transition-colors active:scale-95"
+                  className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors active:scale-95"
                 >
-                  Confirm & Attach
+                  Confirm & Proceed
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Manual Entry Step */}
+          {step === 'manual-entry' && (
+            <motion.div
+              key="manual-entry"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.2 }}
+              className="flex flex-col h-full"
+            >
+              <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-gray-900">Enter Contract Details</h2>
+                <button
+                  onClick={handleClose}
+                  className="text-gray-400 hover:text-gray-600 transition-colors p-1"
+                >
+                  <XIcon className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+                <div>
+                  <label className="text-[11px] font-semibold text-gray-600 uppercase tracking-wide block mb-1">
+                    Construction Start
+                  </label>
+                  <DatePicker date={manualConstructionStart} setDate={setManualConstructionStart} />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-gray-600 uppercase tracking-wide block mb-1">
+                    Construction End
+                  </label>
+                  <DatePicker date={manualConstructionEnd} setDate={setManualConstructionEnd} />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-gray-600 uppercase tracking-wide block mb-1">
+                    Date Executed
+                  </label>
+                  <DatePicker date={manualDateExecuted} setDate={setManualDateExecuted} />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-gray-600 uppercase tracking-wide block mb-1">
+                    Contract Sum
+                  </label>
+                  <input
+                    type="text"
+                    value={manualContractSum}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/[^0-9.]/g, '');
+                      setManualContractSum(value);
+                    }}
+                    placeholder="0.00"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-200">
+                <button
+                  onClick={() => {
+                    setStep('upload');
+                    setEntryMethod('file');
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  Back
+                </button>
+                <button
+                  onClick={handleClose}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleManualEntryConfirm}
+                  className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors active:scale-95"
+                >
+                  Confirm & Proceed
                 </button>
               </div>
             </motion.div>

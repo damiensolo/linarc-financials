@@ -51,7 +51,7 @@ const BlockersRail: React.FC = () => {
       blockers.push({
         id: 'sov-review',
         title: 'Draft SOV Review',
-        description: 'Review and validate Statement of Values entries',
+        description: 'Review and validate Schedule of Values entries',
         met: false, // Placeholder for now
       });
 
@@ -67,7 +67,7 @@ const BlockersRail: React.FC = () => {
       blockers.push({
         id: 'sov-publish',
         title: 'SOV Published',
-        description: 'Statement of Values locked and published',
+        description: 'Schedule of Values locked and published',
         met: true,
       });
     }

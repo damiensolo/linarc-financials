@@ -37,7 +37,7 @@ const AppHeader: React.FC = () => {
     const isScheduleActiveSheet = activeView.v3ActiveSheetId === 'sheet-schedule';
     const isSpreadsheetView = activeViewMode === 'spreadsheetV2' && !isScheduleActiveSheet;
     const isReadyToLock = isSpreadsheetView && unallocated === 0;
-    const showCreateButton = !isSpreadsheetView && !isScheduleActiveSheet;
+    const showCreateButton = activeViewMode === 'table';
 
     // Status colors based on unallocated amount - used only for the status pill
     const statusClasses = unallocated === 0 

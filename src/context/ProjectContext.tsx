@@ -153,12 +153,16 @@ interface ProjectContextType {
   setIsContractUploadOpen: (open: boolean) => void;
   contractConfirmed: boolean;
   setContractConfirmed: (confirmed: boolean) => void;
+  contractLocked: boolean;
+  setContractLocked: React.Dispatch<SetStateAction<boolean>>;
   financialConfig: FinancialConfig | null;
   setFinancialConfig: React.Dispatch<SetStateAction<FinancialConfig | null>>;
   financialSetupStep: FinancialSetupStep;
   setFinancialSetupStep: React.Dispatch<SetStateAction<FinancialSetupStep>>;
   budgetLocked: boolean;
   setBudgetLocked: React.Dispatch<SetStateAction<boolean>>;
+  isManualEntryOpen: boolean;
+  setIsManualEntryOpen: (open: boolean) => void;
   financialSetupComplete: boolean;
 }
 
@@ -192,9 +196,11 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [contractData, setContractData] = useState<ContractData | null>(null);
   const [isContractUploadOpen, setIsContractUploadOpen] = useState(false);
   const [contractConfirmed, setContractConfirmed] = useState(false);
+  const [contractLocked, setContractLocked] = useState(false);
   const [financialConfig, setFinancialConfig] = useState<FinancialConfig | null>(null);
   const [financialSetupStep, setFinancialSetupStep] = useState<FinancialSetupStep>(0);
   const [budgetLocked, setBudgetLocked] = useState(false);
+  const [isManualEntryOpen, setIsManualEntryOpen] = useState(false);
 
   // Initialize with System Views
   useEffect(() => {
@@ -602,13 +608,17 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     setIsContractUploadOpen,
     contractConfirmed,
     setContractConfirmed,
+    contractLocked,
+    setContractLocked,
     financialConfig,
     setFinancialConfig,
     financialSetupStep,
     setFinancialSetupStep,
     budgetLocked,
     setBudgetLocked,
-    get financialSetupComplete() { return this.financialSetupStep === 5; }
+    isManualEntryOpen,
+    setIsManualEntryOpen,
+    get financialSetupComplete() { return this.financialSetupStep === 6; }
   };
 
   return <ProjectContext.Provider value={value}>{children}</ProjectContext.Provider>;
