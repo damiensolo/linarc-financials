@@ -103,6 +103,18 @@ const ContractMetadataBar: React.FC<ContractMetadataBarProps> = ({ isLocked = fa
           )}
         </div>
 
+        {/* Replace Contract Button - Aligned with labels */}
+        {!isLocked && (
+          <div className="mb-4">
+            <button
+              onClick={handleReplaceContract}
+              className="text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-3 py-1.5 rounded transition-colors"
+            >
+              Replace Contract
+            </button>
+          </div>
+        )}
+
         {/* Metadata Grid */}
         <div className="grid grid-cols-6 gap-4 text-sm">
           {/* Column 1: Executed Date */}
@@ -208,14 +220,6 @@ const ContractMetadataBar: React.FC<ContractMetadataBarProps> = ({ isLocked = fa
 
           {/* Column 6: Contractor */}
           <div>
-            {!isLocked && (
-              <button
-                onClick={handleReplaceContract}
-                className="text-xs font-medium text-blue-600 hover:text-blue-700 block mb-2"
-              >
-                Replace Contract
-              </button>
-            )}
             <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">
               Contractor
             </label>

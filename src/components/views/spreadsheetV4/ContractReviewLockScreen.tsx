@@ -152,7 +152,7 @@ const ContractReviewLockScreen: React.FC = () => {
                   {columns.map(col => (
                     <th
                       key={col.id}
-                      className={`border-r border-gray-300 text-left font-semibold text-gray-900 px-3 bg-gray-100 whitespace-nowrap ${
+                      className={`text-left font-semibold text-gray-900 px-3 bg-gray-100 whitespace-nowrap ${
                         col.align === 'right' ? 'text-right' : 'text-left'
                       }`}
                       style={{ width: col.width, minWidth: col.width }}
@@ -160,11 +160,6 @@ const ContractReviewLockScreen: React.FC = () => {
                       {col.label}
                     </th>
                   ))}
-
-                  {/* Last column - no right border */}
-                  {columns.length > 0 && (
-                    <th className="px-3 bg-gray-100" style={{ width: 44, minWidth: 44 }} />
-                  )}
                 </tr>
               </thead>
 
@@ -189,10 +184,10 @@ const ContractReviewLockScreen: React.FC = () => {
                     </td>
 
                     {/* Data Cells */}
-                    {columns.map((col, colIdx) => (
+                    {columns.map(col => (
                       <td
                         key={`${row.id}-${col.id}`}
-                        className={`px-3 relative ${colIdx < columns.length - 1 ? 'border-r border-gray-300' : ''} ${col.align === 'right' ? 'text-right' : 'text-left'}`}
+                        className={`px-3 relative ${col.align === 'right' ? 'text-right' : 'text-left'}`}
                         style={{ width: col.width, minWidth: col.width }}
                       >
                         {contractLocked ? (
@@ -213,19 +208,6 @@ const ContractReviewLockScreen: React.FC = () => {
                         )}
                       </td>
                     ))}
-
-                    {/* Actions Cell */}
-                    <td className="px-2 text-center" style={{ width: 44, minWidth: 44 }}>
-                      {!contractLocked && selectedRowIds.has(row.id) && (
-                        <button
-                          onClick={() => handleDeleteRows(new Set([row.id]))}
-                          className="text-gray-400 hover:text-red-600 transition-colors p-1"
-                          title="Delete row"
-                        >
-                          <TrashIcon className="w-4 h-4" />
-                        </button>
-                      )}
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -238,10 +220,10 @@ const ContractReviewLockScreen: React.FC = () => {
                     <td style={{ width: 40 }} />
 
                     {/* Data Totals */}
-                    {columns.map((col, colIdx) => (
+                    {columns.map(col => (
                       <td
                         key={`total-${col.id}`}
-                        className={`px-3 text-gray-900 bg-gray-100 whitespace-nowrap ${colIdx < columns.length - 1 ? 'border-r border-gray-300' : ''} ${
+                        className={`px-3 text-gray-900 bg-gray-100 whitespace-nowrap ${
                           col.align === 'right' ? 'text-right' : 'text-left'
                         }`}
                         style={{ width: col.width, minWidth: col.width }}
@@ -253,7 +235,6 @@ const ContractReviewLockScreen: React.FC = () => {
                           : col.id === columns[0]?.id ? 'Total' : ''}
                       </td>
                     ))}
-                    <td style={{ width: 44 }} />
                   </tr>
                 </tfoot>
               )}

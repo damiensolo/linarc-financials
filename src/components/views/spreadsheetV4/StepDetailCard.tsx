@@ -91,11 +91,10 @@ const StepDetailCard: React.FC = () => {
                         id: 'sheet-budget',
                         name: 'Prime Contract Budget',
                         columns: [
-                          { id: 'sno', label: 'S.No', type: 'number' as const, width: 60, align: 'right' as const, editable: false, visible: true },
                           { id: 'name', label: 'Contract Line', type: 'text' as const, width: 400, editable: true, visible: true },
                           { id: 'totalBudget', label: 'Contract Value', type: 'currency' as const, width: 150, align: 'right' as const, editable: true, visible: true, isTotal: true },
                         ],
-                        rows: [{ id: 'empty-row', cells: {} }],
+                        rows: [{ id: `row-${Date.now()}`, cells: {}, isDraft: true }],
                       };
 
                       updateView({
