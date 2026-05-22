@@ -21,8 +21,17 @@ const ContractReviewLockScreen: React.FC = () => {
   const fontSize = activeView?.fontSize ?? 12;
 
   // Flatten rows for rendering (no nesting for simplicity)
+  // Start with one empty row if no rows exist
   const flatRows = useMemo(() => {
-    return rows.filter(r => r.id !== 'empty-row');
+    const nonEmpty = rows.filter(r => r.id !== 'empty-row');
+    if (nonEmpty.length === 0) {
+      return [{
+        id: `row-${Date.now()}`,
+        cells: {},
+        isDraft: true,
+      }];
+    }
+    return nonEmpty;
   }, [rows]);
 
   // Checkbox state
@@ -139,14 +148,6 @@ const ContractReviewLockScreen: React.FC = () => {
                     />
                   </th>
 
-                  {/* Number Column */}
-                  <th
-                    className="border-r border-gray-300 text-center font-semibold text-gray-900 px-3 bg-gray-100"
-                    style={{ width: SPREADSHEET_INDEX_COLUMN_WIDTH, minWidth: SPREADSHEET_INDEX_COLUMN_WIDTH }}
-                  >
-                    #
-                  </th>
-
                   {/* Data Columns */}
                   {columns.map(col => (
                     <th
@@ -160,8 +161,10 @@ const ContractReviewLockScreen: React.FC = () => {
                     </th>
                   ))}
 
-                  {/* Actions Column */}
-                  <th className="bg-gray-100" style={{ width: 44, minWidth: 44 }} />
+                  {/* Last column - no right border */}
+                  {columns.length > 0 && (
+                    <th className="px-3 bg-gray-100" style={{ width: 44, minWidth: 44 }} />
+                  )}
                 </tr>
               </thead>
 
@@ -185,19 +188,11 @@ const ContractReviewLockScreen: React.FC = () => {
                       />
                     </td>
 
-                    {/* Number Cell */}
-                    <td
-                      className="border-r border-gray-300 text-center text-xs text-gray-500 px-3 bg-gray-50"
-                      style={{ width: SPREADSHEET_INDEX_COLUMN_WIDTH, minWidth: SPREADSHEET_INDEX_COLUMN_WIDTH }}
-                    >
-                      {idx + 1}
-                    </td>
-
                     {/* Data Cells */}
-                    {columns.map(col => (
+                    {columns.map((col, colIdx) => (
                       <td
                         key={`${row.id}-${col.id}`}
-                        className={`border-r border-gray-300 px-3 relative ${col.align === 'right' ? 'text-right' : 'text-left'}`}
+                        className={`px-3 relative ${colIdx < columns.length - 1 ? 'border-r border-gray-300' : ''} ${col.align === 'right' ? 'text-right' : 'text-left'}`}
                         style={{ width: col.width, minWidth: col.width }}
                       >
                         {contractLocked ? (
@@ -239,20 +234,14 @@ const ContractReviewLockScreen: React.FC = () => {
               {Object.keys(totals).length > 0 && (
                 <tfoot className="bg-gray-100 border-t-2 border-gray-300 sticky bottom-0 z-20 font-bold">
                   <tr className="h-9">
-                    {/* Checkbox + Number Columns */}
+                    {/* Checkbox Column */}
                     <td style={{ width: 40 }} />
-                    <td
-                      className="border-r border-gray-300 text-center text-gray-900 px-3 bg-gray-100"
-                      style={{ width: SPREADSHEET_INDEX_COLUMN_WIDTH }}
-                    >
-                      Total
-                    </td>
 
                     {/* Data Totals */}
-                    {columns.map(col => (
+                    {columns.map((col, colIdx) => (
                       <td
                         key={`total-${col.id}`}
-                        className={`border-r border-gray-300 px-3 text-gray-900 bg-gray-100 whitespace-nowrap ${
+                        className={`px-3 text-gray-900 bg-gray-100 whitespace-nowrap ${colIdx < columns.length - 1 ? 'border-r border-gray-300' : ''} ${
                           col.align === 'right' ? 'text-right' : 'text-left'
                         }`}
                         style={{ width: col.width, minWidth: col.width }}
@@ -261,7 +250,7 @@ const ContractReviewLockScreen: React.FC = () => {
                           ? col.type === 'currency'
                             ? `$${formatCurrency(totals[col.id])}`
                             : totals[col.id].toLocaleString()
-                          : ''}
+                          : col.id === columns[0]?.id ? 'Total' : ''}
                       </td>
                     ))}
                     <td style={{ width: 44 }} />

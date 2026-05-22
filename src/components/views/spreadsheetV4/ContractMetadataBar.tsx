@@ -208,6 +208,14 @@ const ContractMetadataBar: React.FC<ContractMetadataBarProps> = ({ isLocked = fa
 
           {/* Column 6: Contractor */}
           <div>
+            {!isLocked && (
+              <button
+                onClick={handleReplaceContract}
+                className="text-xs font-medium text-blue-600 hover:text-blue-700 block mb-2"
+              >
+                Replace Contract
+              </button>
+            )}
             <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">
               Contractor
             </label>
@@ -227,21 +235,6 @@ const ContractMetadataBar: React.FC<ContractMetadataBarProps> = ({ isLocked = fa
           </div>
         </div>
 
-        {/* Bottom Row: Contract File Link + Replace Button */}
-        <div className="flex items-center justify-between">
-          <div className="text-xs text-gray-600">
-            📄 Contract File:{' '}
-            <span className="font-medium text-gray-900">{contractData.fileName || 'Unknown'}</span>
-          </div>
-          {!isLocked && (
-            <button
-              onClick={handleReplaceContract}
-              className="text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-3 py-1.5 rounded transition-colors"
-            >
-              Replace Contract
-            </button>
-          )}
-        </div>
       </div>
     </div>
   );
