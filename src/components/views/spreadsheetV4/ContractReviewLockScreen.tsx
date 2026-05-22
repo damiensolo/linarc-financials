@@ -148,11 +148,19 @@ const ContractReviewLockScreen: React.FC = () => {
                     />
                   </th>
 
+                  {/* Row Number Column */}
+                  <th
+                    className="border-r border-gray-300 text-center font-semibold text-gray-900 px-3 bg-gray-100"
+                    style={{ width: SPREADSHEET_INDEX_COLUMN_WIDTH, minWidth: SPREADSHEET_INDEX_COLUMN_WIDTH }}
+                  >
+                    #
+                  </th>
+
                   {/* Data Columns */}
                   {columns.map(col => (
                     <th
                       key={col.id}
-                      className={`text-left font-semibold text-gray-900 px-3 bg-gray-100 whitespace-nowrap ${
+                      className={`border-r border-gray-300 text-left font-semibold text-gray-900 px-3 bg-gray-100 whitespace-nowrap ${
                         col.align === 'right' ? 'text-right' : 'text-left'
                       }`}
                       style={{ width: col.width, minWidth: col.width }}
@@ -181,6 +189,14 @@ const ContractReviewLockScreen: React.FC = () => {
                         disabled={contractLocked}
                         className="h-4 w-4 rounded border-gray-300 text-blue-600 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                       />
+                    </td>
+
+                    {/* Row Number Cell */}
+                    <td
+                      className="border-r border-gray-300 text-center text-xs text-gray-500 px-3 bg-gray-50"
+                      style={{ width: SPREADSHEET_INDEX_COLUMN_WIDTH, minWidth: SPREADSHEET_INDEX_COLUMN_WIDTH }}
+                    >
+                      {idx + 1}
                     </td>
 
                     {/* Data Cells */}
@@ -218,6 +234,14 @@ const ContractReviewLockScreen: React.FC = () => {
                   <tr className="h-9">
                     {/* Checkbox Column */}
                     <td style={{ width: 40 }} />
+
+                    {/* Row Number Column */}
+                    <td
+                      className="border-r border-gray-300 text-center text-gray-900 px-3 bg-gray-100"
+                      style={{ width: SPREADSHEET_INDEX_COLUMN_WIDTH }}
+                    >
+                      Total
+                    </td>
 
                     {/* Data Totals */}
                     {columns.map(col => (
