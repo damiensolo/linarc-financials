@@ -22,7 +22,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import BookmarksMenu from './FavoritesMenu';
 import Tooltip from './Tooltip';
 import { useProject } from '../../../context/ProjectContext';
-import { isSidebarItemLocked, getSidebarItemTooltip } from '../../../lib/financialGating';
+import { useFinancialGating } from '../../../hooks/useFinancialGating';
 // import { QuickCreateMenu } from './QuickCreateMenu'; // Keep for future use
 
 // --- Icon Definitions ---
@@ -211,7 +211,7 @@ interface SidebarProps {
 
 
 const Sidebar: React.FC<SidebarProps> = ({ version = 'v1', bookmarks = [], onSelect, onToggleBookmark, activeTopNavCategory = 'contract' }) => {
-    const { financialSetupStep } = useProject();
+    const { isSidebarLocked, sidebarTooltip, navigateSidebarItem } = useFinancialGating();
     const [activeItemKey, setActiveItemKey] = useState('');
     const [isBookmarksMenuVisible, setBookmarksMenuVisible] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
@@ -306,14 +306,19 @@ const Sidebar: React.FC<SidebarProps> = ({ version = 'v1', bookmarks = [], onSel
                 )} */}
                 
                 {(sidebarItemsByCategory[activeTopNavCategory] || []).map((item) => {
-                    const locked = isSidebarItemLocked(activeTopNavCategory, item.key, financialSetupStep);
-                    const tip = getSidebarItemTooltip(activeTopNavCategory, item.key, financialSetupStep);
+                    const locked = isSidebarLocked(activeTopNavCategory, item.key);
+                    const tip = sidebarTooltip(activeTopNavCategory, item.key);
 
                     const sidebarItemElement = (
                         <SidebarItem
                             item={item}
                             isActive={activeItemKey === item.key && !locked}
-                            onClick={() => setActiveItemKey(item.key)}
+                            onClick={() => {
+                                if (!locked) {
+                                    setActiveItemKey(item.key);
+                                    navigateSidebarItem(activeTopNavCategory, item.key);
+                                }
+                            }}
                             isLocked={locked}
                         />
                     );

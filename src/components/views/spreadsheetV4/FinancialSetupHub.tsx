@@ -5,45 +5,38 @@ import SetupTrackerWidget from './SetupTrackerWidget';
 import StepDetailCard from './StepDetailCard';
 import BlockersRail from './BlockersRail';
 
-/**
- * FinancialSetupHub
- *
- * A 3-panel guided workspace that walks users through 6 mandatory financial setup steps:
- * 0. Preliminary Config
- * 1. Upload Prime Contract
- * 2. Review & Edit Prime Contract
- * 3. Budget Setup
- * 4 & 5. Parallel: Draft SOV Review + Schedule Linking
- * 6. Lock & Publish SOV
- *
- * Layout with collapsible panels:
- * ┌──┬──────────────────────────────┬──┐
- * │◄─┤     Active Step Card          ├─►│
- * │  │     (center, flex-1)          │  │
- * └──┴──────────────────────────────┴──┘
- *
- * Left panel (Setup Tracker): 260px when open, 0 when closed
- * Right panel (Blockers Rail): 300px when open, 0 when closed
- */
+/** PRD v2.1 — 5-step progressive financial setup hub (Steps 1–5). */
 const FinancialSetupHub: React.FC = () => {
+  const { hubCollapsed, setHubCollapsed, activationState } = useProject();
   const [isTrackerOpen, setIsTrackerOpen] = useState(true);
   const [isBlockersOpen, setIsBlockersOpen] = useState(true);
 
+  if (hubCollapsed && activationState === 'activated') {
+    return (
+      <button
+        type="button"
+        onClick={() => setHubCollapsed(false)}
+        className="absolute left-2 top-2 z-20 px-3 py-1.5 text-xs font-medium bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50"
+      >
+        Open Setup Tracker
+      </button>
+    );
+  }
+
   return (
-    <div className="flex h-full bg-white gap-0">
-      {/* Left Panel: Setup Tracker - Collapsible */}
+    <div className="flex h-full bg-white gap-0 min-h-0">
       <aside
-        className={`flex-shrink-0 bg-gray-50 border-r border-gray-200 transition-all duration-300 ease-in-out overflow-hidden flex flex-col ${
+        className={`flex-shrink-0 bg-gray-50 border-r border-gray-200 transition-all duration-300 overflow-hidden flex flex-col ${
           isTrackerOpen ? 'w-[260px]' : 'w-0 border-r-0'
         }`}
       >
         <SetupTrackerWidget />
       </aside>
 
-      {/* Left Toggle Button */}
       <button
+        type="button"
         onClick={() => setIsTrackerOpen(!isTrackerOpen)}
-        className="flex-shrink-0 w-8 flex items-center justify-center border-r border-gray-200 hover:bg-gray-100 transition-colors"
+        className="flex-shrink-0 w-8 flex items-center justify-center border-r border-gray-200 hover:bg-gray-100"
         title={isTrackerOpen ? 'Close Setup Tracker' : 'Open Setup Tracker'}
       >
         {isTrackerOpen ? (
@@ -53,15 +46,14 @@ const FinancialSetupHub: React.FC = () => {
         )}
       </button>
 
-      {/* Center Panel: Active Step Detail Card */}
-      <div className="flex-1 overflow-auto flex items-center justify-center p-6">
+      <div className="flex-1 overflow-hidden flex flex-col min-w-0">
         <StepDetailCard />
       </div>
 
-      {/* Right Toggle Button */}
       <button
+        type="button"
         onClick={() => setIsBlockersOpen(!isBlockersOpen)}
-        className="flex-shrink-0 w-8 flex items-center justify-center border-l border-gray-200 hover:bg-gray-100 transition-colors"
+        className="flex-shrink-0 w-8 flex items-center justify-center border-l border-gray-200 hover:bg-gray-100"
         title={isBlockersOpen ? 'Close Blockers' : 'Open Blockers'}
       >
         {isBlockersOpen ? (
@@ -71,9 +63,8 @@ const FinancialSetupHub: React.FC = () => {
         )}
       </button>
 
-      {/* Right Panel: Blockers & Readiness Rail - Collapsible */}
       <aside
-        className={`flex-shrink-0 bg-gray-50 border-l border-gray-200 transition-all duration-300 ease-in-out overflow-hidden ${
+        className={`flex-shrink-0 bg-gray-50 border-l border-gray-200 transition-all duration-300 overflow-hidden ${
           isBlockersOpen ? 'w-[300px]' : 'w-0 border-l-0'
         }`}
       >

@@ -3,6 +3,11 @@ import { useProject } from '../../../context/ProjectContext';
 import { V3Row, evaluateFormula } from './types';
 import { PlusIcon, TrashIcon } from '../../common/Icons';
 
+const colAlignClass = (col: { align?: string; type?: string }) =>
+  col.align === 'right' || col.type === 'currency' || col.type === 'number'
+    ? 'text-right tabular-nums'
+    : 'text-left';
+
 interface PrimeContractTableProps {
   isLocked?: boolean;
   onLockClick?: () => void;
@@ -31,6 +36,9 @@ const PrimeContractTable: React.FC<PrimeContractTableProps> = ({
     const num = typeof value === 'number' ? value : Number(value) || 0;
     return `$${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
+
+  const formatCurrencyTotal = (value: number) =>
+    `$${value.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
 
   const formatNumber = (value: unknown) => {
     const num = typeof value === 'number' ? value : Number(value) || 0;
@@ -154,14 +162,19 @@ const PrimeContractTable: React.FC<PrimeContractTableProps> = ({
 
       {/* Table */}
       <div className="flex-1 overflow-auto">
-        <table className="w-full border-collapse text-sm">
+        <table className="w-full border-collapse text-sm table-fixed">
+          <colgroup>
+            {columns.filter(c => c.visible !== false).map(col => (
+              <col key={col.id} style={{ width: `${col.width}px` }} />
+            ))}
+            {!isLocked && <col style={{ width: 40 }} />}
+          </colgroup>
           <thead className="uppercase bg-gray-50 sticky top-0 z-40">
             <tr className="border-b border-gray-300">
               {columns.filter(c => c.visible !== false).map(col => (
                 <th
                   key={col.id}
-                  className="px-4 py-3 text-left text-xs font-semibold text-gray-700 border-r border-gray-200 whitespace-nowrap"
-                  style={{ width: `${col.width}px`, textAlign: col.align || 'left' }}
+                  className={`px-4 py-3 text-xs font-semibold text-gray-700 border-r border-gray-200 whitespace-nowrap ${colAlignClass(col)}`}
                 >
                   {col.label}
                 </th>
@@ -185,8 +198,7 @@ const PrimeContractTable: React.FC<PrimeContractTableProps> = ({
                   return (
                     <td
                       key={col.id}
-                      className={`px-4 py-3 border-r border-gray-100 ${isEditing ? 'bg-blue-50' : ''} ${isTotalCol ? 'bg-blue-50 font-semibold text-blue-900' : ''}`}
-                      style={{ width: `${col.width}px`, textAlign: col.align || 'left' }}
+                      className={`px-4 py-3 border-r border-gray-100 ${colAlignClass(col)} ${isEditing ? 'bg-blue-50' : ''} ${isTotalCol ? 'bg-blue-50 font-semibold text-blue-900' : ''}`}
                       onClick={() => {
                         if (col.editable && !isLocked) {
                           setEditingCell({ rowId: row.id, colId: col.id });
@@ -211,11 +223,11 @@ const PrimeContractTable: React.FC<PrimeContractTableProps> = ({
                               setEditingCell(null);
                             }
                           }}
-                          className="w-full px-2 py-1 border border-blue-400 rounded outline-none"
+                          className={`w-full py-1 border border-blue-400 rounded outline-none ${colAlignClass(col)}`}
                           autoFocus
                         />
                       ) : (
-                        <span className={col.editable && !isLocked ? 'cursor-pointer hover:underline' : ''}>
+                        <span className={`block w-full ${col.editable && !isLocked ? 'cursor-pointer hover:underline' : ''} ${colAlignClass(col)}`}>
                           {displayValue}
                         </span>
                       )}
@@ -241,11 +253,10 @@ const PrimeContractTable: React.FC<PrimeContractTableProps> = ({
               {columns.filter(c => c.visible !== false).map(col => (
                 <td
                   key={col.id}
-                  className="px-4 py-3 text-sm font-semibold text-gray-900 border-r border-gray-300"
-                  style={{ width: `${col.width}px`, textAlign: col.align || 'left' }}
+                  className={`px-4 py-3 text-sm font-semibold text-gray-900 border-r border-gray-300 ${colAlignClass(col)}`}
                 >
                   {col.isTotal || (col.type === 'currency' || col.type === 'number') ? (
-                    col.type === 'currency' ? formatCurrency(calculateTotal(col.id)) : formatNumber(calculateTotal(col.id))
+                    col.type === 'currency' ? formatCurrencyTotal(calculateTotal(col.id)) : formatNumber(calculateTotal(col.id))
                   ) : col.label === 'S.No' || col.label === 'Contract Line' ? (
                     <span className="opacity-50">Total</span>
                   ) : null}

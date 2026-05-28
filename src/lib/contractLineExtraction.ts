@@ -136,20 +136,20 @@ function deduplicateItems(items: ExtractedLineItem[]): ExtractedLineItem[] {
 }
 
 /**
- * Convert extracted line items to V3Row format for the budget sheet.
+ * Convert extracted line items to V3Row format for the prime contract sheet.
  */
-export function createBudgetRowsFromLineItems(items: ExtractedLineItem[]): V3Row[] {
+export function createPrimeContractRowsFromLineItems(items: ExtractedLineItem[]): V3Row[] {
   return items.map((item, index) => ({
     id: `contract-line-${index}`,
     cells: {
       name: item.name,
       costCode: `CL-${String(index + 1).padStart(3, '0')}`,
-      totalBudget: item.value,
-      labor: Math.round(item.value * 0.4), // Assume 40% labor
-      material: Math.round(item.value * 0.35), // Assume 35% material
-      equipment: Math.round(item.value * 0.15), // Assume 15% equipment
-      subcontractor: Math.round(item.value * 0.1), // Assume 10% subcontractor
-      others: 0,
+      contractValue: item.value,
     },
   }));
+}
+
+/** @deprecated Use createPrimeContractRowsFromLineItems */
+export function createBudgetRowsFromLineItems(items: ExtractedLineItem[]): V3Row[] {
+  return createPrimeContractRowsFromLineItems(items);
 }

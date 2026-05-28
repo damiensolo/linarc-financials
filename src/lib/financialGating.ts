@@ -1,61 +1,243 @@
-import { FinancialSetupStep } from '../types';
+import {
+  ContractData,
+  FinancialSetupStep,
+  FinancialConfig,
+  SOVMapping,
+  WBSLink,
+  ApprovalRequest,
+} from '../types';
+import { V3Row } from '../components/views/spreadsheetV4/types';
+import {
+  hasPcValue,
+  hasCommittedLines,
+  isBudgetFullyLocked,
+  getBudgetRows,
+  committedLineCount,
+  countLinesByState,
+} from './financialWorkflow';
 
-export const HEADER_CATEGORY_GATING: Record<string, { minStep: number; tooltip: string }> = {
-  contract: { minStep: 0, tooltip: '' },
-  configure: { minStep: 0, tooltip: '' },
-  ownerBilling: { minStep: 5, tooltip: 'Complete financial setup to access Owner Billing.' },
-  subsBilling: { minStep: 5, tooltip: 'Complete financial setup to access Subs Billing.' },
-  changeOrder: { minStep: 5, tooltip: 'Complete financial setup to access Change Orders.' },
-  recurringCost: { minStep: 5, tooltip: 'Complete financial setup to access Recurring Costs.' },
-  costs: { minStep: 5, tooltip: 'Complete financial setup to access Costs tracking.' },
-  tm: { minStep: 5, tooltip: 'Complete financial setup to access T&M tracking.' },
-  analytics: { minStep: 5, tooltip: 'Complete financial setup to access Analytics.' },
-};
-
-export const CONTRACT_SIDEBAR_GATING: Record<string, { minStep: number; tooltip: string }> = {
-  primeContract: { minStep: 0, tooltip: '' },
-  budget: { minStep: 2, tooltip: 'Lock the Prime Contract first to access Budget Setup.' },
-  sov: { minStep: 3, tooltip: 'Lock the Budget first to access the SOV.' },
-  commitment: { minStep: 5, tooltip: 'Complete financial setup to access Commitment Release.' },
-  adjustment: { minStep: 5, tooltip: 'Complete financial setup to access Adjustment History.' },
-  allocate: { minStep: 5, tooltip: 'Complete financial setup to access Budget Allocation.' },
-  cls: { minStep: 5, tooltip: 'Complete financial setup to access CLS.' },
-  billing: { minStep: 5, tooltip: 'Complete financial setup to access Billing.' },
-};
-
-export function isHeaderCategoryLocked(categoryKey: string, step: FinancialSetupStep): boolean {
-  const gating = HEADER_CATEGORY_GATING[categoryKey];
-  if (!gating) return false;
-  return step < gating.minStep;
+export interface GatingContext {
+  financialSetupStep: FinancialSetupStep;
+  contractData: ContractData | null;
+  contractLocked: boolean;
+  budgetRows: V3Row[];
+  sovPublished: boolean;
+  activationState: 'setup' | 'operating' | 'activated';
+  approvalQueue: ApprovalRequest[];
+  financialConfig: FinancialConfig | null;
 }
 
-export function getHeaderCategoryTooltip(categoryKey: string, step: FinancialSetupStep): string {
+export const HEADER_CATEGORY_GATING: Record<
+  string,
+  { check: (ctx: GatingContext) => boolean; tooltip: string }
+> = {
+  contract: { check: () => false, tooltip: '' },
+  configure: { check: () => false, tooltip: '' },
+  ownerBilling: {
+    check: (ctx) =>
+      !ctx.sovPublished ||
+      !ctx.contractLocked ||
+      !isBudgetFullyLocked(ctx.budgetRows),
+    tooltip:
+      'Owner billing requires a locked Prime Contract, fully committed budget, and published SOV.',
+  },
+  subsBilling: {
+    check: (ctx) => !hasCommittedLines(ctx.budgetRows),
+    tooltip: 'Commit at least one budget line to access Subs Billing.',
+  },
+  changeOrder: {
+    check: (ctx) => !hasCommittedLines(ctx.budgetRows),
+    tooltip: 'Commit at least one budget line to access Change Orders.',
+  },
+  recurringCost: {
+    check: (ctx) => !hasCommittedLines(ctx.budgetRows),
+    tooltip: 'Commit at least one budget line to access Recurring Costs.',
+  },
+  costs: {
+    check: (ctx) => !hasCommittedLines(ctx.budgetRows),
+    tooltip: 'Commit at least one budget line to access Costs tracking.',
+  },
+  tm: {
+    check: (ctx) => !hasCommittedLines(ctx.budgetRows),
+    tooltip: 'Commit at least one budget line to access T&M tracking.',
+  },
+  analytics: {
+    check: (ctx) => ctx.activationState !== 'activated',
+    tooltip: 'Publish SOV to activate analytics.',
+  },
+};
+
+export const CONTRACT_SIDEBAR_GATING: Record<
+  string,
+  { check: (ctx: GatingContext) => boolean; tooltip: string }
+> = {
+  primeContract: { check: () => false, tooltip: '' },
+  budget: {
+    check: (ctx) => !hasPcValue(ctx.contractData),
+    tooltip: 'Enter a Prime Contract Value to access Budget Setup.',
+  },
+  sov: {
+    check: (ctx) => !hasCommittedLines(ctx.budgetRows),
+    tooltip: 'Commit budget lines to access SOV mapping.',
+  },
+  commitment: {
+    check: (ctx) => !hasCommittedLines(ctx.budgetRows),
+    tooltip: 'Commit budget lines to issue subcontracts and POs.',
+  },
+  adjustment: {
+    check: (ctx) => !hasCommittedLines(ctx.budgetRows),
+    tooltip: 'Commit budget lines to access Adjustment History.',
+  },
+  allocate: {
+    check: (ctx) => !hasCommittedLines(ctx.budgetRows),
+    tooltip: 'Commit budget lines to access Budget Allocation.',
+  },
+  cls: {
+    check: (ctx) => !hasCommittedLines(ctx.budgetRows),
+    tooltip: 'Commit budget lines to access CLS.',
+  },
+  billing: {
+    check: (ctx) => !hasCommittedLines(ctx.budgetRows),
+    tooltip: 'Commit budget lines to access Billing.',
+  },
+};
+
+function buildGatingContext(
+  step: FinancialSetupStep,
+  contractData: ContractData | null,
+  contractLocked: boolean,
+  budgetRows: V3Row[],
+  sovPublished: boolean,
+  activationState: 'setup' | 'operating' | 'activated',
+  approvalQueue: ApprovalRequest[],
+  financialConfig: FinancialConfig | null
+): GatingContext {
+  return {
+    financialSetupStep: step,
+    contractData,
+    contractLocked,
+    budgetRows,
+    sovPublished,
+    activationState,
+    approvalQueue,
+    financialConfig,
+  };
+}
+
+export function isHeaderCategoryLocked(
+  categoryKey: string,
+  step: FinancialSetupStep,
+  contractData: ContractData | null,
+  contractLocked: boolean,
+  sheets: import('../components/views/spreadsheetV4/types').V3Sheet[] | null | undefined,
+  sovPublished: boolean,
+  activationState: 'setup' | 'operating' | 'activated',
+  approvalQueue: ApprovalRequest[],
+  financialConfig: FinancialConfig | null
+): boolean {
   const gating = HEADER_CATEGORY_GATING[categoryKey];
-  if (!gating || !isHeaderCategoryLocked(categoryKey, step)) return '';
-  return gating.tooltip;
+  if (!gating) return false;
+  const ctx = buildGatingContext(
+    step,
+    contractData,
+    contractLocked,
+    getBudgetRows(sheets),
+    sovPublished,
+    activationState,
+    approvalQueue,
+    financialConfig
+  );
+  return gating.check(ctx);
+}
+
+export function getHeaderCategoryTooltip(
+  categoryKey: string,
+  step: FinancialSetupStep,
+  contractData: ContractData | null,
+  contractLocked: boolean,
+  sheets: import('../components/views/spreadsheetV4/types').V3Sheet[] | null | undefined,
+  sovPublished: boolean,
+  activationState: 'setup' | 'operating' | 'activated',
+  approvalQueue: ApprovalRequest[],
+  financialConfig: FinancialConfig | null
+): string {
+  const gating = HEADER_CATEGORY_GATING[categoryKey];
+  if (!gating) return '';
+  const ctx = buildGatingContext(
+    step,
+    contractData,
+    contractLocked,
+    getBudgetRows(sheets),
+    sovPublished,
+    activationState,
+    approvalQueue,
+    financialConfig
+  );
+  return gating.check(ctx) ? gating.tooltip : '';
 }
 
 export function isSidebarItemLocked(
   categoryKey: string,
   itemKey: string,
-  step: FinancialSetupStep
+  step: FinancialSetupStep,
+  contractData: ContractData | null,
+  contractLocked: boolean,
+  sheets: import('../components/views/spreadsheetV4/types').V3Sheet[] | null | undefined,
+  sovPublished: boolean,
+  activationState: 'setup' | 'operating' | 'activated',
+  approvalQueue: ApprovalRequest[],
+  financialConfig: FinancialConfig | null
 ): boolean {
+  const ctx = buildGatingContext(
+    step,
+    contractData,
+    contractLocked,
+    getBudgetRows(sheets),
+    sovPublished,
+    activationState,
+    approvalQueue,
+    financialConfig
+  );
+
   if (categoryKey === 'contract') {
     const gating = CONTRACT_SIDEBAR_GATING[itemKey];
     if (!gating) return false;
-    return step < gating.minStep;
+    return gating.check(ctx);
   }
+
   const headerGating = HEADER_CATEGORY_GATING[categoryKey];
   if (!headerGating) return false;
-  return step < headerGating.minStep;
+  return headerGating.check(ctx);
 }
 
 export function getSidebarItemTooltip(
   categoryKey: string,
   itemKey: string,
-  step: FinancialSetupStep
+  step: FinancialSetupStep,
+  contractData: ContractData | null,
+  contractLocked: boolean,
+  sheets: import('../components/views/spreadsheetV4/types').V3Sheet[] | null | undefined,
+  sovPublished: boolean,
+  activationState: 'setup' | 'operating' | 'activated',
+  approvalQueue: ApprovalRequest[],
+  financialConfig: FinancialConfig | null
 ): string {
-  if (!isSidebarItemLocked(categoryKey, itemKey, step)) return '';
+  if (
+    !isSidebarItemLocked(
+      categoryKey,
+      itemKey,
+      step,
+      contractData,
+      contractLocked,
+      sheets,
+      sovPublished,
+      activationState,
+      approvalQueue,
+      financialConfig
+    )
+  ) {
+    return '';
+  }
 
   if (categoryKey === 'contract') {
     const gating = CONTRACT_SIDEBAR_GATING[itemKey];
@@ -64,4 +246,85 @@ export function getSidebarItemTooltip(
 
   const headerGating = HEADER_CATEGORY_GATING[categoryKey];
   return headerGating?.tooltip ?? '';
+}
+
+export function computePublishReadiness(
+  budgetRows: V3Row[],
+  sovMappings: SOVMapping[],
+  wbsLinks: WBSLink[],
+  approvalQueue: ApprovalRequest[],
+  commitThresholdPercent = 100
+): import('../types').PublishReadinessCheck[] {
+  const counts = countLinesByState(budgetRows);
+  const committed = committedLineCount(budgetRows);
+  const thresholdMet =
+    counts.total === 0
+      ? false
+      : (committed / counts.total) * 100 >= commitThresholdPercent;
+
+  const committedIds = budgetRows
+    .filter((r) => (r.lineState ?? 'open') === 'locked')
+    .map((r) => r.id);
+
+  const unmappedSov = committedIds.filter(
+    (id) => !sovMappings.some((m) => m.rowId === id)
+  ).length;
+
+  const unlinkedWbs = committedIds.filter(
+    (id) => !wbsLinks.some((l) => l.rowId === id)
+  ).length;
+
+  const pendingApprovals = approvalQueue.filter((a) => a.status === 'pending').length;
+  const pendingPcChanges = approvalQueue.filter(
+    (a) => a.type === 'pc_value_change' && a.status === 'pending'
+  ).length;
+
+  return [
+    {
+      id: 'commit-threshold',
+      label: `${committed} of ${counts.total} budget lines committed (${commitThresholdPercent}% required)`,
+      met: thresholdMet,
+      actionStep: 3,
+    },
+    {
+      id: 'sov-mapped',
+      label:
+        unmappedSov === 0
+          ? 'All committed lines mapped to SOV'
+          : `${unmappedSov} committed line(s) not mapped to SOV — click to open SOV Mapping`,
+      met: unmappedSov === 0 && committed > 0,
+      actionStep: 4,
+      actionTab: 'sov',
+    },
+    {
+      id: 'wbs-linked',
+      label:
+        unlinkedWbs === 0
+          ? 'All committed lines linked to WBS'
+          : `${unlinkedWbs} committed line(s) missing WBS links — click to open Schedule Linking`,
+      met: unlinkedWbs === 0 && committed > 0,
+      actionStep: 4,
+      actionTab: 'schedule',
+    },
+    {
+      id: 'no-pending-approvals',
+      label:
+        pendingApprovals === 0
+          ? 'No outstanding approvals'
+          : `${pendingApprovals} approval(s) pending`,
+      met: pendingApprovals === 0,
+    },
+    {
+      id: 'no-pc-change-pending',
+      label:
+        pendingPcChanges === 0
+          ? 'No pending PC Value change approvals'
+          : `${pendingPcChanges} PC Value change(s) pending approval`,
+      met: pendingPcChanges === 0,
+    },
+  ];
+}
+
+export function allPublishChecksMet(checks: import('../types').PublishReadinessCheck[]): boolean {
+  return checks.length > 0 && checks.every((c) => c.met);
 }

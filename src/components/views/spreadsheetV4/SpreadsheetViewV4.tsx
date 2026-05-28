@@ -6,9 +6,9 @@ import V3Header, { ROW_NUM_WIDTH, ACTIONS_WIDTH } from './components/V3Header';
 import V3RowComponent from './components/V3Row';
 import SpreadsheetToolbar from '../spreadsheetV2/components/SpreadsheetToolbar';
 import AddColumnModal from './components/AddColumnModal';
-import ContractDetailsForm from './ContractDetailsForm';
 import ContractSummaryHeader from './ContractSummaryHeader';
 import FinancialSetupHub from './FinancialSetupHub';
+import FinancialOpsHub from './FinancialOpsHub';
 import { ContextMenu, ContextMenuItem } from '../../common/ui/ContextMenu';
 import ColorPicker from '../../common/ui/ColorPicker';
 import {
@@ -120,7 +120,7 @@ const getModKeyLabel = () => (typeof navigator !== 'undefined' && /Mac/i.test(na
 
 // ─── Main component ──────────────────────────────────────────────────────────
 const SpreadsheetViewV4: React.FC = () => {
-  const { activeView, updateView, contractData, setIsContractUploadOpen, contractConfirmed, financialSetupComplete, setContractConfirmed, budgetLocked } = useProject();
+  const { activeView, updateView, contractData, setIsContractUploadOpen, financialSetupComplete, hubCollapsed } = useProject();
 
   // ── Single-sheet state + persistence sync ──────────────────────────────────
   const [localSheet, setLocalSheet] = useState<V3Sheet>(() => {
@@ -1542,19 +1542,20 @@ const SpreadsheetViewV4: React.FC = () => {
   // ── Early returns (AFTER all hooks) ──────────────────────────────────
   if (!activeSheet) return null;
 
-  // Auto-set contractConfirmed when budget is locked (financial setup step 2 → 3)
-  useEffect(() => {
-    if (budgetLocked && !contractConfirmed) {
-      setContractConfirmed(true);
-    }
-  }, [budgetLocked, contractConfirmed, setContractConfirmed]);
-
-  // Show Financial Setup Hub if not complete
+  // Keep a stable hub shell for the entire setup flow — do not remount when PC value is entered mid-edit
   if (!financialSetupComplete) {
     return <FinancialSetupHub />;
   }
 
-  // Otherwise show spreadsheet
+  if (hubCollapsed) {
+    return (
+      <div className="flex flex-col h-full">
+        <FinancialOpsHub />
+      </div>
+    );
+  }
+
+  // Post-setup full spreadsheet
   return (
     <div
       ref={containerRef}

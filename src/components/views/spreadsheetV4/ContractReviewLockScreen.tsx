@@ -1,56 +1,45 @@
-import React, { useMemo, useRef, useEffect, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
+import { AlertTriangle } from 'lucide-react';
 import { useProject } from '../../../context/ProjectContext';
+import { useScrollToRowOnAdd } from '../../../hooks/useScrollToRowOnAdd';
 import ContractMetadataBar from './ContractMetadataBar';
-import { ChevronRightIcon, PlusIcon, TrashIcon } from '../../common/Icons';
+import SpreadsheetIndexCell from './SpreadsheetIndexCell';
+import SpreadsheetIndexHeaderCell from './SpreadsheetIndexHeaderCell';
+import SpreadsheetTableFooterBar from './SpreadsheetTableFooterBar';
 import { SPREADSHEET_INDEX_COLUMN_WIDTH } from '../../../constants/spreadsheetLayout';
-import { V3Row } from './types';
+import {
+  DEFAULT_PRIME_CONTRACT_COLUMNS,
+  contractSumMismatch,
+  getPrimeContractLineValue,
+} from '../../../lib/financialWorkflow';
+import { colAlignClass, formatCurrency, formatCurrencyWhole } from './spreadsheetTableUtils';
 
 const ContractReviewLockScreen: React.FC = () => {
-  const { contractData, contractLocked, setContractLocked, activeView, updateView, setFinancialSetupStep } = useProject();
+  const { contractData, contractLocked, activeView, primeContractRows, updatePrimeContractRows } = useProject();
   const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
-  const checkboxRef = useRef<HTMLInputElement>(null);
 
   if (!contractData) return null;
 
-  const sheet = activeView?.v3Sheets?.[0];
-  if (!sheet) return null;
-
-  const columns = sheet.columns || [];
-  const rows = sheet.rows || [];
+  const columns = activeView?.v3Sheets?.find((s) => s.id === 'sheet-prime-contract')?.columns
+    ?? DEFAULT_PRIME_CONTRACT_COLUMNS;
   const fontSize = activeView?.fontSize ?? 12;
 
-  // Flatten rows for rendering (no nesting for simplicity)
-  // Start with one empty row if no rows exist
   const flatRows = useMemo(() => {
-    const nonEmpty = rows.filter(r => r.id !== 'empty-row');
-    if (nonEmpty.length === 0) {
-      return [{
-        id: `row-${Date.now()}`,
-        cells: {},
-        isDraft: true,
-      }];
+    if (primeContractRows.length === 0) {
+      return [{ id: `pc-row-${Date.now()}`, cells: {}, isDraft: true }];
     }
-    return nonEmpty;
-  }, [rows]);
+    return primeContractRows;
+  }, [primeContractRows]);
 
-  // Checkbox state
-  const isAllSelected = flatRows.length > 0 && flatRows.every(r => selectedRowIds.has(r.id));
-  const isSomeSelected = !isAllSelected && flatRows.some(r => selectedRowIds.has(r.id));
-
-  useEffect(() => {
-    if (checkboxRef.current) {
-      checkboxRef.current.indeterminate = isSomeSelected;
-    }
-  }, [isSomeSelected]);
-
-  // Calculate totals
   const totals = useMemo(() => {
     const acc: Record<string, number> = {};
-    flatRows.forEach(row => {
-      columns.forEach(col => {
+    flatRows.forEach((row) => {
+      columns.forEach((col) => {
         if (col.isTotal) {
-          const val = Number(row.cells[col.id] || 0);
+          const val = col.id === 'contractValue' || col.id === 'totalBudget'
+            ? getPrimeContractLineValue(row)
+            : Number(row.cells[col.id] || 0);
           acc[col.id] = (acc[col.id] || 0) + val;
         }
       });
@@ -58,241 +47,191 @@ const ContractReviewLockScreen: React.FC = () => {
     return acc;
   }, [flatRows, columns]);
 
-  const handleLockContract = () => {
-    setContractLocked(true);
-  };
+  const sumWarning = useMemo(
+    () => contractSumMismatch(contractData, flatRows),
+    [contractData, flatRows]
+  );
 
-  const handleProceed = () => {
-    setFinancialSetupStep(3);
-  };
+  const generateId = () => `pc-row-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+  const { scrollContainerRef, requestScrollToRow } = useScrollToRowOnAdd(flatRows.length);
 
   const handleAddRow = () => {
-    const newRow: V3Row = {
-      id: `row-${Date.now()}`,
-      cells: {},
-      isDraft: true,
-    };
-    updateView({
-      v3Sheets: [{ ...sheet, rows: [...rows, newRow] }],
-    });
+    const newId = generateId();
+    updatePrimeContractRows([...flatRows, { id: newId, cells: {}, isDraft: true }]);
+    requestScrollToRow(newId);
   };
 
-  const handleCellChange = (rowId: string, colId: string, value: any) => {
-    const newRows = rows.map(row =>
-      row.id === rowId ? { ...row, cells: { ...row.cells, [colId]: value } } : row
+  const handleCellChange = (rowId: string, colId: string, value: string) => {
+    const col = columns.find((c) => c.id === colId);
+    const parsed =
+      col?.type === 'currency' || col?.type === 'number'
+        ? parseFloat(value.replace(/[^0-9.-]/g, '')) || null
+        : value;
+    updatePrimeContractRows(
+      flatRows.map((row) =>
+        row.id === rowId ? { ...row, cells: { ...row.cells, [colId]: parsed } } : row
+      )
     );
-    updateView({
-      v3Sheets: [{ ...sheet, rows: newRows }],
-    });
   };
 
   const handleToggleRowSelect = (rowId: string) => {
-    setSelectedRowIds(prev => {
+    setSelectedRowIds((prev) => {
       const next = new Set(prev);
       next.has(rowId) ? next.delete(rowId) : next.add(rowId);
       return next;
     });
   };
 
-  const handleToggleSelectAll = () => {
-    if (isAllSelected) {
-      setSelectedRowIds(new Set());
-    } else {
-      setSelectedRowIds(new Set(flatRows.map(r => r.id)));
-    }
-  };
-
   const handleDeleteRows = (ids: Set<string>) => {
-    const newRows = rows.filter(r => !ids.has(r.id));
-    updateView({
-      v3Sheets: [{ ...sheet, rows: newRows }],
-    });
+    const remaining = flatRows.filter((r) => !ids.has(r.id));
+    updatePrimeContractRows(
+      remaining.length > 0 ? remaining : [{ id: generateId(), cells: {}, isDraft: true }]
+    );
     setSelectedRowIds(new Set());
   };
 
-  const formatCurrency = (value: number) => {
-    return value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const selectableRowIds = contractLocked ? [] : flatRows.map((r) => r.id);
+  const allSelectableSelected =
+    selectableRowIds.length > 0 && selectableRowIds.every((id) => selectedRowIds.has(id));
+  const someSelectableSelected = selectableRowIds.some((id) => selectedRowIds.has(id));
+
+  const handleToggleSelectAll = () => {
+    if (allSelectableSelected) {
+      setSelectedRowIds(new Set());
+    } else {
+      setSelectedRowIds(new Set(selectableRowIds));
+    }
   };
+
+  const colgroup = (
+    <colgroup>
+      <col style={{ width: SPREADSHEET_INDEX_COLUMN_WIDTH }} />
+      {columns.map((col) => (
+        <col key={col.id} style={{ width: col.width }} />
+      ))}
+    </colgroup>
+  );
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.3 }}
-      className="h-full flex flex-col bg-white"
+      className="h-full flex flex-col bg-white min-h-0"
     >
-      {/* Metadata Bar (Sticky Header) */}
       <ContractMetadataBar isLocked={contractLocked} isEditable={!contractLocked} />
 
-      {/* Table Section - Full Width */}
-      <div className="flex-1 overflow-hidden flex flex-col bg-white">
-        <div className="bg-white border-b border-gray-200 overflow-hidden flex flex-col flex-1 min-h-0">
-          {/* Table */}
-          <div className="overflow-auto flex-1 relative">
-            <table className="border-collapse w-full relative" style={{ fontSize }}>
-              {/* Header */}
-              <thead className="bg-gray-100 sticky top-0 z-20">
-                <tr className="h-9">
-                  {/* Checkbox Column */}
-                  <th
-                    className="border-r border-gray-300 text-center font-semibold text-gray-900 px-3 bg-gray-100"
-                    style={{ width: 40, minWidth: 40, maxWidth: 40 }}
-                  >
-                    <input
-                      ref={checkboxRef}
-                      type="checkbox"
-                      checked={isAllSelected}
-                      onChange={handleToggleSelectAll}
-                      disabled={contractLocked || flatRows.length === 0}
-                      className="h-4 w-4 rounded border-gray-300 text-blue-600 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-                    />
-                  </th>
+      {sumWarning.mismatched && (
+        <div className="mx-6 mt-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 flex-shrink-0">
+          <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+          <span>
+            Line item total (${formatCurrencyWhole(sumWarning.lineSum)}) does not match the Contract Sum
+            (${formatCurrencyWhole(sumWarning.contractSum)}). Adjust line values or update the contract sum.
+          </span>
+        </div>
+      )}
 
-                  {/* Data Columns */}
-                  {columns.map(col => (
-                    <th
-                      key={col.id}
-                      className={`text-left font-semibold text-gray-900 px-3 bg-gray-100 whitespace-nowrap ${
-                        col.align === 'right' ? 'text-right' : 'text-left'
-                      }`}
-                      style={{ width: col.width, minWidth: col.width }}
-                    >
-                      {col.label}
-                    </th>
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+        {/* Scrollable body */}
+        <div ref={scrollContainerRef} className="flex-1 overflow-auto min-h-0">
+          <table className="border-collapse w-full table-fixed" style={{ fontSize }}>
+            {colgroup}
+            <thead className="bg-gray-100 sticky top-0 z-20">
+              <tr className="h-9">
+                <SpreadsheetIndexHeaderCell
+                  allSelected={allSelectableSelected}
+                  someSelected={someSelectableSelected}
+                  onToggleAll={handleToggleSelectAll}
+                  disabled={contractLocked}
+                  sticky
+                />
+                {columns.map((col) => (
+                  <th
+                    key={col.id}
+                    className={`font-semibold text-gray-900 px-3 bg-gray-100 whitespace-nowrap ${colAlignClass(col)}`}
+                  >
+                    {col.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {flatRows.map((row, idx) => (
+                <tr
+                  key={row.id}
+                  data-row-id={row.id}
+                  className={`group h-7 border-b border-gray-200 ${
+                    selectedRowIds.has(row.id) ? 'bg-blue-50' : 'hover:bg-gray-50'
+                  }`}
+                >
+                  <SpreadsheetIndexCell
+                    rowIndex={idx}
+                    rowId={row.id}
+                    isSelected={selectedRowIds.has(row.id)}
+                    onToggleSelect={handleToggleRowSelect}
+                    disabled={contractLocked}
+                    fontSize={fontSize}
+                    sticky
+                    className="bg-white"
+                  />
+                  {columns.map((col) => (
+                    <td key={`${row.id}-${col.id}`} className={`px-3 relative ${colAlignClass(col)}`}>
+                      {contractLocked ? (
+                        <span className={`block w-full text-gray-900 text-sm ${colAlignClass(col)}`}>
+                          {(col.type === 'currency' && (row.cells[col.id] ?? row.cells['totalBudget']))
+                            ? `$${formatCurrency(Number(row.cells[col.id] ?? row.cells['totalBudget']))}`
+                            : row.cells[col.id] ?? '—'}
+                        </span>
+                      ) : (
+                        <input
+                          type={col.type === 'currency' || col.type === 'number' ? 'number' : 'text'}
+                          value={row.cells[col.id] ?? row.cells[col.id === 'contractValue' ? 'totalBudget' : col.id] ?? ''}
+                          onChange={(e) => handleCellChange(row.id, col.id, e.target.value)}
+                          disabled={col.editable === false}
+                          placeholder="—"
+                          className={`w-full py-0.5 border border-transparent hover:border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded text-gray-900 text-sm focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 ${colAlignClass(col)}`}
+                        />
+                      )}
+                    </td>
                   ))}
                 </tr>
-              </thead>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
-              {/* Body */}
-              <tbody>
-                {flatRows.map((row, idx) => (
-                  <tr
-                    key={row.id}
-                    className={`h-7 border-b border-gray-200 ${
-                      selectedRowIds.has(row.id) ? 'bg-blue-50' : 'hover:bg-gray-50'
-                    }`}
+        {/* Pinned footer: totals + add row — always visible */}
+        <div className="flex-shrink-0 border-t-2 border-gray-300 bg-white z-20 shadow-[0_-2px_8px_rgba(0,0,0,0.04)]">
+          <table className="border-collapse w-full table-fixed bg-gray-100" style={{ fontSize }}>
+            {colgroup}
+            <tbody>
+              <tr className="h-9 font-bold">
+                <td style={{ width: SPREADSHEET_INDEX_COLUMN_WIDTH }} className="bg-gray-100" />
+                {columns.map((col) => (
+                  <td
+                    key={`total-${col.id}`}
+                    className={`px-3 text-gray-900 bg-gray-100 whitespace-nowrap ${colAlignClass(col)}`}
                   >
-                    {/* Checkbox Cell */}
-                    <td className="border-r border-gray-300 text-center px-3" style={{ width: 40, minWidth: 40, maxWidth: 40 }}>
-                      <input
-                        type="checkbox"
-                        checked={selectedRowIds.has(row.id)}
-                        onChange={() => handleToggleRowSelect(row.id)}
-                        disabled={contractLocked}
-                        className="h-4 w-4 rounded border-gray-300 text-blue-600 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-                      />
-                    </td>
-
-                    {/* Data Cells */}
-                    {columns.map(col => (
-                      <td
-                        key={`${row.id}-${col.id}`}
-                        className={`px-3 relative ${col.align === 'right' ? 'text-right' : 'text-left'}`}
-                        style={{ width: col.width, minWidth: col.width }}
-                      >
-                        {contractLocked ? (
-                          <span className="text-gray-900 text-sm">
-                            {col.type === 'currency' && row.cells[col.id]
-                              ? `$${formatCurrency(Number(row.cells[col.id]))}`
-                              : row.cells[col.id] ?? '—'}
-                          </span>
-                        ) : (
-                          <input
-                            type={col.type === 'currency' ? 'number' : col.type === 'number' ? 'number' : 'text'}
-                            value={row.cells[col.id] ?? ''}
-                            onChange={(e) => handleCellChange(row.id, col.id, e.target.value)}
-                            disabled={col.editable === false}
-                            placeholder="—"
-                            className="w-full px-2 py-0.5 border border-transparent hover:border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded text-gray-900 text-sm focus:outline-none disabled:bg-gray-50 disabled:text-gray-500"
-                          />
-                        )}
-                      </td>
-                    ))}
-                  </tr>
+                    {col.isTotal && totals[col.id] !== undefined
+                      ? col.type === 'currency'
+                        ? `$${formatCurrencyWhole(totals[col.id])}`
+                        : totals[col.id].toLocaleString()
+                      : col.id === columns[0]?.id
+                        ? 'Total'
+                        : ''}
+                  </td>
                 ))}
-              </tbody>
-
-              {/* Totals Footer */}
-              {Object.keys(totals).length > 0 && (
-                <tfoot className="bg-gray-100 border-t-2 border-gray-300 sticky bottom-0 z-20 font-bold">
-                  <tr className="h-9">
-                    {/* Checkbox Column */}
-                    <td style={{ width: 40 }} />
-
-                    {/* Data Totals */}
-                    {columns.map(col => (
-                      <td
-                        key={`total-${col.id}`}
-                        className={`px-3 text-gray-900 bg-gray-100 whitespace-nowrap ${
-                          col.align === 'right' ? 'text-right' : 'text-left'
-                        }`}
-                        style={{ width: col.width, minWidth: col.width }}
-                      >
-                        {col.isTotal && totals[col.id] !== undefined
-                          ? col.type === 'currency'
-                            ? `$${formatCurrency(totals[col.id])}`
-                            : totals[col.id].toLocaleString()
-                          : col.id === columns[0]?.id ? 'Total' : ''}
-                      </td>
-                    ))}
-                  </tr>
-                </tfoot>
-              )}
-            </table>
-          </div>
-
-          {/* Toolbar with Add/Delete Actions */}
-          <div className="px-3 py-2 border-t border-gray-200 bg-gray-50 flex items-center gap-3">
-            <button
-              onClick={handleAddRow}
-              disabled={contractLocked}
-              className="flex items-center gap-1.5 text-blue-600 hover:text-blue-700 font-medium text-sm transition-colors disabled:text-gray-400 disabled:cursor-not-allowed"
-            >
-              <div className="w-4 h-4 rounded-full border border-blue-600 flex items-center justify-center disabled:border-gray-400">
-                <PlusIcon className="w-2.5 h-2.5" />
-              </div>
-              Add row
-            </button>
-
-            {selectedRowIds.size > 0 && !contractLocked && (
-              <button
-                onClick={() => handleDeleteRows(selectedRowIds)}
-                className="flex items-center gap-1.5 text-red-600 hover:text-red-700 font-medium text-sm transition-colors"
-              >
-                <TrashIcon className="w-4 h-4" />
-                Delete ({selectedRowIds.size})
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Footer */}
-      <div className="border-t border-gray-200 bg-gray-50 px-6 py-4 flex items-center justify-between gap-3">
-        <div className="text-sm text-gray-600">
-          {contractLocked ? (
-            <span className="text-green-700 font-medium">✓ Contract locked and ready for budget setup</span>
-          ) : (
-            <span>Add line items, then lock the contract to proceed</span>
-          )}
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleLockContract}
-            disabled={contractLocked}
-            className="flex items-center gap-2 px-6 py-2 text-sm font-semibold text-white bg-green-600 rounded-md hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-          >
-            Lock Contract
-          </button>
-          {contractLocked && (
-            <button
-              onClick={handleProceed}
-              className="flex items-center gap-2 px-6 py-2 text-sm font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors"
-            >
-              Proceed to Budget Setup
-              <ChevronRightIcon className="w-4 h-4" />
-            </button>
-          )}
+              </tr>
+            </tbody>
+          </table>
+          <SpreadsheetTableFooterBar
+            onAddRow={handleAddRow}
+            addDisabled={contractLocked}
+            selectedCount={selectedRowIds.size}
+            onDeleteSelected={() => handleDeleteRows(selectedRowIds)}
+            deleteDisabled={contractLocked}
+          />
         </div>
       </div>
     </motion.div>

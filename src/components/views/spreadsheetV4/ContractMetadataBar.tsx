@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useProject } from '../../../context/ProjectContext';
 import { DatePicker } from '../../common/ui/DatePicker';
-import { PaperclipIcon, ChevronDownIcon } from '../../common/Icons';
+import { PaperclipIcon } from '../../common/Icons';
+import PcValueChangeModal from './PcValueChangeModal';
 
 interface ContractMetadataBarProps {
   isLocked?: boolean;
@@ -9,7 +10,7 @@ interface ContractMetadataBarProps {
 }
 
 const ContractMetadataBar: React.FC<ContractMetadataBarProps> = ({ isLocked = false, isEditable = false }) => {
-  const { contractData, setContractData, setIsContractUploadOpen, setContractLocked, setFinancialSetupStep } = useProject();
+  const { contractData, setContractData, requestPcValueChange, budgetRows } = useProject();
 
   const [executedDate, setExecutedDate] = useState(contractData?.executedDate || null);
   const [startDate, setStartDate] = useState(contractData?.startDate || null);
@@ -17,6 +18,9 @@ const ContractMetadataBar: React.FC<ContractMetadataBarProps> = ({ isLocked = fa
   const [contractSum, setContractSum] = useState<string | number>(contractData?.contractSum || '');
   const [owner, setOwner] = useState(contractData?.owner || '');
   const [contractor, setContractor] = useState(contractData?.contractor || '');
+  const [projectName, setProjectName] = useState(contractData?.projectName || '');
+  const [pendingPcValue, setPendingPcValue] = useState<number | null>(null);
+  const [showPcModal, setShowPcModal] = useState(false);
 
   const handleDateChange = (field: 'executedDate' | 'startDate' | 'endDate', date: Date | null) => {
     if (!isEditable || isLocked || !contractData) return;
@@ -31,18 +35,38 @@ const ContractMetadataBar: React.FC<ContractMetadataBarProps> = ({ isLocked = fa
     });
   };
 
+  const parseContractSum = (value: string | number): number => {
+    const raw = String(value).replace(/[^0-9.]/g, '');
+    if (raw === '' || raw === '.') return 0;
+    const n = Number(raw);
+    return isNaN(n) ? 0 : n;
+  };
+
   const handleContractSumChange = (value: string) => {
     if (!isEditable || isLocked || !contractData) return;
-
     setContractSum(value);
 
-    const numValue = value === '' ? 0 : Number(value);
-    if (!isNaN(numValue)) {
-      setContractData({
-        ...contractData,
-        contractSum: numValue,
-      });
+    const numValue = parseContractSum(value);
+    const hasCommitted = budgetRows.some((r) => (r.lineState ?? 'open') === 'locked');
+
+    // Sync context while typing so action buttons enable immediately (hub layout is stable)
+    if (!hasCommitted) {
+      setContractData({ ...contractData, contractSum: numValue });
     }
+  };
+
+  const commitContractSum = () => {
+    if (!isEditable || isLocked || !contractData) return;
+
+    const numValue = parseContractSum(contractSum);
+    const hasCommitted = budgetRows.some((r) => (r.lineState ?? 'open') === 'locked');
+    if (hasCommitted && numValue !== contractData.contractSum) {
+      setPendingPcValue(numValue);
+      setShowPcModal(true);
+      return;
+    }
+
+    setContractData({ ...contractData, contractSum: numValue });
   };
 
   const handleOwnerChange = (value: string) => {
@@ -65,10 +89,14 @@ const ContractMetadataBar: React.FC<ContractMetadataBarProps> = ({ isLocked = fa
     });
   };
 
-  const handleReplaceContract = () => {
-    setContractLocked(false);
-    setFinancialSetupStep(1);
-    setIsContractUploadOpen(true);
+  const handleProjectNameChange = (value: string) => {
+    if (!isEditable || isLocked || !contractData) return;
+
+    setProjectName(value);
+    setContractData({
+      ...contractData,
+      projectName: value,
+    });
   };
 
   const formatDate = (date: Date | null) => {
@@ -87,33 +115,52 @@ const ContractMetadataBar: React.FC<ContractMetadataBarProps> = ({ isLocked = fa
 
   if (!contractData) return null;
 
+  const hasUploadedDocument =
+    Boolean(contractData.fileName) &&
+    contractData.fileName !== 'Manual Entry' &&
+    contractData.extractionMethod !== 'manual';
+
   return (
     <div className="sticky top-0 z-30 bg-white border-b border-gray-200">
-      <div className="px-6 py-4 space-y-4">
-        {/* Top Row: Project Name & Lock Badge */}
+      <div className="px-6 py-4 space-y-3">
+        {/* Project name & status */}
         <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <PaperclipIcon className="w-5 h-5 text-gray-400" />
-            <h2 className="text-xl font-semibold text-gray-900">{contractData.projectName}</h2>
+          <div className="flex-1 min-w-0">
+            {isEditable && !isLocked ? (
+              <input
+                type="text"
+                value={projectName}
+                onChange={(e) => handleProjectNameChange(e.target.value)}
+                placeholder="Project name"
+                className="text-xl font-semibold text-gray-900 w-full px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              />
+            ) : (
+              <h2 className="text-xl font-semibold text-gray-900 truncate">
+                {projectName || contractData.projectName || 'Untitled Project'}
+              </h2>
+            )}
+            {hasUploadedDocument && (
+              <a
+                href="#"
+                onClick={(e) => e.preventDefault()}
+                className="mt-1 inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 hover:underline max-w-full"
+                title={contractData.fileName}
+              >
+                <PaperclipIcon className="w-4 h-4 flex-shrink-0" />
+                <span className="truncate">{contractData.fileName}</span>
+              </a>
+            )}
           </div>
-          {isLocked && (
-            <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded">
-              🔒 LOCKED
+          {isLocked ? (
+            <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded flex-shrink-0">
+              LOCKED
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded flex-shrink-0">
+              OPEN
             </span>
           )}
         </div>
-
-        {/* Replace Contract Button - Aligned with labels */}
-        {!isLocked && (
-          <div className="mb-4">
-            <button
-              onClick={handleReplaceContract}
-              className="text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-3 py-1.5 rounded transition-colors"
-            >
-              Replace Contract
-            </button>
-          </div>
-        )}
 
         {/* Metadata Grid */}
         <div className="grid grid-cols-6 gap-4 text-sm">
@@ -187,6 +234,7 @@ const ContractMetadataBar: React.FC<ContractMetadataBarProps> = ({ isLocked = fa
                   inputMode="numeric"
                   value={contractSum}
                   onChange={(e) => handleContractSumChange(e.target.value)}
+                  onBlur={commitContractSum}
                   placeholder="0"
                   className="w-full pl-7 pr-3 py-2 bg-white border border-gray-300 rounded text-gray-900 font-semibold focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                 />
@@ -240,6 +288,21 @@ const ContractMetadataBar: React.FC<ContractMetadataBarProps> = ({ isLocked = fa
         </div>
 
       </div>
+
+      <PcValueChangeModal
+        open={showPcModal}
+        newValue={pendingPcValue ?? 0}
+        onConfirm={() => {
+          if (pendingPcValue != null) requestPcValueChange(pendingPcValue);
+          setShowPcModal(false);
+          setPendingPcValue(null);
+        }}
+        onCancel={() => {
+          setContractSum(contractData.contractSum ?? '');
+          setShowPcModal(false);
+          setPendingPcValue(null);
+        }}
+      />
     </div>
   );
 };

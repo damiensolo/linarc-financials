@@ -11,7 +11,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../com
 
 const modes: { id: ViewMode; label: string; icon: React.FC<React.SVGProps<SVGSVGElement>> }[] = [
   { id: 'table', label: 'Table', icon: TableIcon },
-  { id: 'spreadsheetV2', label: 'Spreadsheet', icon: SpreadsheetIcon },
   { id: 'spreadsheetV4', label: 'Spreadsheet +', icon: GridPlusIcon },
 ];
 

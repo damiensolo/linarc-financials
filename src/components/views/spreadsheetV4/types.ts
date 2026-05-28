@@ -33,6 +33,8 @@ export interface V3CellStyle {
   italic?: boolean;
 }
 
+import type { BudgetLineState } from '../../../types';
+
 export interface V3Row {
   id: string;
   cells: Record<string, CellValue>;
@@ -43,6 +45,9 @@ export interface V3Row {
   isGroup?: boolean;
   level?: number;
   isDraft?: boolean;
+  lineState?: BudgetLineState;
+  approvalRequestId?: string;
+  changeOrderId?: string;
 }
 
 export interface V3Sheet {

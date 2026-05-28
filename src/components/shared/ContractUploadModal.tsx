@@ -6,7 +6,12 @@ import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { useProject } from '../../context/ProjectContext';
 import { XIcon, CloudIcon, ChevronRightIcon, PlusIcon, TrashIcon } from '../common/Icons';
 import { DatePicker } from '../common/ui/DatePicker';
-import { extractLineItems, createBudgetRowsFromLineItems } from '../../lib/contractLineExtraction';
+import { extractLineItems, createPrimeContractRowsFromLineItems } from '../../lib/contractLineExtraction';
+import {
+  DEFAULT_PRIME_CONTRACT_COLUMNS,
+  PRIME_CONTRACT_SHEET_ID,
+  createEmptyPrimeContractSheet,
+} from '../../lib/financialWorkflow';
 import type { ContractData } from '../../types';
 import { V3Sheet, V3Row } from '../views/spreadsheetV4/types';
 import { uid } from '../views/spreadsheetV4/SpreadsheetViewV4';
@@ -105,7 +110,7 @@ function extractContractFields(text: string): ExtractedContract {
 }
 
 const ContractUploadModal: React.FC = () => {
-  const { isContractUploadOpen, setIsContractUploadOpen, setIsManualEntryOpen, contractData, setContractData, updateView, activeView, setFinancialSetupStep, setContractLocked } = useProject();
+  const { isContractUploadOpen, setIsContractUploadOpen, contractData, setContractData, updateView, activeView, setFinancialSetupStep, setContractLocked, setPrimeContractSetupPhase } = useProject();
 
   const [step, setStep] = useState<ModalStep>('upload');
   const [entryMethod, setEntryMethod] = useState<EntryMethod>('file');
@@ -278,35 +283,30 @@ const ContractUploadModal: React.FC = () => {
       extractionMethod,
     });
 
-    // Create budget sheet from file upload
-    let budgetRows: V3Row[] = [];
+    // Create prime contract sheet from file upload
+    let primeRows: V3Row[] = [];
 
     if (rawContractText) {
-      // Extract line items from uploaded file
       const extracted = extractLineItems(rawContractText);
-      budgetRows = createBudgetRowsFromLineItems(extracted).map((row, idx) => ({
-        ...row,
-        cells: { ...row.cells, sno: idx + 1 }
-      }));
+      primeRows = createPrimeContractRowsFromLineItems(extracted);
     }
 
-    const budgetSheet: V3Sheet = {
-      id: 'sheet-budget',
-      name: 'Prime Contract Budget',
-      columns: [
-        { id: 'sno',           label: 'S.No',              type: 'number',   width: 60,  align: 'right',  editable: false, visible: true },
-        { id: 'name',          label: 'Contract Line',     type: 'text',     width: 400, editable: true,  visible: true },
-        { id: 'totalBudget',   label: 'Contract Value',    type: 'currency', width: 150, align: 'right',  editable: true, visible: true, isTotal: true },
-      ],
-      rows: budgetRows.length > 0 ? budgetRows : [{ id: 'empty-row', cells: {} }],
-    };
+    const primeContractSheet: V3Sheet = primeRows.length > 0
+      ? {
+          id: PRIME_CONTRACT_SHEET_ID,
+          name: 'Prime Contract',
+          columns: DEFAULT_PRIME_CONTRACT_COLUMNS,
+          rows: primeRows,
+        }
+      : createEmptyPrimeContractSheet();
 
     updateView({
-      v3Sheets: [budgetSheet],
-      v3ActiveSheetId: 'sheet-budget',
+      v3Sheets: [primeContractSheet],
+      v3ActiveSheetId: PRIME_CONTRACT_SHEET_ID,
     });
 
     setContractLocked(false);
+    setPrimeContractSetupPhase('review');
     setFinancialSetupStep(2);
     handleClose();
   };
@@ -328,7 +328,13 @@ const ContractUploadModal: React.FC = () => {
       extractionMethod: 'manual',
     } as ContractData);
 
+    updateView({
+      v3Sheets: [createEmptyPrimeContractSheet()],
+      v3ActiveSheetId: PRIME_CONTRACT_SHEET_ID,
+    });
+
     setContractLocked(false);
+    setPrimeContractSetupPhase('review');
     setFinancialSetupStep(2);
     handleClose();
   };

@@ -184,7 +184,7 @@ export interface View {
   baseViewType?: ViewMode;
   showToolbarLabels: boolean;
   metadata: ViewMetadata;
-  v3Sheets?: import('../components/views/spreadsheetV3/types').V3Sheet[] | null;
+  v3Sheets?: import('../components/views/spreadsheetV4/types').V3Sheet[] | null;
   v3ActiveSheetId?: string | null;
 }
 
@@ -199,7 +199,14 @@ export interface ContractData {
   projectName:      string;
   fileName:         string;
   uploadedAt:       string;
-  extractionMethod: 'parsed' | 'fallback';
+  extractionMethod: 'parsed' | 'fallback' | 'manual';
+}
+
+export type ApprovalRole = 'gc' | 'pe' | 'owner';
+
+export interface ApprovalRoutingConfig {
+  roles: ApprovalRole[];
+  requireAll: boolean;
 }
 
 export interface FinancialConfig {
@@ -207,6 +214,50 @@ export interface FinancialConfig {
   defaultOverhead: number;
   billingCutoffDay: number;
   allowMultiplePayApps: boolean;
+  perLineApprovalEnabled: boolean;
+  approvalRouting: ApprovalRoutingConfig;
+  costCodeEnforcementConfirmed: boolean;
 }
 
-export type FinancialSetupStep = 0 | 1 | 2 | 3 | 4 | 5;
+export type PrimeContractState = 'none' | 'open' | 'locked';
+export type BudgetLineState = 'open' | 'pending_approval' | 'locked';
+export type FinancialActivationState = 'setup' | 'operating' | 'activated';
+export type FinancialSetupStep = 1 | 2 | 3 | 4 | 5;
+export type PrimeContractSetupPhase = 'choose' | 'review';
+
+export interface ApprovalRequest {
+  id: string;
+  type: 'pc_value_change' | 'line_commit' | 'bulk_line_commit';
+  rowIds?: string[];
+  status: 'pending' | 'approved' | 'rejected';
+  requestedAt: string;
+  requestedBy: string;
+  approverRole: ApprovalRole;
+  approverName: string;
+  reason?: string;
+  proposedPcValue?: number;
+  currentPcValue?: number;
+  lineDescription?: string;
+}
+
+export interface SOVMapping {
+  rowId: string;
+  sovLineNumber: number;
+  sovDescription: string;
+  amount: number;
+}
+
+export interface WBSLink {
+  rowId: string;
+  wbsActivityId: string;
+  wbsActivityName: string;
+  costCode: string;
+}
+
+export interface PublishReadinessCheck {
+  id: string;
+  label: string;
+  met: boolean;
+  actionStep?: FinancialSetupStep;
+  actionTab?: 'sov' | 'schedule';
+}

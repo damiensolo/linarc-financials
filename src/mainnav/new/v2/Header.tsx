@@ -45,7 +45,7 @@ import ProjectDetailsCard from './ProjectDetailsCard';
 import BookmarksMenu from './FavoritesMenu';
 import Tooltip from './Tooltip';
 import { useProject } from '../../../context/ProjectContext';
-import { isHeaderCategoryLocked, getHeaderCategoryTooltip } from '../../../lib/financialGating';
+import { useFinancialGating } from '../../../hooks/useFinancialGating';
 
 // Custom CSS for responsive nav items 5+
 const navResponsiveStyles = `
@@ -544,6 +544,7 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
     const bookmarksMenuRef = useRef<HTMLDivElement>(null);
     const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const { activeViewMode, activeView, financialSetupStep } = useProject();
+    const { isHeaderLocked, headerTooltip } = useFinancialGating();
     const { bookmarks, toggleBookmark, getBookmarkItems } = useBookmarks();
 
     const hoverCountRef = useRef(0);
@@ -643,7 +644,7 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
     // FIX: Add type guard to safely access properties on `category`.
     // This ensures `category` is a `StandardCategoryData` before we try to find an item in its `items` array.
     const handleSelect = useCallback((categoryKey: string, subcategoryKey: string) => {
-        if (isHeaderCategoryLocked(categoryKey, financialSetupStep)) return;
+        if (isHeaderLocked(categoryKey)) return;
         if (categoryKey !== 'more') {
             const category = navigationData[categoryKey];
             if ('mainIcon' in category) { // Type guard
@@ -865,8 +866,8 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
                                 else if (index === 7) responsiveClass = "nav-item-7";
                                 else if (index === 8) responsiveClass = "nav-item-8";
 
-                                const locked = isHeaderCategoryLocked(item.key, financialSetupStep);
-                                const tip = getHeaderCategoryTooltip(item.key, financialSetupStep);
+                                const locked = isHeaderLocked(item.key);
+                                const tip = headerTooltip(item.key);
 
                                 const navItemElement = (
                                     <NavItem

@@ -1,6 +1,18 @@
 import React, { createContext, useState, useMemo, useCallback, useContext, useRef, useEffect, SetStateAction, ReactNode } from 'react';
 import { MOCK_TASKS, MOCK_BUDGET_DATA } from '../data';
-import { Task, View, FilterRule, HighlightRule, Priority, ColumnId, Status, DisplayDensity, Column, ViewMode, ViewCategory, ContractData, FinancialConfig, FinancialSetupStep } from '../types';
+import {
+  Task, View, FilterRule, HighlightRule, Priority, ColumnId, Status, DisplayDensity, Column, ViewMode, ViewCategory,
+  ContractData, FinancialConfig, FinancialSetupStep, FinancialActivationState, ApprovalRequest, SOVMapping, WBSLink,
+  PrimeContractState, PublishReadinessCheck, PrimeContractSetupPhase,
+} from '../types';
+import {
+  getBudgetRows, getBudgetSheet, getPrimeContractRows, getPrimeContractSheet, hasPcValue, hasCommittedLines,
+  isBudgetFullyLocked, countLinesByState, committedLineCount, getPrimeContractState, createEmptyBudgetSheet,
+  createEmptyPrimeContractSheet, createBudgetColumns, seedBudgetRowsFromPrimeContract, APPROVER_NAMES,
+} from '../lib/financialWorkflow';
+import { computePublishReadiness, allPublishChecksMet } from '../lib/financialGating';
+import { loadFinancialState, saveFinancialState, reviveContractDates } from '../lib/financialPersistence';
+import type { V3Row } from '../components/views/spreadsheetV4/types';
 import { getDefaultTableColumns, getDefaultSpreadsheetColumns } from '../constants';
 
 type SortConfig = {
@@ -151,19 +163,53 @@ interface ProjectContextType {
   setContractData: React.Dispatch<SetStateAction<ContractData | null>>;
   isContractUploadOpen: boolean;
   setIsContractUploadOpen: (open: boolean) => void;
-  contractConfirmed: boolean;
-  setContractConfirmed: (confirmed: boolean) => void;
   contractLocked: boolean;
   setContractLocked: React.Dispatch<SetStateAction<boolean>>;
   financialConfig: FinancialConfig | null;
   setFinancialConfig: React.Dispatch<SetStateAction<FinancialConfig | null>>;
   financialSetupStep: FinancialSetupStep;
   setFinancialSetupStep: React.Dispatch<SetStateAction<FinancialSetupStep>>;
-  budgetLocked: boolean;
-  setBudgetLocked: React.Dispatch<SetStateAction<boolean>>;
-  isManualEntryOpen: boolean;
-  setIsManualEntryOpen: (open: boolean) => void;
+  activationState: FinancialActivationState;
+  sovPublished: boolean;
+  approvalQueue: ApprovalRequest[];
+  sovMappings: SOVMapping[];
+  wbsLinks: WBSLink[];
+  hubCollapsed: boolean;
+  primeContractSetupPhase: import('../types').PrimeContractSetupPhase;
+  setPrimeContractSetupPhase: React.Dispatch<React.SetStateAction<import('../types').PrimeContractSetupPhase>>;
+  setHubCollapsed: React.Dispatch<SetStateAction<boolean>>;
+  opsActiveTab: 'sov' | 'schedule';
+  setOpsActiveTab: React.Dispatch<SetStateAction<'sov' | 'schedule'>>;
+  // Derived selectors
+  hasPcValue: boolean;
+  primeContractState: PrimeContractState;
+  budgetRows: V3Row[];
+  primeContractRows: V3Row[];
+  lineCounts: ReturnType<typeof countLinesByState>;
+  committedLineCount: number;
+  canAccessBudget: boolean;
+  canAccessOperations: boolean;
+  budgetFullyLocked: boolean;
   financialSetupComplete: boolean;
+  publishReadiness: PublishReadinessCheck[];
+  canPublishSOV: boolean;
+  // Actions
+  updateBudgetRows: (rows: V3Row[]) => void;
+  updatePrimeContractRows: (rows: V3Row[]) => void;
+  seedBudgetFromPrimeContract: () => void;
+  initializeBlankBudget: () => void;
+  commitLine: (rowId: string) => void;
+  bulkCommitOpenLines: () => void;
+  approveRequest: (requestId: string) => void;
+  rejectRequest: (requestId: string, reason: string) => void;
+  requestPcValueChange: (newValue: number) => boolean;
+  applyPcValueChange: (newValue: number) => void;
+  addSovMapping: (mapping: SOVMapping) => void;
+  addWbsLink: (link: WBSLink) => void;
+  removeSovMapping: (rowId: string) => void;
+  removeWbsLink: (rowId: string) => void;
+  publishSOV: () => boolean;
+  navigateToSetupStep: (step: FinancialSetupStep, tab?: 'sov' | 'schedule') => void;
 }
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
@@ -195,12 +241,17 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [isPDFModalOpen, setIsPDFModalOpen] = useState(false);
   const [contractData, setContractData] = useState<ContractData | null>(null);
   const [isContractUploadOpen, setIsContractUploadOpen] = useState(false);
-  const [contractConfirmed, setContractConfirmed] = useState(false);
   const [contractLocked, setContractLocked] = useState(false);
   const [financialConfig, setFinancialConfig] = useState<FinancialConfig | null>(null);
-  const [financialSetupStep, setFinancialSetupStep] = useState<FinancialSetupStep>(0);
-  const [budgetLocked, setBudgetLocked] = useState(false);
-  const [isManualEntryOpen, setIsManualEntryOpen] = useState(false);
+  const [financialSetupStep, setFinancialSetupStep] = useState<FinancialSetupStep>(1);
+  const [activationState, setActivationState] = useState<FinancialActivationState>('setup');
+  const [sovPublished, setSovPublished] = useState(false);
+  const [approvalQueue, setApprovalQueue] = useState<ApprovalRequest[]>([]);
+  const [sovMappings, setSovMappings] = useState<SOVMapping[]>([]);
+  const [wbsLinks, setWbsLinks] = useState<WBSLink[]>([]);
+  const [hubCollapsed, setHubCollapsed] = useState(false);
+  const [primeContractSetupPhase, setPrimeContractSetupPhase] = useState<PrimeContractSetupPhase>('choose');
+  const [opsActiveTab, setOpsActiveTab] = useState<'sov' | 'schedule'>('sov');
 
   // Initialize with System Views
   useEffect(() => {
@@ -213,6 +264,41 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
             setDefaultViewId(defaultView.id);
         }
     }
+  }, []);
+
+  // Restore persisted financial workflow state
+  useEffect(() => {
+    const saved = loadFinancialState();
+    if (!saved) return;
+    if (saved.financialConfig) setFinancialConfig(saved.financialConfig as FinancialConfig);
+    if (saved.contractData) {
+      setContractData(reviveContractDates(saved.contractData as Record<string, unknown>) as ContractData);
+    }
+    if (typeof saved.contractLocked === 'boolean') setContractLocked(saved.contractLocked);
+    if (saved.financialSetupStep && saved.financialSetupStep >= 1 && saved.financialSetupStep <= 5) {
+      setFinancialSetupStep(saved.financialSetupStep as FinancialSetupStep);
+    }
+    if (saved.activationState) setActivationState(saved.activationState as FinancialActivationState);
+    if (typeof saved.sovPublished === 'boolean') setSovPublished(saved.sovPublished);
+    if (saved.approvalQueue) setApprovalQueue(saved.approvalQueue as ApprovalRequest[]);
+    if (saved.sovMappings) setSovMappings(saved.sovMappings as SOVMapping[]);
+    if (saved.wbsLinks) setWbsLinks(saved.wbsLinks as WBSLink[]);
+    if (typeof saved.hubCollapsed === 'boolean') setHubCollapsed(saved.hubCollapsed);
+    if (saved.primeContractSetupPhase === 'choose' || saved.primeContractSetupPhase === 'review') {
+      setPrimeContractSetupPhase(saved.primeContractSetupPhase);
+    } else {
+      setPrimeContractSetupPhase('choose');
+    }
+    if (saved.v3Sheets) {
+      setTransientView((prev) => ({
+        ...(prev ?? { id: 'transient-spreadsheetV4', name: 'Default View', ...getDefaultViewConfig('spreadsheetV4') }),
+        v3Sheets: saved.v3Sheets as View['v3Sheets'],
+        v3ActiveSheetId: saved.v3ActiveSheetId ?? 'sheet-budget',
+        type: 'spreadsheetV4',
+      } as View));
+      setActiveViewMode('spreadsheetV4');
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const activeView = useMemo<View>(() => {
@@ -547,6 +633,288 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
       }
   };
 
+  const budgetRows = useMemo(() => getBudgetRows(activeView.v3Sheets), [activeView.v3Sheets]);
+  const primeContractRows = useMemo(() => getPrimeContractRows(activeView.v3Sheets), [activeView.v3Sheets]);
+  const lineCounts = useMemo(() => countLinesByState(budgetRows), [budgetRows]);
+  const pcValueExists = useMemo(() => hasPcValue(contractData), [contractData]);
+  const primeContractState = useMemo(
+    () => getPrimeContractState(contractData, contractLocked),
+    [contractData, contractLocked]
+  );
+  const committedCount = useMemo(() => committedLineCount(budgetRows), [budgetRows]);
+  const canAccessBudgetFlag = pcValueExists;
+  const canAccessOperationsFlag = useMemo(() => hasCommittedLines(budgetRows), [budgetRows]);
+  const budgetFullyLocked = useMemo(() => isBudgetFullyLocked(budgetRows), [budgetRows]);
+  const financialSetupComplete = activationState === 'activated';
+  const publishReadiness = useMemo(
+    () => computePublishReadiness(budgetRows, sovMappings, wbsLinks, approvalQueue),
+    [budgetRows, sovMappings, wbsLinks, approvalQueue]
+  );
+  const canPublishSOV = useMemo(() => allPublishChecksMet(publishReadiness), [publishReadiness]);
+
+  const updateBudgetRows = useCallback((rows: V3Row[]) => {
+    const sheets = activeViewRef.current.v3Sheets ?? [];
+    const budgetSheet = getBudgetSheet(sheets) ?? createEmptyBudgetSheet(financialConfig);
+    const withColumns = { ...budgetSheet, columns: createBudgetColumns(financialConfig) };
+    const updatedSheets = sheets.some((s) => s.id === withColumns.id)
+      ? sheets.map((s) => (s.id === withColumns.id ? { ...withColumns, rows } : s))
+      : [...sheets, { ...withColumns, rows }];
+    updateView({ v3Sheets: updatedSheets, v3ActiveSheetId: withColumns.id });
+  }, [updateView, financialConfig]);
+
+  const updatePrimeContractRows = useCallback((rows: V3Row[]) => {
+    const sheets = activeViewRef.current.v3Sheets ?? [];
+    const pcSheet = getPrimeContractSheet(sheets) ?? createEmptyPrimeContractSheet();
+    const updatedSheets = sheets.some((s) => s.id === pcSheet.id)
+      ? sheets.map((s) => (s.id === pcSheet.id ? { ...s, rows } : s))
+      : [...sheets, { ...pcSheet, rows }];
+    updateView({ v3Sheets: updatedSheets, v3ActiveSheetId: pcSheet.id });
+  }, [updateView]);
+
+  const seedBudgetFromPrimeContract = useCallback(() => {
+    const sheets = activeViewRef.current.v3Sheets ?? [];
+    const primeRows = getPrimeContractRows(sheets);
+    const seeded = seedBudgetRowsFromPrimeContract(primeRows);
+    const budgetSheet = getBudgetSheet(sheets) ?? createEmptyBudgetSheet(financialConfig);
+    const updatedSheet = {
+      ...budgetSheet,
+      columns: createBudgetColumns(financialConfig),
+      rows: seeded.length > 0 ? seeded : [{ id: `row-${Date.now()}`, cells: {}, lineState: 'open' as const }],
+    };
+    const updatedSheets = sheets.some((s) => s.id === budgetSheet.id)
+      ? sheets.map((s) => (s.id === budgetSheet.id ? updatedSheet : s))
+      : [...sheets, updatedSheet];
+    updateView({ v3Sheets: updatedSheets, v3ActiveSheetId: budgetSheet.id });
+  }, [financialConfig, updateView]);
+
+  const initializeBlankBudget = useCallback(() => {
+    const blankRow: V3Row = { id: `row-${Date.now()}`, cells: {}, lineState: 'open' };
+    const sheets = activeViewRef.current.v3Sheets ?? [];
+    const budgetSheet = getBudgetSheet(sheets) ?? createEmptyBudgetSheet(financialConfig);
+    const updatedSheet = {
+      ...budgetSheet,
+      columns: createBudgetColumns(financialConfig),
+      rows: [blankRow],
+    };
+    const updatedSheets = sheets.some((s) => s.id === budgetSheet.id)
+      ? sheets.map((s) => (s.id === budgetSheet.id ? updatedSheet : s))
+      : [...sheets, updatedSheet];
+    updateView({ v3Sheets: updatedSheets, v3ActiveSheetId: budgetSheet.id });
+  }, [financialConfig, updateView]);
+
+  const enqueueApproval = useCallback((
+    type: ApprovalRequest['type'],
+    rowIds: string[] | undefined,
+    extra: Partial<ApprovalRequest> = {}
+  ): ApprovalRequest => {
+    const role = financialConfig?.approvalRouting.roles[0] ?? 'gc';
+    const req: ApprovalRequest = {
+      id: `apr-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      type,
+      rowIds,
+      status: 'pending',
+      requestedAt: new Date().toISOString(),
+      requestedBy: 'You',
+      approverRole: role,
+      approverName: APPROVER_NAMES[role] ?? role,
+      ...extra,
+    };
+    setApprovalQueue((prev) => [...prev, req]);
+    return req;
+  }, [financialConfig]);
+
+  const commitLine = useCallback((rowId: string) => {
+    const perLineApproval = financialConfig?.perLineApprovalEnabled ?? false;
+    const rows = getBudgetRows(activeViewRef.current.v3Sheets);
+    const target = rows.find((r) => r.id === rowId);
+    if (!target || (target.lineState ?? 'open') !== 'open') return;
+
+    if (perLineApproval) {
+      const req = enqueueApproval('line_commit', [rowId], {
+        lineDescription: String(target.cells['name'] ?? 'Line item'),
+      });
+      updateBudgetRows(
+        rows.map((r) =>
+          r.id === rowId
+            ? { ...r, lineState: 'pending_approval' as const, approvalRequestId: req.id }
+            : r
+        )
+      );
+    } else {
+      updateBudgetRows(
+        rows.map((r) => (r.id === rowId ? { ...r, lineState: 'locked' as const } : r))
+      );
+    }
+  }, [financialConfig, enqueueApproval, updateBudgetRows]);
+
+  const bulkCommitOpenLines = useCallback(() => {
+    const perLineApproval = financialConfig?.perLineApprovalEnabled ?? false;
+    const rows = getBudgetRows(activeViewRef.current.v3Sheets);
+    const openIds = rows.filter((r) => (r.lineState ?? 'open') === 'open').map((r) => r.id);
+    if (openIds.length === 0) return;
+
+    if (perLineApproval) {
+      const req = enqueueApproval('bulk_line_commit', openIds);
+      updateBudgetRows(
+        rows.map((r) =>
+          openIds.includes(r.id)
+            ? { ...r, lineState: 'pending_approval' as const, approvalRequestId: req.id }
+            : r
+        )
+      );
+    } else {
+      updateBudgetRows(
+        rows.map((r) =>
+          openIds.includes(r.id) ? { ...r, lineState: 'locked' as const } : r
+        )
+      );
+    }
+  }, [financialConfig, enqueueApproval, updateBudgetRows]);
+
+  const approveRequest = useCallback((requestId: string) => {
+    const req = approvalQueue.find((a) => a.id === requestId);
+    if (!req || req.status !== 'pending') return;
+
+    setApprovalQueue((prev) =>
+      prev.map((a) => (a.id === requestId ? { ...a, status: 'approved' as const } : a))
+    );
+
+    if (req.type === 'pc_value_change' && req.proposedPcValue != null) {
+      setContractData((prev) =>
+        prev ? { ...prev, contractSum: req.proposedPcValue! } : prev
+      );
+    }
+
+    if (req.type === 'line_commit' || req.type === 'bulk_line_commit') {
+      const rowIds = req.rowIds ?? [];
+      const rows = getBudgetRows(activeViewRef.current.v3Sheets);
+      updateBudgetRows(
+        rows.map((r) =>
+          rowIds.includes(r.id) ? { ...r, lineState: 'locked' as const } : r
+        )
+      );
+    }
+  }, [approvalQueue, updateBudgetRows]);
+
+  const rejectRequest = useCallback((requestId: string, reason: string) => {
+    const req = approvalQueue.find((a) => a.id === requestId);
+    if (!req || req.status !== 'pending') return;
+
+    setApprovalQueue((prev) =>
+      prev.map((a) => (a.id === requestId ? { ...a, status: 'rejected' as const, reason } : a))
+    );
+
+    if (req.type === 'line_commit' || req.type === 'bulk_line_commit') {
+      const rowIds = req.rowIds ?? [];
+      const rows = getBudgetRows(activeViewRef.current.v3Sheets);
+      updateBudgetRows(
+        rows.map((r) =>
+          rowIds.includes(r.id)
+            ? { ...r, lineState: 'open' as const, approvalRequestId: undefined }
+            : r
+        )
+      );
+    }
+  }, [approvalQueue, updateBudgetRows]);
+
+  const requestPcValueChange = useCallback((newValue: number): boolean => {
+    if (!contractData) return false;
+    if (!hasCommittedLines(getBudgetRows(activeViewRef.current.v3Sheets))) {
+      setContractData((prev) => (prev ? { ...prev, contractSum: newValue } : prev));
+      return true;
+    }
+    enqueueApproval('pc_value_change', undefined, {
+      currentPcValue: contractData.contractSum ?? 0,
+      proposedPcValue: newValue,
+    });
+    return false;
+  }, [contractData, enqueueApproval]);
+
+  const applyPcValueChange = useCallback((newValue: number) => {
+    setContractData((prev) => (prev ? { ...prev, contractSum: newValue } : prev));
+  }, []);
+
+  const addSovMapping = useCallback((mapping: SOVMapping) => {
+    setSovMappings((prev) => [...prev.filter((m) => m.rowId !== mapping.rowId), mapping]);
+  }, []);
+
+  const addWbsLink = useCallback((link: WBSLink) => {
+    setWbsLinks((prev) => [...prev.filter((l) => l.rowId !== link.rowId), link]);
+  }, []);
+
+  const removeSovMapping = useCallback((rowId: string) => {
+    setSovMappings((prev) => prev.filter((m) => m.rowId !== rowId));
+  }, []);
+
+  const removeWbsLink = useCallback((rowId: string) => {
+    setWbsLinks((prev) => prev.filter((l) => l.rowId !== rowId));
+  }, []);
+
+  const publishSOV = useCallback((): boolean => {
+    if (!allPublishChecksMet(computePublishReadiness(
+      getBudgetRows(activeViewRef.current.v3Sheets),
+      sovMappings,
+      wbsLinks,
+      approvalQueue
+    ))) {
+      return false;
+    }
+    setSovPublished(true);
+    setActivationState('activated');
+    setFinancialSetupStep(5);
+    setHubCollapsed(true);
+    return true;
+  }, [sovMappings, wbsLinks, approvalQueue]);
+
+  const navigateToSetupStep = useCallback((step: FinancialSetupStep, tab?: 'sov' | 'schedule') => {
+    setFinancialSetupStep(step);
+    if (tab) setOpsActiveTab(tab);
+    setHubCollapsed(false);
+  }, []);
+
+  useEffect(() => {
+    if (activationState === 'activated') return;
+    if (sovPublished) {
+      setActivationState('activated');
+    } else if (hasCommittedLines(budgetRows) || pcValueExists) {
+      setActivationState('operating');
+    } else {
+      setActivationState('setup');
+    }
+  }, [budgetRows, pcValueExists, sovPublished, activationState]);
+
+  useEffect(() => {
+    saveFinancialState({
+      financialConfig,
+      contractData,
+      contractLocked,
+      financialSetupStep,
+      activationState,
+      sovPublished,
+      approvalQueue,
+      sovMappings,
+      wbsLinks,
+      hubCollapsed,
+      primeContractSetupPhase,
+      v3Sheets: activeView.v3Sheets ?? null,
+      v3ActiveSheetId: activeView.v3ActiveSheetId ?? null,
+    });
+  }, [
+    financialConfig,
+    contractData,
+    contractLocked,
+    financialSetupStep,
+    activationState,
+    sovPublished,
+    approvalQueue,
+    sovMappings,
+    wbsLinks,
+    hubCollapsed,
+    primeContractSetupPhase,
+    activeView.v3Sheets,
+    activeView.v3ActiveSheetId,
+  ]);
+
   const value: ProjectContextType = {
     tasks, setTasks,
     views, setViews,
@@ -606,19 +974,51 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     setContractData,
     isContractUploadOpen,
     setIsContractUploadOpen,
-    contractConfirmed,
-    setContractConfirmed,
     contractLocked,
     setContractLocked,
     financialConfig,
     setFinancialConfig,
     financialSetupStep,
     setFinancialSetupStep,
-    budgetLocked,
-    setBudgetLocked,
-    isManualEntryOpen,
-    setIsManualEntryOpen,
-    get financialSetupComplete() { return this.financialSetupStep === 6; }
+    activationState,
+    sovPublished,
+    approvalQueue,
+    sovMappings,
+    wbsLinks,
+    hubCollapsed,
+    setHubCollapsed,
+    primeContractSetupPhase,
+    setPrimeContractSetupPhase,
+    opsActiveTab,
+    setOpsActiveTab,
+    hasPcValue: pcValueExists,
+    primeContractState,
+    budgetRows,
+    primeContractRows,
+    lineCounts,
+    committedLineCount: committedCount,
+    canAccessBudget: canAccessBudgetFlag,
+    canAccessOperations: canAccessOperationsFlag,
+    budgetFullyLocked,
+    financialSetupComplete,
+    publishReadiness,
+    canPublishSOV,
+    updateBudgetRows,
+    updatePrimeContractRows,
+    seedBudgetFromPrimeContract,
+    initializeBlankBudget,
+    commitLine,
+    bulkCommitOpenLines,
+    approveRequest,
+    rejectRequest,
+    requestPcValueChange,
+    applyPcValueChange,
+    addSovMapping,
+    addWbsLink,
+    removeSovMapping,
+    removeWbsLink,
+    publishSOV,
+    navigateToSetupStep,
   };
 
   return <ProjectContext.Provider value={value}>{children}</ProjectContext.Provider>;
