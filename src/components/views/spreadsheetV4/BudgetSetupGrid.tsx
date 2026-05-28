@@ -32,6 +32,7 @@ import { SPREADSHEET_INDEX_COLUMN_WIDTH, BUDGET_STATUS_COLUMN_WIDTH, BUDGET_ACTI
 import SpreadsheetIndexCell from './SpreadsheetIndexCell';
 import SpreadsheetIndexHeaderCell from './SpreadsheetIndexHeaderCell';
 import SpreadsheetTableFooterBar from './SpreadsheetTableFooterBar';
+import SpreadsheetTableEmptyState from './SpreadsheetTableEmptyState';
 
 import BudgetSeedPromptModal from './BudgetSeedPromptModal';
 
@@ -42,6 +43,13 @@ import ChangeOrderModal from './ChangeOrderModal';
 import LockBudgetModal from './LockBudgetModal';
 
 import MissingCostCodeModal from './MissingCostCodeModal';
+
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../../common/ui/Tooltip';
 
 import { colAlignClass, formatCurrency, formatCellCurrency } from './spreadsheetTableUtils';
 
@@ -417,6 +425,22 @@ const BudgetSetupGrid: React.FC = () => {
     [budgetRows]
   );
 
+  const isTableEmpty = useMemo(() => isBudgetSheetEmpty(budgetRows), [budgetRows]);
+
+  const canLockBudget = lineCounts.open > 0 && openLinesMissingCostCode === 0;
+
+  const lockBudgetTooltip = useMemo(() => {
+    if (lineCounts.open === 0) {
+      return 'All budget lines are already committed — there is nothing left to lock.';
+    }
+    if (openLinesMissingCostCode > 0) {
+      const lineWord = lineCounts.open === 1 ? 'line' : 'lines';
+      const missingWord = openLinesMissingCostCode === 1 ? 'line is' : 'lines are';
+      return `Every open line needs a cost code before you can lock the budget. ${openLinesMissingCostCode} of ${lineCounts.open} open ${lineWord} ${missingWord} still missing one — add cost codes in the highlighted cells, then try again.`;
+    }
+    return `Commit all ${lineCounts.open} remaining open ${lineCounts.open === 1 ? 'line' : 'lines'} at once.`;
+  }, [lineCounts.open, openLinesMissingCostCode]);
+
   const handleRequestCommit = (row: V3Row) => {
     if (rowMissingCostCode(row)) {
       setMissingCostCodeContext({
@@ -528,21 +552,25 @@ const BudgetSetupGrid: React.FC = () => {
 
           </button>
 
-          <button
-
-            type="button"
-
-            onClick={handleRequestLockBudget}
-
-            disabled={lineCounts.open === 0}
-
-            className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-gray-300"
-
-          >
-
-            <Lock size={14} /> Lock Budget
-
-          </button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-flex">
+                  <button
+                    type="button"
+                    onClick={handleRequestLockBudget}
+                    disabled={!canLockBudget}
+                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                  >
+                    <Lock size={14} /> Lock Budget
+                  </button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                {lockBudgetTooltip}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
 
         </div>
 
@@ -571,7 +599,13 @@ const BudgetSetupGrid: React.FC = () => {
 
 
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-        <div ref={scrollContainerRef} className="flex-1 overflow-auto min-h-0">
+        <div ref={scrollContainerRef} className="flex-1 overflow-auto min-h-0 relative">
+          {isTableEmpty && (
+            <SpreadsheetTableEmptyState
+              title="Add your first budget line"
+              description="Enter a description, cost code, and budget amounts in the row above. Use Add row below for more lines — commit each line when it is ready."
+            />
+          )}
         <table
           className="text-sm border-collapse"
           style={{ fontSize, minWidth: tableMinWidth }}

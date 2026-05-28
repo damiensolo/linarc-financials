@@ -33,6 +33,15 @@ export function hasPcValue(contractData: ContractData | null): boolean {
   return contractData != null && contractData.contractSum != null && contractData.contractSum > 0;
 }
 
+export function hasUploadedContractDocument(contractData: ContractData | null): boolean {
+  if (!contractData) return false;
+  return (
+    Boolean(contractData.fileName) &&
+    contractData.fileName !== 'Manual Entry' &&
+    contractData.extractionMethod !== 'manual'
+  );
+}
+
 export function getPrimeContractState(
   contractData: ContractData | null,
   contractLocked: boolean
@@ -231,6 +240,11 @@ function rowHasMeaningfulData(row: V3Row, fieldIds: string[]): boolean {
 
 export function hasPrimeContractLineData(rows: V3Row[]): boolean {
   return rows.some((row) => rowHasMeaningfulData(row, ['costCode', 'name', 'contractValue', 'totalBudget']));
+}
+
+export function isPrimeContractSheetEmpty(rows: V3Row[]): boolean {
+  if (rows.length === 0) return true;
+  return !hasPrimeContractLineData(rows);
 }
 
 export function isBudgetSheetEmpty(rows: V3Row[]): boolean {

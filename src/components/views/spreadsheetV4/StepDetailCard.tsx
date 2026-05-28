@@ -1,6 +1,13 @@
 import React, { useState } from 'react';
 import { ChevronRight, Lock, ArrowLeft } from 'lucide-react';
 import { useProject } from '../../../context/ProjectContext';
+import { hasUploadedContractDocument } from '../../../lib/financialWorkflow';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../../common/ui/Tooltip';
 import FinancialConfigStep from './FinancialConfigStep';
 import ContractReviewLockScreen from './ContractReviewLockScreen';
 import PrimeContractChoiceStep from './PrimeContractChoiceStep';
@@ -124,7 +131,9 @@ const StepDetailCard: React.FC = () => {
   const showContractActions =
     financialSetupStep === 2 && primeContractSetupPhase === 'review' && contractData;
 
-  const handleReplaceContract = () => {
+  const hasUploadedDocument = hasUploadedContractDocument(contractData);
+
+  const handleContractFileAction = () => {
     setContractLocked(false);
     setIsContractUploadOpen(true);
   };
@@ -149,24 +158,33 @@ const StepDetailCard: React.FC = () => {
               <ArrowLeft size={16} />
               Back to entry options
             </button>
-            <p className="text-sm text-gray-600 truncate hidden md:block">
-              {contractLocked ? (
-                <span className="text-green-700 font-medium">Contract locked as baseline. Budget setup is available.</span>
-              ) : (
-                'Prime Contract is open. Refine line items or lock as baseline — budget setup is already available.'
-              )}
-            </p>
+            {contractLocked && (
+              <p className="text-sm text-green-700 font-medium truncate hidden md:block">
+                Contract locked as baseline. Budget setup is available.
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-3 flex-shrink-0">
             {!contractLocked && (
               <>
-                <button
-                  type="button"
-                  onClick={handleReplaceContract}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-md hover:bg-white"
-                >
-                  Replace Contract
-                </button>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={handleContractFileAction}
+                        className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-md hover:bg-white"
+                      >
+                        {hasUploadedDocument ? 'Replace Contract' : 'Upload Contract'}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      {hasUploadedDocument
+                        ? 'Upload a new file to replace the attached contract and refresh extracted details.'
+                        : 'Upload a contract file (.pdf, .docx, .xlsx, .txt) to extract and pre-fill contract details.'}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
                 <button
                   type="button"
                   onClick={() => setShowLockModal(true)}

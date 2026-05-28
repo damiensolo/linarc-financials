@@ -7,11 +7,13 @@ import ContractMetadataBar from './ContractMetadataBar';
 import SpreadsheetIndexCell from './SpreadsheetIndexCell';
 import SpreadsheetIndexHeaderCell from './SpreadsheetIndexHeaderCell';
 import SpreadsheetTableFooterBar from './SpreadsheetTableFooterBar';
+import SpreadsheetTableEmptyState from './SpreadsheetTableEmptyState';
 import { SPREADSHEET_INDEX_COLUMN_WIDTH } from '../../../constants/spreadsheetLayout';
 import {
   DEFAULT_PRIME_CONTRACT_COLUMNS,
   contractSumMismatch,
   getPrimeContractLineValue,
+  isPrimeContractSheetEmpty,
 } from '../../../lib/financialWorkflow';
 import { colAlignClass, formatCurrency, formatCurrencyWhole } from './spreadsheetTableUtils';
 
@@ -51,6 +53,8 @@ const ContractReviewLockScreen: React.FC = () => {
     () => contractSumMismatch(contractData, flatRows),
     [contractData, flatRows]
   );
+
+  const isTableEmpty = useMemo(() => isPrimeContractSheetEmpty(flatRows), [flatRows]);
 
   const generateId = () => `pc-row-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
@@ -134,7 +138,13 @@ const ContractReviewLockScreen: React.FC = () => {
 
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
         {/* Scrollable body */}
-        <div ref={scrollContainerRef} className="flex-1 overflow-auto min-h-0">
+        <div ref={scrollContainerRef} className="flex-1 overflow-auto min-h-0 relative">
+          {isTableEmpty && (
+            <SpreadsheetTableEmptyState
+              title="Add your first contract line item"
+              description="Enter a cost code, contract line description, and contract value in the row above. Use Add row below when you need additional lines."
+            />
+          )}
           <table className="border-collapse w-full table-fixed" style={{ fontSize }}>
             {colgroup}
             <thead className="bg-gray-100 sticky top-0 z-20">

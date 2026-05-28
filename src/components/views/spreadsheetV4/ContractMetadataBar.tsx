@@ -3,6 +3,7 @@ import { useProject } from '../../../context/ProjectContext';
 import { DatePicker } from '../../common/ui/DatePicker';
 import { PaperclipIcon } from '../../common/Icons';
 import PcValueChangeModal from './PcValueChangeModal';
+import { hasUploadedContractDocument } from '../../../lib/financialWorkflow';
 
 interface ContractMetadataBarProps {
   isLocked?: boolean;
@@ -115,10 +116,7 @@ const ContractMetadataBar: React.FC<ContractMetadataBarProps> = ({ isLocked = fa
 
   if (!contractData) return null;
 
-  const hasUploadedDocument =
-    Boolean(contractData.fileName) &&
-    contractData.fileName !== 'Manual Entry' &&
-    contractData.extractionMethod !== 'manual';
+  const hasUploadedDocument = hasUploadedContractDocument(contractData);
 
   return (
     <div className="sticky top-0 z-30 bg-white border-b border-gray-200">
