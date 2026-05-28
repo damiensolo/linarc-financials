@@ -51,9 +51,18 @@ export function useFinancialGating() {
         budget: 3,
         sov: 4,
         commitment: 4,
+        allocate: 4,
       };
       const step = stepMap[itemKey];
-      if (step) ctx.navigateToSetupStep(step, itemKey === 'sov' ? 'sov' : undefined);
+      if (step) {
+        const tab =
+          itemKey === 'sov'
+            ? 'sov'
+            : itemKey === 'allocate'
+              ? 'schedule'
+              : undefined;
+        ctx.navigateToSetupStep(step, tab);
+      }
     },
   };
 }

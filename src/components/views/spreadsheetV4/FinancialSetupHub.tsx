@@ -8,6 +8,7 @@ import {
   TooltipTrigger,
 } from '../../common/ui/Tooltip';
 import SetupTrackerWidget from './SetupTrackerWidget';
+import FinancialSetupActionBar from './FinancialSetupActionBar';
 import StepDetailCard from './StepDetailCard';
 import BlockersRail from './BlockersRail';
 
@@ -30,9 +31,9 @@ const FinancialSetupHub: React.FC = () => {
   }
 
   return (
-    <div className="flex h-full bg-white gap-0 min-h-0">
+    <div className="flex h-full min-h-0 bg-white">
       <aside
-        className={`flex-shrink-0 bg-gray-50 border-r border-gray-200 transition-all duration-300 overflow-hidden flex flex-col ${
+        className={`flex-shrink-0 bg-gray-50 border-r border-gray-200 transition-all duration-300 overflow-hidden flex flex-col h-full ${
           isTrackerOpen ? 'w-[200px]' : 'w-0 border-r-0'
         }`}
       >
@@ -45,7 +46,7 @@ const FinancialSetupHub: React.FC = () => {
             <button
               type="button"
               onClick={() => setIsTrackerOpen(!isTrackerOpen)}
-              className="flex-shrink-0 w-8 flex items-center justify-center border-r border-gray-200 hover:bg-gray-100"
+              className="flex-shrink-0 w-8 h-full flex items-center justify-center border-r border-gray-200 hover:bg-gray-100 self-stretch"
             >
               {isTrackerOpen ? (
                 <ChevronLeftIcon className="w-4 h-4 text-gray-500" />
@@ -59,16 +60,19 @@ const FinancialSetupHub: React.FC = () => {
           </TooltipContent>
         </Tooltip>
 
-      <div className="flex-1 overflow-hidden flex flex-col min-w-0">
-        <StepDetailCard />
-      </div>
+        <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
+          <FinancialSetupActionBar />
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <StepDetailCard />
+          </div>
+        </div>
 
         <Tooltip>
           <TooltipTrigger asChild>
             <button
               type="button"
               onClick={() => setIsBlockersOpen(!isBlockersOpen)}
-              className="flex-shrink-0 w-8 flex items-center justify-center border-l border-gray-200 hover:bg-gray-100"
+              className="flex-shrink-0 w-8 h-full flex items-center justify-center border-l border-gray-200 hover:bg-gray-100 self-stretch"
             >
               {isBlockersOpen ? (
                 <ChevronRightIcon className="w-4 h-4 text-gray-500" />
@@ -84,7 +88,7 @@ const FinancialSetupHub: React.FC = () => {
       </TooltipProvider>
 
       <aside
-        className={`flex-shrink-0 bg-gray-50 border-l border-gray-200 transition-all duration-300 overflow-hidden ${
+        className={`flex-shrink-0 bg-gray-50 border-l border-gray-200 transition-all duration-300 overflow-hidden flex flex-col h-full self-stretch ${
           isBlockersOpen ? 'w-[300px]' : 'w-0 border-l-0'
         }`}
       >

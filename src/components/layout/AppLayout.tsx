@@ -40,6 +40,8 @@ const AppLayout: React.FC = () => {
         isPDFModalOpen,
         setIsPDFModalOpen,
         isContractUploadOpen,
+        activeViewMode,
+        financialSetupComplete,
     } = useProject();
     const mainContentRef = useRef<HTMLDivElement>(null);
     const [isScrolled, setIsScrolled] = useState(false);
@@ -52,6 +54,9 @@ const AppLayout: React.FC = () => {
         contentEl?.addEventListener('scroll', handleScroll);
         return () => contentEl?.removeEventListener('scroll', handleScroll);
     }, []);
+
+    const isFinancialSetupFlow =
+        activeViewMode === 'spreadsheetV4' && !financialSetupComplete;
 
     return (
         <div className="flex flex-col h-full bg-white font-sans text-gray-800 overflow-hidden">
@@ -95,9 +100,14 @@ const AppLayout: React.FC = () => {
                 />
 
                 <div className="flex flex-col flex-1 min-w-0 overflow-hidden relative">
-                    <AppHeader />
+                    {!isFinancialSetupFlow && <AppHeader />}
                     <div className="flex flex-1 overflow-hidden relative">
-                        <main ref={mainContentRef} className="flex-1 overflow-auto transition-all duration-300 ease-in-out">
+                        <main
+                            ref={mainContentRef}
+                            className={`flex-1 transition-all duration-300 ease-in-out ${
+                                isFinancialSetupFlow ? 'overflow-hidden' : 'overflow-auto'
+                            }`}
+                        >
                             <MainContent isScrolled={isScrolled} />
                         </main>
                         <ItemDetailsPanel

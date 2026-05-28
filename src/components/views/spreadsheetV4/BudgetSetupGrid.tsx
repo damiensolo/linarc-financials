@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 
-import { Lock, Upload, AlertTriangle } from 'lucide-react';
+import { Lock, Upload, AlertTriangle, Info } from 'lucide-react';
 
 import { useProject } from '../../../context/ProjectContext';
 import { useScrollToRowOnAdd } from '../../../hooks/useScrollToRowOnAdd';
@@ -31,7 +31,7 @@ import { SPREADSHEET_INDEX_COLUMN_WIDTH, BUDGET_STATUS_COLUMN_WIDTH, BUDGET_ACTI
 
 import SpreadsheetIndexCell from './SpreadsheetIndexCell';
 import SpreadsheetIndexHeaderCell from './SpreadsheetIndexHeaderCell';
-import SpreadsheetTableFooterBar from './SpreadsheetTableFooterBar';
+import { SpreadsheetTableAddRowRow } from './SpreadsheetTableFooterBar';
 import SpreadsheetTableEmptyState from './SpreadsheetTableEmptyState';
 
 import BudgetSeedPromptModal from './BudgetSeedPromptModal';
@@ -67,7 +67,11 @@ const STATE_BADGE: Record<string, { label: string; className: string }> = {
 
 
 
-const BudgetSetupGrid: React.FC = () => {
+interface BudgetSetupGridProps {
+  workflowMessage?: string;
+}
+
+const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '' }) => {
 
   const {
 
@@ -229,7 +233,12 @@ const BudgetSetupGrid: React.FC = () => {
   const addRow = () => {
     const newId = generateId();
     updateBudgetRows([...budgetRows, { id: newId, cells: {}, lineState: 'open' }]);
-    requestScrollToRow(newId);
+    requestScrollToRow(newId, {
+      onRowReady: (rowId) => {
+        setEditingCell({ rowId, colId: 'name' });
+        setEditValue('');
+      },
+    });
   };
 
 
@@ -474,7 +483,7 @@ const BudgetSetupGrid: React.FC = () => {
     visibleColumns.reduce((sum, col) => sum + col.width, 0);
 
   const stickyActionsHeader =
-    'sticky right-0 z-30 bg-gray-100 border-l border-gray-300 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)]';
+    'sticky right-0 z-50 bg-gray-100 border-l border-gray-300 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)]';
   const stickyActionsCell =
     'sticky right-0 z-20 bg-white border-l border-gray-200 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)]';
   const stickyActionsFooter =
@@ -482,7 +491,7 @@ const BudgetSetupGrid: React.FC = () => {
 
   return (
 
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-h-0 bg-white">
 
       <BudgetSeedPromptModal
 
@@ -496,110 +505,113 @@ const BudgetSetupGrid: React.FC = () => {
 
       />
 
+      <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
 
+        <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-200 bg-gray-50 gap-4 flex-shrink-0">
 
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-50 gap-4">
+          <div className="flex flex-col gap-0.5 min-w-0">
 
-        <div className="flex flex-col gap-1 min-w-0">
+            <div className="text-sm text-gray-700">
 
-          <div className="text-sm text-gray-700">
+              <span className="font-semibold">{lineCounts.locked} of {lineCounts.total} lines committed</span>
 
-            <span className="font-semibold">{lineCounts.locked} of {lineCounts.total} lines committed</span>
+              {lineCounts.open > 0 && <span className="text-gray-500 ml-2">· {lineCounts.open} open</span>}
 
-            {lineCounts.open > 0 && <span className="text-gray-500 ml-2">· {lineCounts.open} open</span>}
+              {lineCounts.pending > 0 && <span className="text-amber-600 ml-2">· {lineCounts.pending} pending approval</span>}
 
-            {lineCounts.pending > 0 && <span className="text-amber-600 ml-2">· {lineCounts.pending} pending approval</span>}
+            </div>
+
+            {contractSum > 0 && (
+
+              <p className="text-xs text-gray-600">
+
+                Prime Contract Value:{' '}
+
+                <span className="font-semibold text-gray-900">${formatCurrency(contractSum)}</span>
+
+                {budgetTotal > 0 && (
+
+                  <span className="text-gray-500 ml-2">
+
+                    · Budget total: ${formatCurrency(budgetTotal)}
+
+                  </span>
+
+                )}
+
+              </p>
+
+            )}
 
           </div>
 
-          {contractSum > 0 && (
+          <div className="flex gap-2 flex-shrink-0">
 
-            <p className="text-xs text-gray-600">
+            <button
 
-              Prime Contract Value:{' '}
+              type="button"
 
-              <span className="font-semibold text-gray-900">${formatCurrency(contractSum)}</span>
+              onClick={handleImportStub}
 
-              {budgetTotal > 0 && (
+              className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-700 border border-gray-300 rounded-md hover:bg-white bg-white"
 
-                <span className="text-gray-500 ml-2">
+            >
 
-                  · Budget total: ${formatCurrency(budgetTotal)}
+              <Upload size={14} /> Import Excel
 
-                </span>
+            </button>
 
-              )}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex">
+                    <button
+                      type="button"
+                      onClick={handleRequestLockBudget}
+                      disabled={!canLockBudget}
+                      className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                    >
+                      <Lock size={14} /> Lock Budget
+                    </button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  {lockBudgetTooltip}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
 
-            </p>
-
-          )}
-
-        </div>
-
-        <div className="flex gap-2 flex-shrink-0">
-
-          <button
-
-            type="button"
-
-            onClick={handleImportStub}
-
-            className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-700 border border-gray-300 rounded-md hover:bg-white"
-
-          >
-
-            <Upload size={14} /> Import Excel
-
-          </button>
-
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="inline-flex">
-                  <button
-                    type="button"
-                    onClick={handleRequestLockBudget}
-                    disabled={!canLockBudget}
-                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
-                  >
-                    <Lock size={14} /> Lock Budget
-                  </button>
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                {lockBudgetTooltip}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          </div>
 
         </div>
 
-      </div>
+        {workflowMessage && (
+          <div className="flex items-start gap-2 px-4 py-2 border-b border-blue-200 bg-blue-50 text-sm text-blue-900 flex-shrink-0">
+            <Info size={16} className="mt-0.5 flex-shrink-0" />
+            <p>{workflowMessage}</p>
+          </div>
+        )}
 
+        {budgetVsContractMismatch && (
 
+          <div className="flex items-start gap-2 px-4 py-2 border-b border-amber-200 bg-amber-50 text-sm text-amber-900 flex-shrink-0">
 
-      {budgetVsContractMismatch && (
+            <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
 
-        <div className="mx-4 mt-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <span>
 
-          <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+              Budget total (${formatCurrency(budgetTotal)}) does not match the Prime Contract Value
 
-          <span>
+              (${formatCurrency(contractSum)}).
 
-            Budget total (${formatCurrency(budgetTotal)}) does not match the Prime Contract Value
+            </span>
 
-            (${formatCurrency(contractSum)}).
+          </div>
 
-          </span>
+        )}
 
-        </div>
-
-      )}
-
-
-
-      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-        <div ref={scrollContainerRef} className="flex-1 overflow-auto min-h-0 relative">
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <div ref={scrollContainerRef} className="h-full overflow-auto relative">
           {isTableEmpty && (
             <SpreadsheetTableEmptyState
               title="Add your first budget line"
@@ -618,7 +630,7 @@ const BudgetSetupGrid: React.FC = () => {
             ))}
             <col style={{ width: BUDGET_ACTIONS_COLUMN_WIDTH, minWidth: BUDGET_ACTIONS_COLUMN_WIDTH }} />
           </colgroup>
-          <thead className="sticky top-0 bg-gray-100 z-10">
+          <thead className="sticky top-0 bg-gray-100 z-40">
             <tr className="border-b border-gray-300 h-9">
               <SpreadsheetIndexHeaderCell
                 allSelected={allSelectableSelected}
@@ -821,72 +833,50 @@ const BudgetSetupGrid: React.FC = () => {
 
           </tbody>
 
+          <tfoot className="sticky bottom-0 z-20">
+            <tr className="h-9 font-bold bg-gray-100 border-t-2 border-gray-300 shadow-[0_-2px_8px_rgba(0,0,0,0.04)]">
+              <td
+                className="sticky left-0 z-30 bg-gray-100 border-r border-gray-300 text-left pl-2 text-xs text-gray-900"
+                style={{
+                  width: SPREADSHEET_INDEX_COLUMN_WIDTH,
+                  minWidth: SPREADSHEET_INDEX_COLUMN_WIDTH,
+                  maxWidth: SPREADSHEET_INDEX_COLUMN_WIDTH,
+                }}
+              >
+                Total
+              </td>
+              <td
+                className="bg-gray-100 border-r border-gray-300"
+                style={{ width: BUDGET_STATUS_COLUMN_WIDTH, minWidth: BUDGET_STATUS_COLUMN_WIDTH }}
+              />
+              {visibleColumns.map((col) => (
+                <td
+                  key={`total-${col.id}`}
+                  className={`px-2 text-sm text-gray-900 border-r border-gray-300 bg-gray-100 ${colAlignClass(col)}`}
+                >
+                  {col.isTotal && totals[col.id] !== undefined
+                    ? col.type === 'currency'
+                      ? `$${formatCurrency(totals[col.id])}`
+                      : totals[col.id].toLocaleString()
+                    : ''}
+                </td>
+              ))}
+              <td
+                className={stickyActionsFooter}
+                style={{ width: BUDGET_ACTIONS_COLUMN_WIDTH, minWidth: BUDGET_ACTIONS_COLUMN_WIDTH }}
+              />
+            </tr>
+            <SpreadsheetTableAddRowRow
+              colSpan={visibleColumns.length + 3}
+              onAddRow={addRow}
+              selectedCount={selectedRowIds.size}
+              onDeleteSelected={() => deleteRows(selectedRowIds)}
+            />
+          </tfoot>
         </table>
 
         </div>
 
-        <div className="flex-shrink-0 border-t-2 border-gray-300 bg-white z-20 shadow-[0_-2px_8px_rgba(0,0,0,0.04)]">
-          <table
-            className="text-sm border-collapse bg-gray-100"
-            style={{ fontSize, minWidth: tableMinWidth }}
-          >
-            <colgroup>
-              <col style={{ width: SPREADSHEET_INDEX_COLUMN_WIDTH, minWidth: SPREADSHEET_INDEX_COLUMN_WIDTH }} />
-              <col style={{ width: BUDGET_STATUS_COLUMN_WIDTH, minWidth: BUDGET_STATUS_COLUMN_WIDTH }} />
-              {visibleColumns.map((col) => (
-                <col key={col.id} style={{ width: col.width, minWidth: col.width }} />
-              ))}
-              <col style={{ width: BUDGET_ACTIONS_COLUMN_WIDTH, minWidth: BUDGET_ACTIONS_COLUMN_WIDTH }} />
-            </colgroup>
-            <tbody>
-              <tr className="h-9 font-bold border-t border-gray-300">
-                <td
-                  className="sticky left-0 z-30 bg-gray-100 border-r border-gray-300"
-                  style={{ width: SPREADSHEET_INDEX_COLUMN_WIDTH, minWidth: SPREADSHEET_INDEX_COLUMN_WIDTH }}
-                />
-                <td
-                  className="px-2 text-xs text-gray-900 border-r border-gray-300 bg-gray-100 whitespace-nowrap"
-                  style={{ width: BUDGET_STATUS_COLUMN_WIDTH, minWidth: BUDGET_STATUS_COLUMN_WIDTH }}
-                >
-                  Total
-                </td>
-
-                {visibleColumns.map((col) => (
-
-                  <td
-
-                    key={`total-${col.id}`}
-
-                    className={`px-2 text-sm text-gray-900 border-r border-gray-300 bg-gray-100 ${colAlignClass(col)}`}
-
-                  >
-
-                    {col.isTotal && totals[col.id] !== undefined
-
-                      ? col.type === 'currency'
-
-                        ? `$${formatCurrency(totals[col.id])}`
-
-                        : totals[col.id].toLocaleString()
-
-                      : ''}
-
-                  </td>
-
-                ))}
-
-                <td
-                  className={stickyActionsFooter}
-                  style={{ width: BUDGET_ACTIONS_COLUMN_WIDTH, minWidth: BUDGET_ACTIONS_COLUMN_WIDTH }}
-                />
-              </tr>
-            </tbody>
-          </table>
-          <SpreadsheetTableFooterBar
-            onAddRow={addRow}
-            selectedCount={selectedRowIds.size}
-            onDeleteSelected={() => deleteRows(selectedRowIds)}
-          />
         </div>
 
       </div>

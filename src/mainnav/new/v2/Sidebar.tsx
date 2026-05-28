@@ -23,6 +23,7 @@ import BookmarksMenu from './FavoritesMenu';
 import Tooltip from './Tooltip';
 import { useProject } from '../../../context/ProjectContext';
 import { useFinancialGating } from '../../../hooks/useFinancialGating';
+import { getSidebarItemKeyForSetupStep } from '../../../lib/financialGating';
 // import { QuickCreateMenu } from './QuickCreateMenu'; // Keep for future use
 
 // --- Icon Definitions ---
@@ -211,7 +212,17 @@ interface SidebarProps {
 
 
 const Sidebar: React.FC<SidebarProps> = ({ version = 'v1', bookmarks = [], onSelect, onToggleBookmark, activeTopNavCategory = 'contract' }) => {
-    const { isSidebarLocked, sidebarTooltip, navigateSidebarItem } = useFinancialGating();
+    const {
+        isSidebarLocked,
+        sidebarTooltip,
+        navigateSidebarItem,
+    } = useFinancialGating();
+    const {
+        financialSetupStep,
+        opsActiveTab,
+        financialSetupComplete,
+        activeViewMode,
+    } = useProject();
     const [activeItemKey, setActiveItemKey] = useState('');
     const [isBookmarksMenuVisible, setBookmarksMenuVisible] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
@@ -228,13 +239,32 @@ const Sidebar: React.FC<SidebarProps> = ({ version = 'v1', bookmarks = [], onSel
         return () => window.removeEventListener('resize', checkMobile);
     }, []);
 
-    // Reset activeItemKey when category changes
+    // Keep sidebar highlight in sync with setup step / active tool
     useEffect(() => {
         const items = sidebarItemsByCategory[activeTopNavCategory];
-        if (items && items.length > 0) {
-            setActiveItemKey(items[0].key);
+        if (!items || items.length === 0) return;
+
+        const isSetupFlow = activeViewMode === 'spreadsheetV4' && !financialSetupComplete;
+
+        if (isSetupFlow && activeTopNavCategory === 'contract') {
+            const key = getSidebarItemKeyForSetupStep(financialSetupStep, opsActiveTab);
+            setActiveItemKey(items.some((item) => item.key === key) ? key : items[0].key);
+            return;
         }
-    }, [activeTopNavCategory]);
+
+        if (isSetupFlow && activeTopNavCategory === 'configure' && financialSetupStep === 1) {
+            setActiveItemKey('financeConfig');
+            return;
+        }
+
+        setActiveItemKey(items[0].key);
+    }, [
+        activeTopNavCategory,
+        financialSetupStep,
+        opsActiveTab,
+        financialSetupComplete,
+        activeViewMode,
+    ]);
 
     // Close bookmarks menu on outside click
     useEffect(() => {

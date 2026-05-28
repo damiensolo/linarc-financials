@@ -29,11 +29,12 @@ const SpreadsheetIndexHeaderCell: React.FC<SpreadsheetIndexHeaderCellProps> = ({
   return (
     <th
       className={`border-r border-gray-300 bg-gray-100 text-center p-0 ${
-        sticky ? 'sticky left-0 z-40' : ''
+        sticky ? 'sticky left-0 z-50 bg-gray-100' : ''
       } ${className}`}
       style={{
         width: SPREADSHEET_INDEX_COLUMN_WIDTH,
         minWidth: SPREADSHEET_INDEX_COLUMN_WIDTH,
+        maxWidth: SPREADSHEET_INDEX_COLUMN_WIDTH,
       }}
     >
       <div className="flex items-center justify-center h-full">

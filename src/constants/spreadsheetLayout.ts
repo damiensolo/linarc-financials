@@ -3,7 +3,7 @@
 // stays visually aligned across toolbar, header, body, and footer.
 
 /** Fixed width (in px) for the sticky index / “#” column. */
-export const SPREADSHEET_INDEX_COLUMN_WIDTH = 56; // matches Tailwind w-14
+export const SPREADSHEET_INDEX_COLUMN_WIDTH = 40;
 
 /** Budget setup — status pill column (fits "Committed" / "Pending"). */
 export const BUDGET_STATUS_COLUMN_WIDTH = 100;

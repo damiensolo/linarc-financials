@@ -27,6 +27,26 @@ export interface GatingContext {
   financialConfig: FinancialConfig | null;
 }
 
+/** Maps setup step (and ops tab) to the contract sidebar item key for active-state sync. */
+export function getSidebarItemKeyForSetupStep(
+  step: FinancialSetupStep,
+  opsActiveTab: 'sov' | 'schedule' = 'sov'
+): string {
+  switch (step) {
+    case 1:
+    case 2:
+      return 'primeContract';
+    case 3:
+      return 'budget';
+    case 4:
+      return opsActiveTab === 'schedule' ? 'allocate' : 'sov';
+    case 5:
+      return 'sov';
+    default:
+      return 'primeContract';
+  }
+}
+
 export const HEADER_CATEGORY_GATING: Record<
   string,
   { check: (ctx: GatingContext) => boolean; tooltip: string }

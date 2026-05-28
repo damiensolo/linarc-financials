@@ -26,7 +26,7 @@ const SpreadsheetIndexCell: React.FC<SpreadsheetIndexCellProps> = ({
     onClick={() => !disabled && onToggleSelect(rowId)}
     className={`group/index border-r border-gray-200 text-center p-0 ${
       disabled ? 'cursor-default' : 'cursor-pointer'
-    } ${sticky ? 'sticky left-0 z-30 bg-white' : ''} ${className}`}
+    } ${sticky ? 'sticky left-0 z-20 bg-white' : ''} ${className}`}
     style={{
       width: SPREADSHEET_INDEX_COLUMN_WIDTH,
       minWidth: SPREADSHEET_INDEX_COLUMN_WIDTH,

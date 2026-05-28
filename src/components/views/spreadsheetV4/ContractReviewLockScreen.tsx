@@ -6,7 +6,7 @@ import { useScrollToRowOnAdd } from '../../../hooks/useScrollToRowOnAdd';
 import ContractMetadataBar from './ContractMetadataBar';
 import SpreadsheetIndexCell from './SpreadsheetIndexCell';
 import SpreadsheetIndexHeaderCell from './SpreadsheetIndexHeaderCell';
-import SpreadsheetTableFooterBar from './SpreadsheetTableFooterBar';
+import { SpreadsheetTableAddRowRow } from './SpreadsheetTableFooterBar';
 import SpreadsheetTableEmptyState from './SpreadsheetTableEmptyState';
 import { SPREADSHEET_INDEX_COLUMN_WIDTH } from '../../../constants/spreadsheetLayout';
 import {
@@ -110,12 +110,28 @@ const ContractReviewLockScreen: React.FC = () => {
 
   const colgroup = (
     <colgroup>
-      <col style={{ width: SPREADSHEET_INDEX_COLUMN_WIDTH }} />
+      <col
+        style={{
+          width: SPREADSHEET_INDEX_COLUMN_WIDTH,
+          minWidth: SPREADSHEET_INDEX_COLUMN_WIDTH,
+          maxWidth: SPREADSHEET_INDEX_COLUMN_WIDTH,
+        }}
+      />
       {columns.map((col) => (
-        <col key={col.id} style={{ width: col.width }} />
+        <col
+          key={col.id}
+          style={
+            col.id === 'name'
+              ? undefined
+              : { width: col.width, minWidth: col.width }
+          }
+        />
       ))}
     </colgroup>
   );
+
+  const tableMinWidth =
+    SPREADSHEET_INDEX_COLUMN_WIDTH + columns.reduce((sum, col) => sum + (col.width ?? 120), 0);
 
   return (
     <motion.div
@@ -126,28 +142,30 @@ const ContractReviewLockScreen: React.FC = () => {
     >
       <ContractMetadataBar isLocked={contractLocked} isEditable={!contractLocked} />
 
-      {sumWarning.mismatched && (
-        <div className="mx-6 mt-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 flex-shrink-0">
-          <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-          <span>
-            Line item total (${formatCurrencyWhole(sumWarning.lineSum)}) does not match the Contract Sum
-            (${formatCurrencyWhole(sumWarning.contractSum)}). Adjust line values or update the contract sum.
-          </span>
-        </div>
-      )}
+      <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+        {sumWarning.mismatched && (
+          <div className="flex items-start gap-2 px-4 py-2 border-b border-amber-200 bg-amber-50 text-sm text-amber-900 flex-shrink-0">
+            <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+            <span>
+              Line item total (${formatCurrencyWhole(sumWarning.lineSum)}) does not match the Contract Sum
+              (${formatCurrencyWhole(sumWarning.contractSum)}). Adjust line values or update the contract sum.
+            </span>
+          </div>
+        )}
 
-      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-        {/* Scrollable body */}
-        <div ref={scrollContainerRef} className="flex-1 overflow-auto min-h-0 relative">
+        <div ref={scrollContainerRef} className="flex-1 overflow-auto relative min-h-0">
           {isTableEmpty && (
             <SpreadsheetTableEmptyState
               title="Add your first contract line item"
               description="Enter a cost code, contract line description, and contract value in the row above. Use Add row below when you need additional lines."
             />
           )}
-          <table className="border-collapse w-full table-fixed" style={{ fontSize }}>
+          <table
+            className="border-collapse table-fixed w-full"
+            style={{ fontSize, minWidth: tableMinWidth }}
+          >
             {colgroup}
-            <thead className="bg-gray-100 sticky top-0 z-20">
+            <thead className="bg-gray-100 sticky top-0 z-40">
               <tr className="h-9">
                 <SpreadsheetIndexHeaderCell
                   allSelected={allSelectableSelected}
@@ -208,16 +226,18 @@ const ContractReviewLockScreen: React.FC = () => {
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
-
-        {/* Pinned footer: totals + add row — always visible */}
-        <div className="flex-shrink-0 border-t-2 border-gray-300 bg-white z-20 shadow-[0_-2px_8px_rgba(0,0,0,0.04)]">
-          <table className="border-collapse w-full table-fixed bg-gray-100" style={{ fontSize }}>
-            {colgroup}
-            <tbody>
-              <tr className="h-9 font-bold">
-                <td style={{ width: SPREADSHEET_INDEX_COLUMN_WIDTH }} className="bg-gray-100" />
+            <tfoot className="sticky bottom-0 z-20">
+              <tr className="h-9 font-bold bg-gray-100 border-t-2 border-gray-300 shadow-[0_-2px_8px_rgba(0,0,0,0.04)]">
+                <td
+                  className="sticky left-0 z-30 bg-gray-100 border-r border-gray-200 text-left pl-2 text-sm text-gray-900"
+                  style={{
+                    width: SPREADSHEET_INDEX_COLUMN_WIDTH,
+                    minWidth: SPREADSHEET_INDEX_COLUMN_WIDTH,
+                    maxWidth: SPREADSHEET_INDEX_COLUMN_WIDTH,
+                  }}
+                >
+                  Total
+                </td>
                 {columns.map((col) => (
                   <td
                     key={`total-${col.id}`}
@@ -227,21 +247,20 @@ const ContractReviewLockScreen: React.FC = () => {
                       ? col.type === 'currency'
                         ? `$${formatCurrencyWhole(totals[col.id])}`
                         : totals[col.id].toLocaleString()
-                      : col.id === columns[0]?.id
-                        ? 'Total'
-                        : ''}
+                      : ''}
                   </td>
                 ))}
               </tr>
-            </tbody>
+              <SpreadsheetTableAddRowRow
+                colSpan={columns.length + 1}
+                onAddRow={handleAddRow}
+                addDisabled={contractLocked}
+                selectedCount={selectedRowIds.size}
+                onDeleteSelected={() => handleDeleteRows(selectedRowIds)}
+                deleteDisabled={contractLocked}
+              />
+            </tfoot>
           </table>
-          <SpreadsheetTableFooterBar
-            onAddRow={handleAddRow}
-            addDisabled={contractLocked}
-            selectedCount={selectedRowIds.size}
-            onDeleteSelected={() => handleDeleteRows(selectedRowIds)}
-            deleteDisabled={contractLocked}
-          />
         </div>
       </div>
     </motion.div>

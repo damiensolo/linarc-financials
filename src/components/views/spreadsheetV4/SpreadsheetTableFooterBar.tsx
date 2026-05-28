@@ -9,14 +9,15 @@ interface SpreadsheetTableFooterBarProps {
   deleteDisabled?: boolean;
 }
 
-const SpreadsheetTableFooterBar: React.FC<SpreadsheetTableFooterBarProps> = ({
+/** Inline add-row / delete controls — use inside a table row via SpreadsheetTableAddRowRow. */
+export const SpreadsheetTableFooterBar: React.FC<SpreadsheetTableFooterBarProps> = ({
   onAddRow,
   addDisabled = false,
   selectedCount,
   onDeleteSelected,
   deleteDisabled = false,
 }) => (
-  <div className="px-6 py-2.5 border-t border-gray-200 bg-gray-50 flex items-center gap-3">
+  <div className="flex items-center gap-3 py-2 pl-2 pr-4">
     <button
       type="button"
       onClick={onAddRow}
@@ -39,6 +40,17 @@ const SpreadsheetTableFooterBar: React.FC<SpreadsheetTableFooterBarProps> = ({
       </button>
     )}
   </div>
+);
+
+/** Add-row controls as the last row of a table — scrolls with content, sticks with tfoot. */
+export const SpreadsheetTableAddRowRow: React.FC<
+  SpreadsheetTableFooterBarProps & { colSpan: number }
+> = ({ colSpan, ...barProps }) => (
+  <tr className="bg-gray-50">
+    <td colSpan={colSpan} className="p-0 border-t border-gray-200">
+      <SpreadsheetTableFooterBar {...barProps} />
+    </td>
+  </tr>
 );
 
 export default SpreadsheetTableFooterBar;
