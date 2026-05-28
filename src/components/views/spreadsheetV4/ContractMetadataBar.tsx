@@ -17,7 +17,7 @@ interface ContractMetadataBarProps {
 }
 
 const ContractMetadataBar: React.FC<ContractMetadataBarProps> = ({ isLocked = false, isEditable = false }) => {
-  const { contractData, setContractData, requestPcValueChange, budgetRows } = useProject();
+  const { contractData, setContractData, requestPcValueChange, budgetRows, hasPcValue } = useProject();
 
   const [executedDate, setExecutedDate] = useState(contractData?.executedDate || null);
   const [startDate, setStartDate] = useState(contractData?.startDate || null);
@@ -123,6 +123,7 @@ const ContractMetadataBar: React.FC<ContractMetadataBarProps> = ({ isLocked = fa
   if (!contractData) return null;
 
   const hasUploadedDocument = hasUploadedContractDocument(contractData);
+  const showOpenStatus = !isLocked && hasPcValue;
 
   return (
     <div className="sticky top-0 z-30 bg-white border-b border-gray-200">
@@ -167,11 +168,11 @@ const ContractMetadataBar: React.FC<ContractMetadataBarProps> = ({ isLocked = fa
             <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded flex-shrink-0">
               LOCKED
             </span>
-          ) : (
+          ) : showOpenStatus ? (
             <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded flex-shrink-0">
               OPEN
             </span>
-          )}
+          ) : null}
         </div>
 
         {/* Metadata Grid */}
@@ -237,6 +238,9 @@ const ContractMetadataBar: React.FC<ContractMetadataBarProps> = ({ isLocked = fa
           <div>
             <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">
               Contract Sum
+              {isEditable && !isLocked && (
+                <span className="text-red-500 ml-0.5 normal-case">*</span>
+              )}
             </label>
             {isEditable && !isLocked ? (
               <div className="relative">
