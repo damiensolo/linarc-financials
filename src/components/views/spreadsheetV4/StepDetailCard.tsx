@@ -165,46 +165,67 @@ const StepDetailCard: React.FC = () => {
             )}
           </div>
           <div className="flex items-center gap-3 flex-shrink-0">
+            <TooltipProvider>
             {!contractLocked && (
               <>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={handleContractFileAction}
+                      className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-md hover:bg-white"
+                    >
+                      {hasUploadedDocument ? 'Replace Contract' : 'Upload Contract'}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    {hasUploadedDocument
+                      ? 'Upload a new file to replace the attached contract and refresh extracted details.'
+                      : 'Upload a contract file (.pdf, .docx, .xlsx, .txt) to extract and pre-fill contract details.'}
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-flex">
                       <button
                         type="button"
-                        onClick={handleContractFileAction}
-                        className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-md hover:bg-white"
+                        onClick={() => setShowLockModal(true)}
+                        disabled={!hasPcValue}
+                        className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-md hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {hasUploadedDocument ? 'Replace Contract' : 'Upload Contract'}
+                        <Lock size={16} /> Lock Prime Contract
                       </button>
-                    </TooltipTrigger>
+                    </span>
+                  </TooltipTrigger>
+                  {!hasPcValue && (
                     <TooltipContent side="bottom">
-                      {hasUploadedDocument
-                        ? 'Upload a new file to replace the attached contract and refresh extracted details.'
-                        : 'Upload a contract file (.pdf, .docx, .xlsx, .txt) to extract and pre-fill contract details.'}
+                      Enter a Contract Sum before you can lock the Prime Contract as your baseline.
                     </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                <button
-                  type="button"
-                  onClick={() => setShowLockModal(true)}
-                  disabled={!hasPcValue}
-                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-md hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Lock size={16} /> Lock Prime Contract
-                </button>
+                  )}
+                </Tooltip>
               </>
             )}
-            <button
-              type="button"
-              onClick={() => setFinancialSetupStep(3)}
-              disabled={!hasPcValue}
-              title={hasPcValue ? undefined : 'Enter a Contract Sum to continue to budget setup'}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
-            >
-              Continue to Budget Setup
-              <ChevronRight size={16} />
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-flex">
+                  <button
+                    type="button"
+                    onClick={() => setFinancialSetupStep(3)}
+                    disabled={!hasPcValue}
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                  >
+                    Continue to Budget Setup
+                    <ChevronRight size={16} />
+                  </button>
+                </span>
+              </TooltipTrigger>
+              {!hasPcValue && (
+                <TooltipContent side="bottom">
+                  Enter a contract sum to continue to budget setup.
+                </TooltipContent>
+              )}
+            </Tooltip>
+            </TooltipProvider>
           </div>
         </div>
       )}

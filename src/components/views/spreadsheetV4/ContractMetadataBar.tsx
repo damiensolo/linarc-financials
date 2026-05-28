@@ -2,6 +2,12 @@ import React, { useState } from 'react';
 import { useProject } from '../../../context/ProjectContext';
 import { DatePicker } from '../../common/ui/DatePicker';
 import { PaperclipIcon } from '../../common/Icons';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../../common/ui/Tooltip';
 import PcValueChangeModal from './PcValueChangeModal';
 import { hasUploadedContractDocument } from '../../../lib/financialWorkflow';
 
@@ -138,15 +144,23 @@ const ContractMetadataBar: React.FC<ContractMetadataBarProps> = ({ isLocked = fa
               </h2>
             )}
             {hasUploadedDocument && (
-              <a
-                href="#"
-                onClick={(e) => e.preventDefault()}
-                className="mt-1 inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 hover:underline max-w-full"
-                title={contractData.fileName}
-              >
-                <PaperclipIcon className="w-4 h-4 flex-shrink-0" />
-                <span className="truncate">{contractData.fileName}</span>
-              </a>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <a
+                      href="#"
+                      onClick={(e) => e.preventDefault()}
+                      className="mt-1 inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 hover:underline max-w-full"
+                    >
+                      <PaperclipIcon className="w-4 h-4 flex-shrink-0" />
+                      <span className="truncate">{contractData.fileName}</span>
+                    </a>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    {contractData.fileName}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             )}
           </div>
           {isLocked ? (

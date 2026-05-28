@@ -147,14 +147,14 @@ export const TooltipContent: React.FC<TooltipContentProps> = ({ children, classN
     <div
         ref={contentRef}
         id="tooltip-content"
-        className={`z-[9999] overflow-hidden rounded-md border border-slate-200 bg-slate-900 px-3 py-1.5 text-xs text-slate-50 shadow-md animate-in fade-in-0 zoom-in-95 ${className}`}
+        className={`z-[9999] max-w-xs rounded-md border border-slate-200 bg-slate-900 px-3 py-1.5 text-xs text-slate-50 shadow-md animate-in fade-in-0 zoom-in-95 text-left leading-snug ${className}`}
         style={{
-            position: 'fixed', // Changed to fixed
+            position: 'fixed',
             top: position.top,
             left: position.left,
             transform: transform,
             pointerEvents: 'none',
-            whiteSpace: 'nowrap'
+            whiteSpace: 'normal',
         }}
     >
       {children}

@@ -1,6 +1,12 @@
 import React, { useState } from 'react';
 import { ChevronLeftIcon, ChevronRightIcon } from '../../common/Icons';
 import { useProject } from '../../../context/ProjectContext';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../../common/ui/Tooltip';
 import SetupTrackerWidget from './SetupTrackerWidget';
 import StepDetailCard from './StepDetailCard';
 import BlockersRail from './BlockersRail';
@@ -33,35 +39,49 @@ const FinancialSetupHub: React.FC = () => {
         <SetupTrackerWidget />
       </aside>
 
-      <button
-        type="button"
-        onClick={() => setIsTrackerOpen(!isTrackerOpen)}
-        className="flex-shrink-0 w-8 flex items-center justify-center border-r border-gray-200 hover:bg-gray-100"
-        title={isTrackerOpen ? 'Close Setup Tracker' : 'Open Setup Tracker'}
-      >
-        {isTrackerOpen ? (
-          <ChevronLeftIcon className="w-4 h-4 text-gray-500" />
-        ) : (
-          <ChevronRightIcon className="w-4 h-4 text-gray-500" />
-        )}
-      </button>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={() => setIsTrackerOpen(!isTrackerOpen)}
+              className="flex-shrink-0 w-8 flex items-center justify-center border-r border-gray-200 hover:bg-gray-100"
+            >
+              {isTrackerOpen ? (
+                <ChevronLeftIcon className="w-4 h-4 text-gray-500" />
+              ) : (
+                <ChevronRightIcon className="w-4 h-4 text-gray-500" />
+              )}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            {isTrackerOpen ? 'Close Setup Tracker' : 'Open Setup Tracker'}
+          </TooltipContent>
+        </Tooltip>
 
       <div className="flex-1 overflow-hidden flex flex-col min-w-0">
         <StepDetailCard />
       </div>
 
-      <button
-        type="button"
-        onClick={() => setIsBlockersOpen(!isBlockersOpen)}
-        className="flex-shrink-0 w-8 flex items-center justify-center border-l border-gray-200 hover:bg-gray-100"
-        title={isBlockersOpen ? 'Close Blockers' : 'Open Blockers'}
-      >
-        {isBlockersOpen ? (
-          <ChevronRightIcon className="w-4 h-4 text-gray-500" />
-        ) : (
-          <ChevronLeftIcon className="w-4 h-4 text-gray-500" />
-        )}
-      </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={() => setIsBlockersOpen(!isBlockersOpen)}
+              className="flex-shrink-0 w-8 flex items-center justify-center border-l border-gray-200 hover:bg-gray-100"
+            >
+              {isBlockersOpen ? (
+                <ChevronRightIcon className="w-4 h-4 text-gray-500" />
+              ) : (
+                <ChevronLeftIcon className="w-4 h-4 text-gray-500" />
+              )}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="left">
+            {isBlockersOpen ? 'Close Readiness panel' : 'Open Readiness panel'}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
 
       <aside
         className={`flex-shrink-0 bg-gray-50 border-l border-gray-200 transition-all duration-300 overflow-hidden ${
