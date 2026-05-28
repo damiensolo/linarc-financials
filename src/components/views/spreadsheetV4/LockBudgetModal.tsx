@@ -1,5 +1,6 @@
 import React from 'react';
 import { AlertTriangle, Lock } from 'lucide-react';
+import ModalPortal from './ModalPortal';
 
 interface LockBudgetModalProps {
   open: boolean;
@@ -18,13 +19,14 @@ const LockBudgetModal: React.FC<LockBudgetModalProps> = ({
   onConfirm,
   onCancel,
 }) => {
-  if (!open) return null;
-
   const lineWord = openLineCount === 1 ? 'line' : 'lines';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-lg w-full p-6">
+    <ModalPortal open={open}>
+      <div
+        className="bg-white rounded-lg shadow-xl max-w-lg w-full p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-start gap-3 mb-4">
           <AlertTriangle className="text-amber-500 flex-shrink-0" size={24} />
           <div>
@@ -87,7 +89,7 @@ const LockBudgetModal: React.FC<LockBudgetModalProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </ModalPortal>
   );
 };
 

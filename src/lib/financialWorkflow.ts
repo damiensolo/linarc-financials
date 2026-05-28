@@ -87,6 +87,14 @@ export function rowMissingCostCode(row: V3Row): boolean {
   return code == null || String(code).trim() === '';
 }
 
+export function countOpenRowsMissingCostCode(rows: V3Row[]): number {
+  return rows.filter((r) => getLineState(r) === 'open' && rowMissingCostCode(r)).length;
+}
+
+export function canCommitBudgetLine(row: V3Row): boolean {
+  return getLineState(row) === 'open' && !rowMissingCostCode(row);
+}
+
 export const DEFAULT_PRIME_CONTRACT_COLUMNS: V3Column[] = [
   { id: 'costCode', label: 'Cost Code', type: 'text', width: 120, editable: true, visible: true },
   { id: 'name', label: 'Contract Line', type: 'text', width: 360, editable: true, visible: true },

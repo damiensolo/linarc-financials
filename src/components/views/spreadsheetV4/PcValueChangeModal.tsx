@@ -1,6 +1,7 @@
 import React from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { useProject } from '../../../context/ProjectContext';
+import ModalPortal from './ModalPortal';
 
 interface PcValueChangeModalProps {
   open: boolean;
@@ -16,14 +17,16 @@ const PcValueChangeModal: React.FC<PcValueChangeModalProps> = ({
   onCancel,
 }) => {
   const { financialConfig, contractData } = useProject();
-  if (!open) return null;
 
   const roles = financialConfig?.approvalRouting.roles ?? ['gc', 'pe', 'owner'];
   const chain = roles.map((r) => r.toUpperCase()).join(' → ');
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
+    <ModalPortal open={open}>
+      <div
+        className="bg-white rounded-lg shadow-xl max-w-md w-full p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-start gap-3 mb-4">
           <AlertTriangle className="text-amber-500 flex-shrink-0" size={24} />
           <div>
@@ -52,7 +55,7 @@ const PcValueChangeModal: React.FC<PcValueChangeModalProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </ModalPortal>
   );
 };
 

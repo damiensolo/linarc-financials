@@ -9,6 +9,7 @@ import {
   getBudgetRows, getBudgetSheet, getPrimeContractRows, getPrimeContractSheet, hasPcValue, hasCommittedLines,
   isBudgetFullyLocked, countLinesByState, committedLineCount, getPrimeContractState, createEmptyBudgetSheet,
   createEmptyPrimeContractSheet, createBudgetColumns, seedBudgetRowsFromPrimeContract, APPROVER_NAMES,
+  rowMissingCostCode,
 } from '../lib/financialWorkflow';
 import { computePublishReadiness, allPublishChecksMet } from '../lib/financialGating';
 import { loadFinancialState, saveFinancialState, reviveContractDates } from '../lib/financialPersistence';
@@ -728,6 +729,7 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     const rows = getBudgetRows(activeViewRef.current.v3Sheets);
     const target = rows.find((r) => r.id === rowId);
     if (!target || (target.lineState ?? 'open') !== 'open') return;
+    if (rowMissingCostCode(target)) return;
 
     if (perLineApproval) {
       const req = enqueueApproval('line_commit', [rowId], {
@@ -750,8 +752,11 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
   const bulkCommitOpenLines = useCallback(() => {
     const perLineApproval = financialConfig?.perLineApprovalEnabled ?? false;
     const rows = getBudgetRows(activeViewRef.current.v3Sheets);
-    const openIds = rows.filter((r) => (r.lineState ?? 'open') === 'open').map((r) => r.id);
-    if (openIds.length === 0) return;
+    const openRows = rows.filter((r) => (r.lineState ?? 'open') === 'open');
+    if (openRows.length === 0) return;
+    if (openRows.some(rowMissingCostCode)) return;
+
+    const openIds = openRows.map((r) => r.id);
 
     if (perLineApproval) {
       const req = enqueueApproval('bulk_line_commit', openIds);

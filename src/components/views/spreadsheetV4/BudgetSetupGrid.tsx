@@ -15,6 +15,8 @@ import {
 
   createBudgetColumns,
 
+  countOpenRowsMissingCostCode,
+
   isBudgetSheetEmpty,
 
   hasPrimeContractLineData,
@@ -38,6 +40,8 @@ import CommitLineModal from './CommitLineModal';
 import ChangeOrderModal from './ChangeOrderModal';
 
 import LockBudgetModal from './LockBudgetModal';
+
+import MissingCostCodeModal from './MissingCostCodeModal';
 
 import { colAlignClass, formatCurrency, formatCellCurrency } from './spreadsheetTableUtils';
 
@@ -102,6 +106,14 @@ const BudgetSetupGrid: React.FC = () => {
   const [seedPromptHandled, setSeedPromptHandled] = useState(false);
 
   const [lockBudgetOpen, setLockBudgetOpen] = useState(false);
+
+  const [missingCostCodeOpen, setMissingCostCodeOpen] = useState(false);
+
+  const [missingCostCodeContext, setMissingCostCodeContext] = useState<{
+    lineLabel?: string;
+    missingCount: number;
+    openLineCount?: number;
+  }>({ missingCount: 1 });
 
 
 
@@ -400,6 +412,35 @@ const BudgetSetupGrid: React.FC = () => {
 
 
 
+  const openLinesMissingCostCode = useMemo(
+    () => countOpenRowsMissingCostCode(budgetRows),
+    [budgetRows]
+  );
+
+  const handleRequestCommit = (row: V3Row) => {
+    if (rowMissingCostCode(row)) {
+      setMissingCostCodeContext({
+        lineLabel: String(row.cells['name'] ?? '').trim() || undefined,
+        missingCount: 1,
+      });
+      setMissingCostCodeOpen(true);
+      return;
+    }
+    setCommitTarget(row);
+  };
+
+  const handleRequestLockBudget = () => {
+    if (openLinesMissingCostCode > 0) {
+      setMissingCostCodeContext({
+        missingCount: openLinesMissingCostCode,
+        openLineCount: lineCounts.open,
+      });
+      setMissingCostCodeOpen(true);
+      return;
+    }
+    setLockBudgetOpen(true);
+  };
+
   const visibleColumns = columns.filter((c) => c.visible !== false);
 
   const tableMinWidth =
@@ -491,7 +532,7 @@ const BudgetSetupGrid: React.FC = () => {
 
             type="button"
 
-            onClick={() => setLockBudgetOpen(true)}
+            onClick={handleRequestLockBudget}
 
             disabled={lineCounts.open === 0}
 
@@ -571,10 +612,8 @@ const BudgetSetupGrid: React.FC = () => {
 
                   {col.label}
 
-                  {col.id === 'costCode' && financialConfig?.costCodeEnforcementConfirmed && (
-
+                  {col.id === 'costCode' && (
                     <span className="text-red-500 ml-0.5">*</span>
-
                   )}
 
                 </th>
@@ -598,7 +637,7 @@ const BudgetSetupGrid: React.FC = () => {
 
               const badge = STATE_BADGE[state];
 
-              const missingCode = financialConfig?.costCodeEnforcementConfirmed && rowMissingCostCode(row);
+              const missingCode = state === 'open' && rowMissingCostCode(row);
 
 
 
@@ -708,7 +747,7 @@ const BudgetSetupGrid: React.FC = () => {
 
                         type="button"
 
-                        onClick={() => setCommitTarget(row)}
+                        onClick={() => handleRequestCommit(row)}
 
                         className="text-xs font-medium text-blue-600 hover:text-blue-800"
 
@@ -817,6 +856,16 @@ const BudgetSetupGrid: React.FC = () => {
         </div>
 
       </div>
+
+
+
+      <MissingCostCodeModal
+        open={missingCostCodeOpen}
+        lineLabel={missingCostCodeContext.lineLabel}
+        missingCount={missingCostCodeContext.missingCount}
+        openLineCount={missingCostCodeContext.openLineCount}
+        onClose={() => setMissingCostCodeOpen(false)}
+      />
 
 
 
