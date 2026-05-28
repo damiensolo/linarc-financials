@@ -7,7 +7,7 @@ const STEPS: { id: FinancialSetupStep; label: string; description: string }[] = 
   { id: 1, label: 'Preliminary Config', description: 'Set defaults' },
   { id: 2, label: 'Prime Contract', description: 'Upload or manual entry' },
   { id: 3, label: 'Budget Setup', description: 'Progressive commit' },
-  { id: 4, label: 'Operations', description: 'SOV & schedule' },
+  { id: 4, label: 'Operations', description: 'Schedule linking & SOV' },
   { id: 5, label: 'Publish SOV', description: 'Activate project' },
 ];
 
@@ -60,7 +60,7 @@ const SetupTrackerWidget: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      <div className="flex-1 overflow-y-auto p-3 space-y-2">
         {STEPS.map((step, index) => {
           const state = stepStates[index];
           const clickable = state !== 'locked';
@@ -73,34 +73,34 @@ const SetupTrackerWidget: React.FC = () => {
               disabled={!clickable}
               className="w-full text-left disabled:opacity-50 disabled:cursor-default focus:outline-none"
             >
-              <div className="flex items-start gap-3">
-                <div className="flex-shrink-0 pt-1">
+              <div className="flex items-start gap-2">
+                <div className="flex-shrink-0 pt-0.5">
                   {state === 'complete' && (
-                    <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
-                      <CheckCircle2 size={20} className="text-green-600" strokeWidth={1.5} />
+                    <div className="w-7 h-7 rounded-full bg-green-100 flex items-center justify-center">
+                      <CheckCircle2 size={16} className="text-green-600" strokeWidth={1.5} />
                     </div>
                   )}
                   {state === 'active' && (
-                    <div className="w-8 h-8 rounded-full border-2 border-orange-500 bg-orange-50 flex items-center justify-center">
-                      <div className="w-2 h-2 rounded-full bg-orange-500" />
+                    <div className="w-7 h-7 rounded-full border-2 border-orange-500 bg-orange-50 flex items-center justify-center">
+                      <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />
                     </div>
                   )}
                   {state === 'available' && (
-                    <div className="w-8 h-8 rounded-full border-2 border-gray-300 bg-white flex items-center justify-center">
-                      <Circle size={16} className="text-gray-400" />
+                    <div className="w-7 h-7 rounded-full border-2 border-gray-300 bg-white flex items-center justify-center">
+                      <Circle size={14} className="text-gray-400" />
                     </div>
                   )}
                   {state === 'locked' && (
-                    <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
-                      <Lock size={16} className="text-gray-500" />
+                    <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center">
+                      <Lock size={14} className="text-gray-500" />
                     </div>
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className={`text-sm font-medium ${state === 'active' ? 'text-orange-600' : 'text-gray-900'}`}>
+                  <div className={`text-xs font-medium leading-snug ${state === 'active' ? 'text-orange-600' : 'text-gray-900'}`}>
                     {step.label}
                   </div>
-                  <div className="text-xs text-gray-500 mt-0.5">{subtext(step.id)}</div>
+                  <div className="text-[11px] text-gray-500 mt-0.5 leading-snug">{subtext(step.id)}</div>
                 </div>
               </div>
             </button>

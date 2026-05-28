@@ -33,7 +33,7 @@ const FinancialSetupHub: React.FC = () => {
     <div className="flex h-full bg-white gap-0 min-h-0">
       <aside
         className={`flex-shrink-0 bg-gray-50 border-r border-gray-200 transition-all duration-300 overflow-hidden flex flex-col ${
-          isTrackerOpen ? 'w-[260px]' : 'w-0 border-r-0'
+          isTrackerOpen ? 'w-[200px]' : 'w-0 border-r-0'
         }`}
       >
         <SetupTrackerWidget />
