@@ -1,4 +1,4 @@
-import type { ContractData, FinancialConfig, BudgetLineState, PrimeContractState, FinancialActivationState } from '../types';
+import type { ContractData, FinancialConfig, BudgetLineState, PrimeContractState, FinancialActivationState, SOVMapping } from '../types';
 import type { V3Row, V3Sheet, V3Column } from '../components/views/spreadsheetV4/types';
 
 export const BUDGET_SHEET_ID = 'sheet-budget';
@@ -338,4 +338,63 @@ export function getActivationState(
   if (hasCommittedLines(rows)) return 'operating';
   if (hasPcValue(contractData)) return 'operating';
   return 'setup';
+}
+
+export function isSovMappingConfirmed(mapping: SOVMapping): boolean {
+  return (mapping.status ?? 'confirmed') === 'confirmed';
+}
+
+export function createManualSovMapping(sovLineNumber: number): SOVMapping {
+  const rowId = `sov-manual-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  return {
+    rowId,
+    sovLineNumber,
+    sovDescription: '',
+    amount: 0,
+    status: 'draft',
+    costCode: '',
+    budgetLineItem: '',
+    quantity: null,
+    uom: '',
+    location: '',
+  };
+}
+
+export function createDraftSovMapping(budgetRow: V3Row, sovLineNumber: number): SOVMapping {
+  const amount = getBudgetLineAmount(budgetRow);
+  const qty = budgetRow.cells['quantity'];
+  return {
+    rowId: budgetRow.id,
+    sovLineNumber,
+    sovDescription: String(budgetRow.cells['name'] ?? ''),
+    amount,
+    status: 'draft',
+    costCode: String(budgetRow.cells['costCode'] ?? ''),
+    budgetLineItem: String(budgetRow.cells['name'] ?? ''),
+    quantity: typeof qty === 'number' ? qty : qty != null ? Number(qty) || null : null,
+    uom: String(budgetRow.cells['unit'] ?? ''),
+    location: String(budgetRow.cells['location'] ?? ''),
+  };
+}
+
+export function syncDraftSovMappings(
+  committedRows: V3Row[],
+  existing: SOVMapping[]
+): SOVMapping[] {
+  const next = [...existing];
+  committedRows.forEach((row) => {
+    if (next.some((m) => m.rowId === row.id)) return;
+    next.push(createDraftSovMapping(row, next.length + 1));
+  });
+  return next;
+}
+
+export function countUnconfirmedSovMappings(
+  committedRowIds: string[],
+  mappings: SOVMapping[]
+): number {
+  return committedRowIds.filter((id) => {
+    const mapping = mappings.find((m) => m.rowId === id);
+    return !mapping || !isSovMappingConfirmed(mapping);
+  }).length;
 }

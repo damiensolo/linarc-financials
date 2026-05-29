@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Check, AlertCircle } from 'lucide-react';
 import { useProject } from '../../../context/ProjectContext';
+import { computeSetupMilestoneReadiness } from '../../../lib/financialGating';
 import ApprovalQueuePanel from './ApprovalQueuePanel';
 
 const BlockersRail: React.FC = () => {
@@ -8,8 +9,8 @@ const BlockersRail: React.FC = () => {
     financialSetupStep,
     financialConfig,
     contractData,
-    hasPcValue,
     contractLocked,
+    primeContractSetupPhase,
     lineCounts,
     committedLineCount,
     canAccessOperations,
@@ -21,36 +22,61 @@ const BlockersRail: React.FC = () => {
 
   const pendingCount = approvalQueue.filter((a) => a.status === 'pending').length;
 
+  const milestones = useMemo(
+    () =>
+      computeSetupMilestoneReadiness(
+        financialSetupStep,
+        financialConfig,
+        contractData,
+        contractLocked,
+        primeContractSetupPhase,
+        committedLineCount,
+        canAccessOperations
+      ),
+    [
+      financialSetupStep,
+      financialConfig,
+      contractData,
+      contractLocked,
+      primeContractSetupPhase,
+      committedLineCount,
+      canAccessOperations,
+    ]
+  );
+
+  const publishChecks =
+    financialSetupStep >= 4 || activationState === 'activated' ? publishReadiness : [];
+
   const blockers = [
     {
       id: 'config',
       title: 'Financial Configuration',
       description: 'Set retainage, overhead, billing, and approval settings',
-      met: !!financialConfig,
+      met: milestones.financialConfigMet,
       step: 1 as const,
     },
     {
       id: 'pc-value',
       title: 'Prime Contract Value',
       description: 'Enter contract sum via upload or manual entry',
-      met: hasPcValue,
+      met: milestones.primeContractValueMet,
       step: 2 as const,
     },
     {
       id: 'budget-lines',
       title: 'Budget Lines',
       description: `${committedLineCount} of ${lineCounts.total} lines committed`,
-      met: committedLineCount > 0,
+      met: milestones.budgetLinesMet,
       step: 3 as const,
     },
     {
       id: 'ops',
       title: 'Continuous Operations',
       description: 'SOV mapping and schedule linking for committed lines',
-      met: canAccessOperations,
+      met: milestones.continuousOpsMet,
       step: 4 as const,
     },
-    ...publishReadiness.map((check) => ({
+    ...publishChecks.map((check) => ({
       id: check.id,
       title: check.label,
       description: check.met

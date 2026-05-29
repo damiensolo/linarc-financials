@@ -240,11 +240,20 @@ export interface ApprovalRequest {
   lineDescription?: string;
 }
 
+export type SOVMappingStatus = 'draft' | 'confirmed';
+
 export interface SOVMapping {
   rowId: string;
   sovLineNumber: number;
   sovDescription: string;
   amount: number;
+  /** Draft = auto-created on commit, awaiting user confirmation. */
+  status?: SOVMappingStatus;
+  costCode?: string;
+  budgetLineItem?: string;
+  quantity?: number | null;
+  uom?: string;
+  location?: string;
 }
 
 export interface WBSLink {

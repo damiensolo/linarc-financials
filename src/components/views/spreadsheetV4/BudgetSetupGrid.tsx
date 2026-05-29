@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 
-import { Lock, Upload, AlertTriangle, Info } from 'lucide-react';
+import { Upload, AlertTriangle, Info } from 'lucide-react';
 
 import { useProject } from '../../../context/ProjectContext';
 import { useScrollToRowOnAdd } from '../../../hooks/useScrollToRowOnAdd';
@@ -14,8 +14,6 @@ import {
   rowMissingCostCode,
 
   createBudgetColumns,
-
-  countOpenRowsMissingCostCode,
 
   isBudgetSheetEmpty,
 
@@ -40,16 +38,7 @@ import CommitLineModal from './CommitLineModal';
 
 import ChangeOrderModal from './ChangeOrderModal';
 
-import LockBudgetModal from './LockBudgetModal';
-
 import MissingCostCodeModal from './MissingCostCodeModal';
-
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '../../common/ui/Tooltip';
 
 import { colAlignClass, formatCurrency, formatCellCurrency } from './spreadsheetTableUtils';
 
@@ -87,8 +76,6 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '' 
 
     commitLine,
 
-    bulkCommitOpenLines,
-
     financialConfig,
 
     contractData,
@@ -116,8 +103,6 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '' 
   const [seedPromptOpen, setSeedPromptOpen] = useState(false);
 
   const [seedPromptHandled, setSeedPromptHandled] = useState(false);
-
-  const [lockBudgetOpen, setLockBudgetOpen] = useState(false);
 
   const [missingCostCodeOpen, setMissingCostCodeOpen] = useState(false);
 
@@ -429,26 +414,7 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '' 
 
 
 
-  const openLinesMissingCostCode = useMemo(
-    () => countOpenRowsMissingCostCode(budgetRows),
-    [budgetRows]
-  );
-
   const isTableEmpty = useMemo(() => isBudgetSheetEmpty(budgetRows), [budgetRows]);
-
-  const canLockBudget = lineCounts.open > 0 && openLinesMissingCostCode === 0;
-
-  const lockBudgetTooltip = useMemo(() => {
-    if (lineCounts.open === 0) {
-      return 'All budget lines are already committed — there is nothing left to lock.';
-    }
-    if (openLinesMissingCostCode > 0) {
-      const lineWord = lineCounts.open === 1 ? 'line' : 'lines';
-      const missingWord = openLinesMissingCostCode === 1 ? 'line is' : 'lines are';
-      return `Every open line needs a cost code before you can lock the budget. ${openLinesMissingCostCode} of ${lineCounts.open} open ${lineWord} ${missingWord} still missing one — add cost codes in the highlighted cells, then try again.`;
-    }
-    return `Commit all ${lineCounts.open} remaining open ${lineCounts.open === 1 ? 'line' : 'lines'} at once.`;
-  }, [lineCounts.open, openLinesMissingCostCode]);
 
   const handleRequestCommit = (row: V3Row) => {
     if (rowMissingCostCode(row)) {
@@ -460,18 +426,6 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '' 
       return;
     }
     setCommitTarget(row);
-  };
-
-  const handleRequestLockBudget = () => {
-    if (openLinesMissingCostCode > 0) {
-      setMissingCostCodeContext({
-        missingCount: openLinesMissingCostCode,
-        openLineCount: lineCounts.open,
-      });
-      setMissingCostCodeOpen(true);
-      return;
-    }
-    setLockBudgetOpen(true);
   };
 
   const visibleColumns = columns.filter((c) => c.visible !== false);
@@ -560,26 +514,6 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '' 
               <Upload size={14} /> Import Excel
 
             </button>
-
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="inline-flex">
-                    <button
-                      type="button"
-                      onClick={handleRequestLockBudget}
-                      disabled={!canLockBudget}
-                      className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
-                    >
-                      <Lock size={14} /> Lock Budget
-                    </button>
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  {lockBudgetTooltip}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
 
           </div>
 
@@ -889,20 +823,6 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '' 
         missingCount={missingCostCodeContext.missingCount}
         openLineCount={missingCostCodeContext.openLineCount}
         onClose={() => setMissingCostCodeOpen(false)}
-      />
-
-
-
-      <LockBudgetModal
-        open={lockBudgetOpen}
-        openLineCount={lineCounts.open}
-        committedLineCount={lineCounts.locked}
-        perLineApprovalEnabled={financialConfig?.perLineApprovalEnabled ?? false}
-        onConfirm={() => {
-          bulkCommitOpenLines();
-          setLockBudgetOpen(false);
-        }}
-        onCancel={() => setLockBudgetOpen(false)}
       />
 
 

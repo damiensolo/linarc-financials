@@ -1,138 +1,217 @@
 import { V3Row } from '../components/views/spreadsheetV4/types';
 
-// Common construction contract line item patterns
-const COMMON_LINE_ITEMS = [
-  'MOBILIZATION',
-  'DEMOBILIZATION',
-  'SHOP DRAWINGS',
-  'SUBMITTAL',
-  'TRAILER',
-  'TEMP',
-  'WATER',
-  'WARRANTY',
-  'MANUALS',
-  'ORIENTATIONS',
-  'BOND',
-  'OCIP',
-  'BASEMENT',
-  'UNDERGROUND',
-  'PIPING',
-  'MATERIAL',
-  'LABOR',
-  'CONCRETE',
-  'STEEL',
-  'EXCAVATION',
-  'FOUNDATION',
-  'FRAMING',
-  'ROOFING',
-  'MASONRY',
-  'MECHANICAL',
-  'ELECTRICAL',
-  'PLUMBING',
-  'HVAC',
-];
-
-interface ExtractedLineItem {
+export interface ExtractedLineItem {
   name: string;
   value: number;
 }
 
+export interface ExtractedContractFields {
+  executedDate: Date | null;
+  startDate: Date | null;
+  endDate: Date | null;
+  finalCompletion: Date | null;
+  contractSum: number | null;
+  owner: string;
+  contractor: string;
+  projectName: string;
+}
+
+function parseAmount(raw: string): number | null {
+  const cleaned = raw.replace(/[$,\s]/g, '');
+  const num = parseFloat(cleaned);
+  return Number.isFinite(num) ? num : null;
+}
+
+function parseNaturalDate(raw: string | undefined): Date | null {
+  if (!raw) return null;
+  const d = new Date(raw.trim());
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function cleanLabel(raw: string): string {
+  return raw
+    .replace(/\s+/g, ' ')
+    .replace(/\[[^\]]*\]/g, '')
+    .replace(/\s*Page\s+\d+\s+of\s+\d+\s*/gi, ' ')
+    .replace(/^(?:Schedule of Values|Interior Unit Work \(8 Units\)|Building & Site Work|General Conditions, Overhead & Profit|Category|Basis|Amount|\d+\.\s*)+\s*/gi, '')
+    .replace(/\s*(?:Lump sum|Approx\.\s*\$[\d,]+(?:\.\d{2})?\s*(?:per\s+unit)?)\s*$/i, '')
+    .trim();
+}
+
+const SKIP_LINE_NAME =
+  /^(?:subtotal|total|category|basis|amount|interiors?\s*\(|building\s*&\s*site|gc\s*\/|allowance|payment|retainage|per\s*unit|approx\.?|lump\s*sum)/i;
+
+function shouldSkipLineItem(name: string, value: number): boolean {
+  const n = cleanLabel(name);
+  if (n.length < 6) return true;
+  if (SKIP_LINE_NAME.test(n)) return true;
+  if (/total\s+contract\s+sum/i.test(n)) return true;
+  if (/^totals?$/i.test(n)) return true;
+  if (/release|punch\s*list|closeout|waiver/i.test(n)) return true;
+  if (/allowance/i.test(n)) return true;
+  if (value >= 100000) return true;
+  return false;
+}
+
+function descriptionBeforeAmount(block: string, amountIndex: number, prevAmountEnd: number): string {
+  const context = block.slice(prevAmountEnd, amountIndex);
+  return cleanLabel(
+    context.replace(/\s*(?:Lump\s+sum|Approx\.\s*\$[\d,]+(?:\.\d{2})?\s*(?:per\s+unit)?)\s*$/i, '').trim()
+  );
+}
+
+function parseAmountRows(block: string): ExtractedLineItem[] {
+  const items: ExtractedLineItem[] = [];
+  const amounts = [...block.matchAll(/\$\s*([\d,]+\.\d{2})/g)];
+
+  for (let i = 0; i < amounts.length; i++) {
+    const value = parseAmount(amounts[i][1]);
+    if (!value || value < 1000) continue;
+
+    const amountIndex = amounts[i].index ?? 0;
+    const prevAmountEnd =
+      i > 0 ? (amounts[i - 1].index ?? 0) + amounts[i - 1][0].length : 0;
+    const context = block.slice(prevAmountEnd, amountIndex);
+
+    if (value < 10000 && /\bApprox\.\s*$/i.test(context.trim())) continue;
+
+    const name = descriptionBeforeAmount(block, amountIndex, prevAmountEnd);
+    if (shouldSkipLineItem(name, value)) continue;
+
+    items.push({ name: name.slice(0, 120), value });
+  }
+
+  return items;
+}
+
+/**
+ * Parse Schedule of Values tables (Arizona sample prime contract format).
+ */
+function extractScheduleOfValuesItems(text: string): ExtractedLineItem[] {
+  const start = text.search(/(?:5\.\s*)?Schedule\s+of\s+Values/i);
+  if (start === -1) return [];
+
+  const endCandidates = [
+    text.search(/\b6\.\s*Allowances\b/i),
+    text.search(/\bAllowances\b[\s\S]{0,40}Contract\s+Sum\s+includes/i),
+    text.search(/\b7\.\s*Payment\s+Schedule/i),
+  ].filter((i) => i > start);
+
+  const end = endCandidates.length > 0 ? Math.min(...endCandidates) : text.length;
+  const section = text.slice(start, end);
+
+  const blocks = [
+    section.match(/Interior demolition[\s\S]*?Subtotal\s*[–-]\s*Interiors/i)?.[0],
+    section.match(/Corridor\/stairwell[\s\S]*?Subtotal\s*[–-]\s*Building\s*&\s*Site/i)?.[0],
+    section.match(/Project management[\s\S]*?Subtotal\s*[–-]\s*GC/i)?.[0],
+  ].filter((b): b is string => Boolean(b));
+
+  const items = blocks.flatMap(parseAmountRows);
+  return deduplicateItems(items);
+}
+
+/**
+ * Extract contract metadata from uploaded contract text.
+ */
+export function extractContractFields(text: string): ExtractedContractFields {
+  const t = text.replace(/\s+/g, ' ');
+
+  const executedMatch =
+    t.match(/entered\s+into\s+on\s+([A-Za-z]+\s+\d{1,2},?\s+\d{4})/i) ||
+    t.match(/effective\s+date[^:]*:\s*([A-Za-z]+\s+\d{1,2},?\s+\d{4})/i);
+
+  const startMatch = t.match(
+    /(?:estimated\s+)?construction\s+start[^:]*:?\s*([A-Za-z]+\s+\d{1,2},?\s+\d{4})/i
+  );
+
+  const endMatch = t.match(
+    /substantial\s+completion[^:]*:?\s*([A-Za-z]+\s+\d{1,2},?\s+\d{4})/i
+  );
+
+  const finalMatch = t.match(
+    /final\s+completion[^:]*:?\s*([A-Za-z]+\s+\d{1,2},?\s+\d{4})/i
+  );
+
+  const sumMatch =
+    t.match(/total\s+contract\s+sum[^$\d]*\$\s*([\d,]+(?:\.\d{2})?)/i) ||
+    t.match(/contract\s+sum\s+of\s+\$\s*([\d,]+(?:\.\d{2})?)/i) ||
+    t.match(/fixed\s+contract\s+sum[^$\d]*\$\s*([\d,]+(?:\.\d{2})?)/i);
+
+  const ownerMatch =
+    t.match(/owner[\s\S]{0,80}?name:\s*([A-Za-z][A-Za-z0-9 &.,'-]+?(?:LLC|Inc\.?|Corp\.?|Ltd\.?))/i) ||
+    t.match(/\bowner\b[^:]*:\s*([A-Za-z][A-Za-z0-9 &.,'-]+?(?:LLC|Inc\.?|Corp\.?|Ltd\.?))/i);
+
+  const contractorMatch =
+    t.match(
+      /(?:company\s+name|contractor)[\s\S]{0,80}?:\s*([A-Za-z][A-Za-z0-9 &.,'-]+?(?:LLC|Inc\.?|Corp\.?|Ltd\.?))/i
+    ) || t.match(/\bcontractor\b[^:]*:\s*([A-Za-z][A-Za-z0-9 &.,'-]+?(?:LLC|Inc\.?|Corp\.?|Ltd\.?))/i);
+
+  const projectMatch =
+    t.match(/property\s+name:\s*([A-Za-z][A-Za-z0-9 &.,'-]+?)(?:\s+property\s+address|\s+building\s+type|$)/i) ||
+    t.match(/project\s*(?:name)?[^:]*:\s*([A-Za-z][A-Za-z0-9 &.,'-]+)/i);
+
+  return {
+    executedDate: parseNaturalDate(executedMatch?.[1]),
+    startDate: parseNaturalDate(startMatch?.[1]),
+    endDate: parseNaturalDate(endMatch?.[1]),
+    finalCompletion: parseNaturalDate(finalMatch?.[1]),
+    contractSum: sumMatch ? parseAmount(sumMatch[1]) : null,
+    owner: ownerMatch?.[1]?.trim() ?? '',
+    contractor: contractorMatch?.[1]?.trim() ?? '',
+    projectName: projectMatch?.[1]?.trim() ?? '',
+  };
+}
+
 /**
  * Extract contract line items and amounts from contract text.
- * Returns an array of {name, value} pairs.
  */
 export function extractLineItems(text: string): ExtractedLineItem[] {
+  const sovItems = extractScheduleOfValuesItems(text);
+  if (sovItems.length >= 5) {
+    return sovItems;
+  }
+
+  return extractLineItemsFallback(text);
+}
+
+function extractLineItemsFallback(text: string): ExtractedLineItem[] {
   const items: ExtractedLineItem[] = [];
+  const lines = text.split(/[\n\r]+/);
 
-  // Normalize: collapse multiple spaces, handle various line breaks
-  const normalized = text.replace(/\s+/g, ' ').toUpperCase();
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
 
-  // Strategy 1: Look for currency amounts followed by descriptive text
-  // Pattern: "TEXT_DESCRIPTION $amount" or "$amount TEXT_DESCRIPTION"
-  const currencyPattern = /(\$\s*[\d,]+(?:\.\d{2})?)\s+([A-Z\s&\-.,()]+?)(?=\$|\d{5,}|$)/g;
-  let match;
+    const amounts = [...trimmed.matchAll(/\$\s*([\d,]+(?:\.\d{2})?)/g)];
+    if (amounts.length === 0) continue;
 
-  while ((match = currencyPattern.exec(normalized)) !== null) {
-    const amount = extractAmount(match[1]);
-    const description = match[2].trim().substring(0, 80);
+    const lastAmount = parseAmount(amounts[amounts.length - 1][1]);
+    if (!lastAmount || lastAmount < 1000) continue;
 
-    if (amount && amount > 100 && description.length > 3) {
-      items.push({
-        name: description,
-        value: amount,
-      });
-    }
+    const desc = trimmed.replace(/\$\s*[\d,]+(?:\.\d{2})?/g, '').replace(/\s+/g, ' ').trim();
+    if (desc.length < 8 || shouldSkipLineItem(desc, lastAmount)) continue;
+
+    items.push({ name: cleanLabel(desc).slice(0, 120), value: lastAmount });
   }
 
-  // Strategy 2: If currency pattern didn't find much, fall back to keyword matching
-  if (items.length < 3) {
-    const lines = text.split(/[\n\r]+/);
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (!line) continue;
-
-      // Try to match common line item names
-      for (const itemName of COMMON_LINE_ITEMS) {
-        if (line.toUpperCase().includes(itemName)) {
-          // Look for currency amount in same line or next line
-          let amount = extractAmount(line);
-
-          if (!amount && i + 1 < lines.length) {
-            amount = extractAmount(lines[i + 1]);
-          }
-
-          if (amount && amount > 100) {
-            items.push({
-              name: line.substring(0, 80),
-              value: amount,
-            });
-            break;
-          }
-        }
-      }
-    }
-  }
-
-  // Deduplicate and remove very similar items
-  const result = deduplicateItems(items);
-  console.log(`[ContractExtraction] Found ${result.length} line items:`, result);
-  return result;
+  return deduplicateItems(items);
 }
 
-/**
- * Extract currency amount from a string.
- * Handles formats like: "$123,456.78", "$123456", etc.
- */
-function extractAmount(text: string): number | null {
-  // Match currency patterns: $123,456.78 or $123456
-  const match = text.match(/\$\s*([\d,]+(?:\.\d{2})?)/);
-  if (match) {
-    const cleaned = match[1].replace(/,/g, '');
-    const num = parseFloat(cleaned);
-    return isNaN(num) ? null : num;
-  }
-  return null;
-}
-
-/**
- * Remove duplicate/similar line items, keeping the one with highest value.
- */
 function deduplicateItems(items: ExtractedLineItem[]): ExtractedLineItem[] {
   const seen = new Map<string, ExtractedLineItem>();
 
   for (const item of items) {
     const key = item.name.toUpperCase();
-    const existing = seen.get(key);
-
-    if (!existing || item.value > existing.value) {
+    if (!seen.has(key)) {
       seen.set(key, item);
     }
   }
 
-  return Array.from(seen.values())
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 20); // Limit to top 20 items
+  return Array.from(seen.values()).sort((a, b) => b.value - a.value);
+}
+
+export function sumLineItems(items: ExtractedLineItem[]): number {
+  return items.reduce((sum, item) => sum + item.value, 0);
 }
 
 /**

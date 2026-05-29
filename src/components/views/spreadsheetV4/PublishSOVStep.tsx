@@ -16,6 +16,7 @@ const PublishSOVStep: React.FC = () => {
     committedLineCount,
     lineCounts,
     financialConfig,
+    setPrimeContractSetupPhase,
   } = useProject();
 
   const message = getWorkflowMessage({
@@ -47,7 +48,11 @@ const PublishSOVStep: React.FC = () => {
             type="button"
             disabled={check.met}
             onClick={() => {
-              if (check.actionStep) navigateToSetupStep(check.actionStep, check.actionTab);
+              if (!check.actionStep) return;
+              if (check.id === 'prime-contract-locked') {
+                setPrimeContractSetupPhase('review');
+              }
+              navigateToSetupStep(check.actionStep, check.actionTab);
             }}
             className={`w-full flex items-start gap-3 p-3 rounded-lg border text-left transition-colors ${
               check.met
@@ -63,6 +68,16 @@ const PublishSOVStep: React.FC = () => {
             <span className={`text-sm ${check.met ? 'text-green-900' : 'text-amber-900'}`}>
               {check.label}
             </span>
+            {!check.met && check.actionStep === 2 && (
+              <span className="block text-xs text-amber-700 mt-1">
+                Opens Step 2 — lock Prime Contract as baseline
+              </span>
+            )}
+            {!check.met && check.actionStep === 3 && (
+              <span className="block text-xs text-amber-700 mt-1">
+                Opens Step 3 — commit or lock all budget lines
+              </span>
+            )}
             {!check.met && check.actionStep === 4 && (
               <span className="block text-xs text-amber-700 mt-1">
                 Opens Step 4 — {check.actionTab === 'schedule' ? 'Schedule Linking' : 'SOV Mapping'} tab

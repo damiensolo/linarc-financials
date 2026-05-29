@@ -9,7 +9,7 @@ import {
   getBudgetRows, getBudgetSheet, getPrimeContractRows, getPrimeContractSheet, hasPcValue, hasCommittedLines,
   isBudgetFullyLocked, countLinesByState, committedLineCount, getPrimeContractState, createEmptyBudgetSheet,
   createEmptyPrimeContractSheet, createBudgetColumns, seedBudgetRowsFromPrimeContract, APPROVER_NAMES,
-  rowMissingCostCode,
+  rowMissingCostCode, createDraftSovMapping, syncDraftSovMappings,
 } from '../lib/financialWorkflow';
 import { computePublishReadiness, allPublishChecksMet } from '../lib/financialGating';
 import { loadFinancialState, saveFinancialState, reviveContractDates } from '../lib/financialPersistence';
@@ -206,6 +206,9 @@ interface ProjectContextType {
   requestPcValueChange: (newValue: number) => boolean;
   applyPcValueChange: (newValue: number) => void;
   addSovMapping: (mapping: SOVMapping) => void;
+  updateSovMapping: (rowId: string, patch: Partial<SOVMapping>) => void;
+  confirmSovMapping: (rowId: string) => void;
+  confirmAllSovDrafts: () => void;
   addWbsLink: (link: WBSLink) => void;
   removeSovMapping: (rowId: string) => void;
   removeWbsLink: (rowId: string) => void;
@@ -648,8 +651,11 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
   const budgetFullyLocked = useMemo(() => isBudgetFullyLocked(budgetRows), [budgetRows]);
   const financialSetupComplete = activationState === 'activated';
   const publishReadiness = useMemo(
-    () => computePublishReadiness(budgetRows, sovMappings, wbsLinks, approvalQueue),
-    [budgetRows, sovMappings, wbsLinks, approvalQueue]
+    () =>
+      computePublishReadiness(budgetRows, sovMappings, wbsLinks, approvalQueue, {
+        contractLocked,
+      }),
+    [budgetRows, sovMappings, wbsLinks, approvalQueue, contractLocked]
   );
   const canPublishSOV = useMemo(() => allPublishChecksMet(publishReadiness), [publishReadiness]);
 
@@ -724,6 +730,21 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     return req;
   }, [financialConfig]);
 
+  const appendDraftSovForRows = useCallback((rowIds: string[]) => {
+    if (rowIds.length === 0) return;
+    setSovMappings((prev) => {
+      const rows = getBudgetRows(activeViewRef.current.v3Sheets);
+      let next = [...prev];
+      rowIds.forEach((id) => {
+        if (next.some((m) => m.rowId === id)) return;
+        const row = rows.find((r) => r.id === id);
+        if (!row) return;
+        next.push(createDraftSovMapping({ ...row, lineState: 'locked' }, next.length + 1));
+      });
+      return next;
+    });
+  }, []);
+
   const commitLine = useCallback((rowId: string) => {
     const perLineApproval = financialConfig?.perLineApprovalEnabled ?? false;
     const rows = getBudgetRows(activeViewRef.current.v3Sheets);
@@ -746,8 +767,9 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
       updateBudgetRows(
         rows.map((r) => (r.id === rowId ? { ...r, lineState: 'locked' as const } : r))
       );
+      appendDraftSovForRows([rowId]);
     }
-  }, [financialConfig, enqueueApproval, updateBudgetRows]);
+  }, [financialConfig, enqueueApproval, updateBudgetRows, appendDraftSovForRows]);
 
   const bulkCommitOpenLines = useCallback(() => {
     const perLineApproval = financialConfig?.perLineApprovalEnabled ?? false;
@@ -773,8 +795,9 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
           openIds.includes(r.id) ? { ...r, lineState: 'locked' as const } : r
         )
       );
+      appendDraftSovForRows(openIds);
     }
-  }, [financialConfig, enqueueApproval, updateBudgetRows]);
+  }, [financialConfig, enqueueApproval, updateBudgetRows, appendDraftSovForRows]);
 
   const approveRequest = useCallback((requestId: string) => {
     const req = approvalQueue.find((a) => a.id === requestId);
@@ -798,8 +821,9 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
           rowIds.includes(r.id) ? { ...r, lineState: 'locked' as const } : r
         )
       );
+      appendDraftSovForRows(rowIds);
     }
-  }, [approvalQueue, updateBudgetRows]);
+  }, [approvalQueue, updateBudgetRows, appendDraftSovForRows]);
 
   const rejectRequest = useCallback((requestId: string, reason: string) => {
     const req = approvalQueue.find((a) => a.id === requestId);
@@ -843,6 +867,28 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     setSovMappings((prev) => [...prev.filter((m) => m.rowId !== mapping.rowId), mapping]);
   }, []);
 
+  const updateSovMapping = useCallback((rowId: string, patch: Partial<SOVMapping>) => {
+    setSovMappings((prev) =>
+      prev.map((m) => (m.rowId === rowId ? { ...m, ...patch } : m))
+    );
+  }, []);
+
+  const confirmSovMapping = useCallback((rowId: string) => {
+    setSovMappings((prev) =>
+      prev.map((m) =>
+        m.rowId === rowId ? { ...m, status: 'confirmed' as const } : m
+      )
+    );
+  }, []);
+
+  const confirmAllSovDrafts = useCallback(() => {
+    setSovMappings((prev) =>
+      prev.map((m) =>
+        (m.status ?? 'confirmed') === 'draft' ? { ...m, status: 'confirmed' as const } : m
+      )
+    );
+  }, []);
+
   const addWbsLink = useCallback((link: WBSLink) => {
     setWbsLinks((prev) => [...prev.filter((l) => l.rowId !== link.rowId), link]);
   }, []);
@@ -855,13 +901,20 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     setWbsLinks((prev) => prev.filter((l) => l.rowId !== rowId));
   }, []);
 
+  useEffect(() => {
+    const committed = budgetRows.filter((r) => (r.lineState ?? 'open') === 'locked');
+    setSovMappings((prev) => syncDraftSovMappings(committed, prev));
+  }, [budgetRows]);
+
   const publishSOV = useCallback((): boolean => {
-    if (!allPublishChecksMet(computePublishReadiness(
-      getBudgetRows(activeViewRef.current.v3Sheets),
-      sovMappings,
-      wbsLinks,
-      approvalQueue
-    ))) {
+    const rows = getBudgetRows(activeViewRef.current.v3Sheets);
+    if (
+      !contractLocked ||
+      !isBudgetFullyLocked(rows) ||
+      !allPublishChecksMet(
+        computePublishReadiness(rows, sovMappings, wbsLinks, approvalQueue, { contractLocked })
+      )
+    ) {
       return false;
     }
     setSovPublished(true);
@@ -869,7 +922,7 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     setFinancialSetupStep(5);
     setHubCollapsed(true);
     return true;
-  }, [sovMappings, wbsLinks, approvalQueue]);
+  }, [contractLocked, sovMappings, wbsLinks, approvalQueue]);
 
   const navigateToSetupStep = useCallback((step: FinancialSetupStep, tab?: 'sov' | 'schedule') => {
     setFinancialSetupStep(step);
@@ -1019,6 +1072,9 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     requestPcValueChange,
     applyPcValueChange,
     addSovMapping,
+    updateSovMapping,
+    confirmSovMapping,
+    confirmAllSovDrafts,
     addWbsLink,
     removeSovMapping,
     removeWbsLink,

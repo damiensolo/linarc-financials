@@ -1,7 +1,8 @@
 import React, { useMemo } from 'react';
-import { Link2, AlertCircle } from 'lucide-react';
+import { Link2, AlertCircle, ChevronRight } from 'lucide-react';
 import { useProject } from '../../../context/ProjectContext';
-import { getLineState, getBudgetLineAmount } from '../../../lib/financialWorkflow';
+import { getLineState, isSovMappingConfirmed } from '../../../lib/financialWorkflow';
+import SOVMappingGrid from './SOVMappingGrid';
 
 const ContinuousOpsWorkspace: React.FC = () => {
   const {
@@ -10,9 +11,7 @@ const ContinuousOpsWorkspace: React.FC = () => {
     setOpsActiveTab,
     sovMappings,
     wbsLinks,
-    addSovMapping,
     addWbsLink,
-    removeSovMapping,
     removeWbsLink,
     navigateToSetupStep,
     publishReadiness,
@@ -22,8 +21,17 @@ const ContinuousOpsWorkspace: React.FC = () => {
   const committedRows = budgetRows.filter((r) => getLineState(r) === 'locked');
   const openRows = budgetRows.filter((r) => getLineState(r) !== 'locked');
 
-  const unmappedSov = committedRows.filter((r) => !sovMappings.some((m) => m.rowId === r.id)).length;
+  const unconfirmedSov = committedRows.filter((r) => {
+    const mapping = sovMappings.find((m) => m.rowId === r.id);
+    return !mapping || !isSovMappingConfirmed(mapping);
+  }).length;
   const unlinkedWbs = committedRows.filter((r) => !wbsLinks.some((l) => l.rowId === r.id)).length;
+
+  const publishRemaining = publishReadiness.filter((c) => !c.met).length;
+
+  const showSovAlerts = opsActiveTab === 'sov' && (unconfirmedSov > 0 || openRows.length > 0);
+  const showScheduleAlert = opsActiveTab === 'schedule' && unlinkedWbs > 0;
+  const hasTopAlerts = showSovAlerts || showScheduleAlert;
 
   const scheduleActivities = useMemo(
     () => [
@@ -53,27 +61,73 @@ const ContinuousOpsWorkspace: React.FC = () => {
     });
   };
 
-  const mapAllSov = () => {
-    committedRows.forEach((row, idx) => {
-      if (sovMappings.some((m) => m.rowId === row.id)) return;
-      const amount = getBudgetLineAmount(row);
-      addSovMapping({
-        rowId: row.id,
-        sovLineNumber: idx + 1,
-        sovDescription: String(row.cells['name'] ?? ''),
-        amount,
-      });
-    });
-  };
-
   return (
-    <div className="flex flex-col flex-1 min-h-0 h-full">
-      <div className="flex gap-2 border-b border-gray-200 px-4">
+    <div className="flex flex-col flex-1 min-h-0 h-full bg-white">
+      <div
+        className={`flex-shrink-0 border-b border-gray-200 ${
+          hasTopAlerts ? 'bg-blue-50' : 'bg-gray-50'
+        }`}
+      >
+        <div className="flex items-start justify-between gap-4 px-4 py-3">
+          <div className="flex-1 min-w-0">
+            {hasTopAlerts && (
+              <div className="flex items-start gap-2 text-sm text-blue-900">
+                <AlertCircle size={16} className="mt-0.5 flex-shrink-0" />
+                <div className="space-y-1">
+                  {showSovAlerts && (
+                    <>
+                      {unconfirmedSov > 0 && (
+                        <p>
+                          {unconfirmedSov} committed line(s) have draft SOV entries awaiting
+                          confirmation.
+                        </p>
+                      )}
+                      {openRows.length > 0 && (
+                        <p>
+                          {openRows.length} open/pending budget line(s) — commit in Step 3 to add
+                          SOV drafts.
+                        </p>
+                      )}
+                    </>
+                  )}
+                  {showScheduleAlert && (
+                    <p>{unlinkedWbs} committed line(s) have no WBS link.</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-col items-end gap-1 flex-shrink-0">
+            <button
+              type="button"
+              onClick={() => navigateToSetupStep(5)}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+            >
+              Publish SOV
+              <ChevronRight size={16} />
+            </button>
+            <span
+              className={`text-xs font-medium ${
+                canPublishSOV ? 'text-green-700' : 'text-amber-700'
+              }`}
+            >
+              {canPublishSOV
+                ? 'Ready to publish'
+                : `${publishRemaining} check${publishRemaining === 1 ? '' : 's'} remaining`}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex gap-2 border-b border-gray-200 px-4 flex-shrink-0 bg-white">
         <button
           type="button"
           onClick={() => setOpsActiveTab('sov')}
           className={`px-4 py-2 font-medium border-b-2 transition-colors ${
-            opsActiveTab === 'sov' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-600'
+            opsActiveTab === 'sov'
+              ? 'border-blue-600 text-blue-600'
+              : 'border-transparent text-gray-600'
           }`}
         >
           SOV Mapping
@@ -82,82 +136,26 @@ const ContinuousOpsWorkspace: React.FC = () => {
           type="button"
           onClick={() => setOpsActiveTab('schedule')}
           className={`px-4 py-2 font-medium border-b-2 transition-colors ${
-            opsActiveTab === 'schedule' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-600'
+            opsActiveTab === 'schedule'
+              ? 'border-blue-600 text-blue-600'
+              : 'border-transparent text-gray-600'
           }`}
         >
           Schedule Linking
         </button>
       </div>
 
-      {(unmappedSov > 0 || unlinkedWbs > 0) && (
-        <div className="mx-4 mt-3 p-3 bg-blue-50 border border-blue-200 rounded-md text-sm text-blue-900 flex items-start gap-2">
-          <AlertCircle size={16} className="mt-0.5 flex-shrink-0" />
-          <div>
-            {unmappedSov > 0 && <p>{unmappedSov} committed line(s) not yet mapped to SOV.</p>}
-            {unlinkedWbs > 0 && <p>{unlinkedWbs} committed line(s) have no WBS link.</p>}
-          </div>
+      {opsActiveTab === 'sov' ? (
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <SOVMappingGrid />
         </div>
-      )}
-
-      <div className="flex-1 overflow-auto p-4">
-        {opsActiveTab === 'sov' ? (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-sm text-gray-600">
-                Map committed budget lines to owner-facing SOV entries.
-              </p>
-              {unmappedSov > 0 && (
-                <button
-                  type="button"
-                  onClick={mapAllSov}
-                  className="text-xs font-medium text-blue-600 hover:text-blue-800 whitespace-nowrap"
-                >
-                  Map all ({unmappedSov})
-                </button>
-              )}
-            </div>
-            {committedRows.map((row, idx) => {
-              const mapping = sovMappings.find((m) => m.rowId === row.id);
-              const amount = getBudgetLineAmount(row);
-              return (
-                <div key={row.id} className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg bg-white">
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-900">{String(row.cells['name'] ?? 'Line')}</p>
-                    <p className="text-xs text-gray-500">{row.cells['costCode'] ?? 'No cost code'} · ${amount.toLocaleString()}</p>
-                  </div>
-                  {mapping ? (
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">SOV #{mapping.sovLineNumber}</span>
-                      <button type="button" onClick={() => removeSovMapping(row.id)} className="text-xs text-red-600">Remove</button>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        addSovMapping({
-                          rowId: row.id,
-                          sovLineNumber: idx + 1,
-                          sovDescription: String(row.cells['name'] ?? ''),
-                          amount,
-                        })
-                      }
-                      className="text-xs font-medium text-blue-600 hover:text-blue-800"
-                    >
-                      Map to SOV
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-            {openRows.length > 0 && (
-              <p className="text-xs text-gray-400 mt-4">{openRows.length} open/pending line(s) dimmed — commit to enable.</p>
-            )}
-          </div>
-        ) : (
+      ) : (
+        <div className="flex-1 overflow-auto p-4">
           <div className="space-y-2">
             <div className="flex items-center justify-between mb-3 gap-3">
               <p className="text-sm text-gray-600">
-                Link committed lines to WBS activities. Cost code matches are suggested automatically.
+                Link committed lines to WBS activities. Cost code matches are suggested
+                automatically.
               </p>
               {unlinkedWbs > 0 && (
                 <button
@@ -174,19 +172,32 @@ const ContinuousOpsWorkspace: React.FC = () => {
               const costCode = String(row.cells['costCode'] ?? '');
               const suggestion = suggestWbs(costCode);
               return (
-                <div key={row.id} className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg bg-white">
+                <div
+                  key={row.id}
+                  className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg bg-white"
+                >
                   <div className="flex-1">
-                    <p className="font-medium text-gray-900">{String(row.cells['name'] ?? 'Line')}</p>
+                    <p className="font-medium text-gray-900">
+                      {String(row.cells['name'] ?? 'Line')}
+                    </p>
                     <p className="text-xs text-gray-500">Cost code: {costCode || '—'}</p>
                     {suggestion && !link && (
-                      <p className="text-xs text-blue-600 mt-1">Suggested: {suggestion.name} ({suggestion.costCode})</p>
+                      <p className="text-xs text-blue-600 mt-1">
+                        Suggested: {suggestion.name} ({suggestion.costCode})
+                      </p>
                     )}
                   </div>
                   {link ? (
                     <div className="flex items-center gap-2">
                       <Link2 size={14} className="text-green-600" />
                       <span className="text-xs text-green-800">{link.wbsActivityName}</span>
-                      <button type="button" onClick={() => removeWbsLink(row.id)} className="text-xs text-red-600">Unlink</button>
+                      <button
+                        type="button"
+                        onClick={() => removeWbsLink(row.id)}
+                        className="text-xs text-red-600"
+                      >
+                        Unlink
+                      </button>
                     </div>
                   ) : (
                     <button
@@ -209,21 +220,8 @@ const ContinuousOpsWorkspace: React.FC = () => {
               );
             })}
           </div>
-        )}
-      </div>
-
-      <div className="border-t border-gray-200 px-4 py-3 bg-gray-50 flex items-center justify-between">
-        <button
-          type="button"
-          onClick={() => navigateToSetupStep(5)}
-          className="text-sm font-medium text-blue-600 hover:text-blue-800"
-        >
-          Open Step 5 — Publish SOV
-        </button>
-        <span className={`text-xs font-medium ${canPublishSOV ? 'text-green-700' : 'text-amber-700'}`}>
-          {canPublishSOV ? 'Ready to publish' : `${publishReadiness.filter((c) => !c.met).length} checks remaining`}
-        </span>
-      </div>
+        </div>
+      )}
     </div>
   );
 };

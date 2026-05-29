@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ChevronRight, Lock, ArrowLeft } from 'lucide-react';
 import { useProject } from '../../../context/ProjectContext';
-import { hasUploadedContractDocument } from '../../../lib/financialWorkflow';
+import {
+  countOpenRowsMissingCostCode,
+  hasUploadedContractDocument,
+} from '../../../lib/financialWorkflow';
 import {
   Tooltip,
   TooltipContent,
@@ -9,10 +12,19 @@ import {
   TooltipTrigger,
 } from '../../common/ui/Tooltip';
 import LockPrimeContractModal from './LockPrimeContractModal';
+import LockBudgetModal from './LockBudgetModal';
+import MissingCostCodeModal from './MissingCostCodeModal';
 
 /** Top action bar for the financial setup hub (step-specific primary actions). */
 const FinancialSetupActionBar: React.FC = () => {
-  const [showLockModal, setShowLockModal] = useState(false);
+  const [showLockPrimeModal, setShowLockPrimeModal] = useState(false);
+  const [lockBudgetOpen, setLockBudgetOpen] = useState(false);
+  const [missingCostCodeOpen, setMissingCostCodeOpen] = useState(false);
+  const [missingCostCodeContext, setMissingCostCodeContext] = useState<{
+    missingCount: number;
+    openLineCount?: number;
+  }>({ missingCount: 1 });
+
   const {
     financialSetupStep,
     setFinancialSetupStep,
@@ -23,11 +35,130 @@ const FinancialSetupActionBar: React.FC = () => {
     primeContractSetupPhase,
     setPrimeContractSetupPhase,
     committedLineCount,
+    lineCounts,
+    budgetRows,
+    bulkCommitOpenLines,
+    financialConfig,
+    navigateToSetupStep,
     setIsContractUploadOpen,
   } = useProject();
 
   const showContractActions =
     financialSetupStep === 2 && primeContractSetupPhase === 'review' && contractData;
+  const showBudgetActions = financialSetupStep === 3;
+
+  const openLinesMissingCostCode = useMemo(
+    () => countOpenRowsMissingCostCode(budgetRows),
+    [budgetRows]
+  );
+
+  const canLockBudget = lineCounts.open > 0 && openLinesMissingCostCode === 0;
+
+  const lockBudgetTooltip = useMemo(() => {
+    if (lineCounts.open === 0) {
+      return 'All budget lines are already committed — there is nothing left to lock.';
+    }
+    if (openLinesMissingCostCode > 0) {
+      const lineWord = lineCounts.open === 1 ? 'line' : 'lines';
+      const missingWord = openLinesMissingCostCode === 1 ? 'line is' : 'lines are';
+      return `Every open line needs a cost code before you can lock the budget. ${openLinesMissingCostCode} of ${lineCounts.open} open ${lineWord} ${missingWord} still missing one.`;
+    }
+    return `Commit all ${lineCounts.open} remaining open ${lineCounts.open === 1 ? 'line' : 'lines'} at once.`;
+  }, [lineCounts.open, openLinesMissingCostCode]);
+
+  const handleRequestLockBudget = () => {
+    if (openLinesMissingCostCode > 0) {
+      setMissingCostCodeContext({
+        missingCount: openLinesMissingCostCode,
+        openLineCount: lineCounts.open,
+      });
+      setMissingCostCodeOpen(true);
+      return;
+    }
+    setLockBudgetOpen(true);
+  };
+
+  if (showBudgetActions) {
+    const canContinueToOps = committedLineCount > 0;
+
+    return (
+      <>
+        <div className="flex items-center justify-between gap-4 px-6 py-3 border-b border-gray-200 bg-gray-50 flex-shrink-0">
+          <p className="text-sm text-gray-600 truncate min-w-0">
+            {canContinueToOps ? (
+              <>
+                <span className="font-medium text-gray-900">
+                  {committedLineCount} of {lineCounts.total} lines committed
+                </span>
+                {' — '}
+                Map SOV and link schedule in the next step. Lock remaining open lines when ready.
+              </>
+            ) : (
+              'Commit at least one budget line to continue to SOV mapping and schedule linking.'
+            )}
+          </p>
+          <div className="flex items-center gap-3 flex-shrink-0">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex">
+                    <button
+                      type="button"
+                      onClick={handleRequestLockBudget}
+                      disabled={!canLockBudget}
+                      className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-md hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Lock size={16} /> Lock Budget
+                    </button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">{lockBudgetTooltip}</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex">
+                    <button
+                      type="button"
+                      onClick={() => navigateToSetupStep(4, 'sov')}
+                      disabled={!canContinueToOps}
+                      className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                    >
+                      Continue to SOV Mapping
+                      <ChevronRight size={16} />
+                    </button>
+                  </span>
+                </TooltipTrigger>
+                {!canContinueToOps && (
+                  <TooltipContent side="bottom">
+                    Commit at least one budget line to open continuous operations.
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        </div>
+
+        <MissingCostCodeModal
+          open={missingCostCodeOpen}
+          missingCount={missingCostCodeContext.missingCount}
+          openLineCount={missingCostCodeContext.openLineCount}
+          onClose={() => setMissingCostCodeOpen(false)}
+        />
+
+        <LockBudgetModal
+          open={lockBudgetOpen}
+          openLineCount={lineCounts.open}
+          committedLineCount={lineCounts.locked}
+          perLineApprovalEnabled={financialConfig?.perLineApprovalEnabled ?? false}
+          onConfirm={() => {
+            bulkCommitOpenLines();
+            setLockBudgetOpen(false);
+          }}
+          onCancel={() => setLockBudgetOpen(false)}
+        />
+      </>
+    );
+  }
 
   if (!showContractActions) return null;
 
@@ -81,7 +212,7 @@ const FinancialSetupActionBar: React.FC = () => {
                     <span className="inline-flex">
                       <button
                         type="button"
-                        onClick={() => setShowLockModal(true)}
+                        onClick={() => setShowLockPrimeModal(true)}
                         disabled={!hasPcValue}
                         className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-md hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
                       >
@@ -122,13 +253,13 @@ const FinancialSetupActionBar: React.FC = () => {
       </div>
 
       <LockPrimeContractModal
-        open={showLockModal}
+        open={showLockPrimeModal}
         hasCommittedBudgetLines={committedLineCount > 0}
         onConfirm={() => {
           setContractLocked(true);
-          setShowLockModal(false);
+          setShowLockPrimeModal(false);
         }}
-        onCancel={() => setShowLockModal(false)}
+        onCancel={() => setShowLockPrimeModal(false)}
       />
     </>
   );

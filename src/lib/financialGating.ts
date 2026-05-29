@@ -1,6 +1,7 @@
 import {
   ContractData,
   FinancialSetupStep,
+  PrimeContractSetupPhase,
   FinancialConfig,
   SOVMapping,
   WBSLink,
@@ -268,13 +269,58 @@ export function getSidebarItemTooltip(
   return headerGating?.tooltip ?? '';
 }
 
+export interface SetupMilestoneReadiness {
+  financialConfigMet: boolean;
+  primeContractValueMet: boolean;
+  budgetLinesMet: boolean;
+  continuousOpsMet: boolean;
+}
+
+/** Setup milestones are complete only after the user advances past that step (or locks PC on step 2). */
+export function isPrimeContractReadinessComplete(
+  financialSetupStep: FinancialSetupStep,
+  contractData: ContractData | null,
+  contractLocked: boolean,
+  primeContractSetupPhase: PrimeContractSetupPhase
+): boolean {
+  if (!hasPcValue(contractData)) return false;
+  if (financialSetupStep > 2) return true;
+  if (financialSetupStep === 2 && contractLocked) return true;
+  if (financialSetupStep === 2 && primeContractSetupPhase === 'review') return true;
+  return false;
+}
+
+export function computeSetupMilestoneReadiness(
+  financialSetupStep: FinancialSetupStep,
+  financialConfig: FinancialConfig | null,
+  contractData: ContractData | null,
+  contractLocked: boolean,
+  primeContractSetupPhase: PrimeContractSetupPhase,
+  committedCount: number,
+  canAccessOperations: boolean
+): SetupMilestoneReadiness {
+  return {
+    financialConfigMet: financialSetupStep > 1 && financialConfig != null,
+    primeContractValueMet: isPrimeContractReadinessComplete(
+      financialSetupStep,
+      contractData,
+      contractLocked,
+      primeContractSetupPhase
+    ),
+    budgetLinesMet: financialSetupStep >= 3 && committedCount > 0,
+    continuousOpsMet: financialSetupStep >= 4 && canAccessOperations,
+  };
+}
+
 export function computePublishReadiness(
   budgetRows: V3Row[],
   sovMappings: SOVMapping[],
   wbsLinks: WBSLink[],
   approvalQueue: ApprovalRequest[],
-  commitThresholdPercent = 100
+  options: { contractLocked?: boolean; commitThresholdPercent?: number } = {}
 ): import('../types').PublishReadinessCheck[] {
+  const { contractLocked = false, commitThresholdPercent = 100 } = options;
+  const budgetFullyLocked = isBudgetFullyLocked(budgetRows);
   const counts = countLinesByState(budgetRows);
   const committed = committedLineCount(budgetRows);
   const thresholdMet =
@@ -286,9 +332,10 @@ export function computePublishReadiness(
     .filter((r) => (r.lineState ?? 'open') === 'locked')
     .map((r) => r.id);
 
-  const unmappedSov = committedIds.filter(
-    (id) => !sovMappings.some((m) => m.rowId === id)
-  ).length;
+  const unmappedSov = committedIds.filter((id) => {
+    const mapping = sovMappings.find((m) => m.rowId === id);
+    return !mapping || (mapping.status ?? 'confirmed') !== 'confirmed';
+  }).length;
 
   const unlinkedWbs = committedIds.filter(
     (id) => !wbsLinks.some((l) => l.rowId === id)
@@ -301,6 +348,22 @@ export function computePublishReadiness(
 
   return [
     {
+      id: 'prime-contract-locked',
+      label: contractLocked
+        ? 'Prime Contract locked as baseline'
+        : 'Lock Prime Contract before publishing SOV',
+      met: contractLocked,
+      actionStep: 2,
+    },
+    {
+      id: 'budget-locked',
+      label: budgetFullyLocked
+        ? 'Budget fully committed (locked)'
+        : 'Lock budget — commit all open lines before publishing SOV',
+      met: budgetFullyLocked,
+      actionStep: 3,
+    },
+    {
       id: 'commit-threshold',
       label: `${committed} of ${counts.total} budget lines committed (${commitThresholdPercent}% required)`,
       met: thresholdMet,
@@ -310,8 +373,8 @@ export function computePublishReadiness(
       id: 'sov-mapped',
       label:
         unmappedSov === 0
-          ? 'All committed lines mapped to SOV'
-          : `${unmappedSov} committed line(s) not mapped to SOV — click to open SOV Mapping`,
+          ? 'All committed lines confirmed in SOV'
+          : `${unmappedSov} committed line(s) awaiting SOV confirmation — click to open SOV Mapping`,
       met: unmappedSov === 0 && committed > 0,
       actionStep: 4,
       actionTab: 'sov',

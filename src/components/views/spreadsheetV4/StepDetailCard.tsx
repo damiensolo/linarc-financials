@@ -86,12 +86,7 @@ const StepDetailCard: React.FC = () => {
         }
         return (
           <div className="w-full flex-1 min-h-0 flex flex-col">
-            <div className="px-4 pt-4 flex-shrink-0">
-              <WorkflowMessageBanner message={message} />
-            </div>
-            <div className="flex-1 min-h-0">
-              <ContinuousOpsWorkspace />
-            </div>
+            <ContinuousOpsWorkspace />
           </div>
         );
 

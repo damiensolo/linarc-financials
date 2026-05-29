@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -6,7 +6,13 @@ import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { useProject } from '../../context/ProjectContext';
 import { XIcon, CloudIcon, ChevronRightIcon, PlusIcon, TrashIcon } from '../common/Icons';
 import { DatePicker } from '../common/ui/DatePicker';
-import { extractLineItems, createPrimeContractRowsFromLineItems } from '../../lib/contractLineExtraction';
+import {
+  extractLineItems,
+  extractContractFields,
+  createPrimeContractRowsFromLineItems,
+  sumLineItems,
+  type ExtractedContractFields,
+} from '../../lib/contractLineExtraction';
 import {
   DEFAULT_PRIME_CONTRACT_COLUMNS,
   PRIME_CONTRACT_SHEET_ID,
@@ -34,17 +40,6 @@ const DEMO_CONTRACT = {
   projectName:     'Desert Vista Apartments',
 };
 
-interface ExtractedContract {
-  executedDate:    Date | null;
-  startDate:       Date | null;
-  endDate:         Date | null;
-  finalCompletion: Date | null;
-  contractSum:     number | null;
-  owner:           string;
-  contractor:      string;
-  projectName:     string;
-}
-
 async function extractTextFromPDF(file: File): Promise<string> {
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
@@ -53,60 +48,13 @@ async function extractTextFromPDF(file: File): Promise<string> {
   for (let i = 0; i < pdf.numPages; i++) {
     const page = await pdf.getPage(i + 1);
     const textContent = await page.getTextContent();
-    const pageText = textContent.items.map((item: any) => item.str).join(' ');
-    text += pageText + ' ';
+    const pageText = textContent.items
+      .map((item: { str?: string }) => item.str ?? '')
+      .join(' ');
+    text += pageText + '\n';
   }
 
   return text;
-}
-
-function extractContractFields(text: string): ExtractedContract {
-  const t = text.replace(/\s+/g, ' ');
-
-  const executedMatch = t.match(
-    /entered\s+into\s+on\s+([A-Za-z]+\s+\d{1,2},?\s+\d{4})/i
-  ) || t.match(/effective\s+date[^:]*:\s*([A-Za-z]+\s+\d{1,2},?\s+\d{4})/i);
-
-  const startMatch = t.match(
-    /(?:construction\s+start|start\s+date|commence)[^:]*:?\s*([A-Za-z]+\s+\d{1,2},?\s+\d{4})/i
-  );
-
-  const endMatch = t.match(
-    /substantial\s+completion[^:]*:?\s*([A-Za-z]+\s+\d{1,2},?\s+\d{4})/i
-  );
-
-  const finalMatch = t.match(
-    /final\s+completion[^:]*:?\s*([A-Za-z]+\s+\d{1,2},?\s+\d{4})/i
-  );
-
-  const sumMatch = t.match(/contract\s+sum[^$\d]*\$\s*([\d,]+(?:\.\d{2})?)/i)
-                || t.match(/\$\s*([\d,]+(?:\.\d{2})?)/);
-
-  const ownerMatch = t.match(/owner[^:]*:\s*\*?\*?([A-Z][A-Za-z &]+(?:LLC|Inc|Corp|Ltd)?)/i);
-  const contractorMatch = t.match(/contractor[^:]*:\s*\*?\*?([A-Z][A-Za-z &]+(?:LLC|Inc|Corp|Ltd)?)/i);
-  const projectMatch = t.match(/project\s*(?:name)?[^:]*:\s*\*?\*?([A-Z][A-Za-z &]+(?:Apartments|Building|Complex)?)/i)
-                     || t.match(/\*\*([A-Z][A-Za-z &]+Apartments)\*\*/i);
-
-  const parseNaturalDate = (raw: string | undefined): Date | null => {
-    if (!raw) return null;
-    try {
-      const d = new Date(raw);
-      return isNaN(d.getTime()) ? null : d;
-    } catch {
-      return null;
-    }
-  };
-
-  return {
-    executedDate:    parseNaturalDate(executedMatch?.[1]),
-    startDate:       parseNaturalDate(startMatch?.[1]),
-    endDate:         parseNaturalDate(endMatch?.[1]),
-    finalCompletion: parseNaturalDate(finalMatch?.[1]),
-    contractSum:     sumMatch ? parseFloat(sumMatch[1].replace(/,/g, '')) : null,
-    owner:           ownerMatch?.[1]?.trim() ?? '',
-    contractor:      contractorMatch?.[1]?.trim() ?? '',
-    projectName:     projectMatch?.[1]?.trim() ?? '',
-  };
 }
 
 const ContractUploadModal: React.FC = () => {
@@ -121,7 +69,7 @@ const ContractUploadModal: React.FC = () => {
   const [rawContractText, setRawContractText] = useState('');
 
   // Review state (used for file upload only now)
-  const [reviewData, setReviewData] = useState<ExtractedContract | null>(null);
+  const [reviewData, setReviewData] = useState<ExtractedContractFields | null>(null);
   const [reviewExecutedDate, setReviewExecutedDate] = useState<Date | undefined>(undefined);
   const [reviewStartDate, setReviewStartDate] = useState<Date | undefined>(undefined);
   const [reviewEndDate, setReviewEndDate] = useState<Date | undefined>(undefined);
@@ -165,7 +113,13 @@ const ContractUploadModal: React.FC = () => {
     'Validation complete.',
   ];
 
-  const runScanAnimation = (data: ExtractedContract, onDone: () => void) => {
+  const reviewExtractedLines = useMemo(
+    () => (rawContractText ? extractLineItems(rawContractText) : []),
+    [rawContractText]
+  );
+  const reviewLineSum = useMemo(() => sumLineItems(reviewExtractedLines), [reviewExtractedLines]);
+
+  const runScanAnimation = (data: ExtractedContractFields, onDone: () => void) => {
     const lines = SCAN_MESSAGES;
     let i = 0;
     const totalDuration = 1800;
@@ -205,12 +159,22 @@ const ContractUploadModal: React.FC = () => {
       }
 
       const extracted = extractContractFields(rawText);
-      const hasValidExtraction = Object.values(extracted).some(
-        v => v !== null && v !== '' && v !== 0
+      const hasValidExtraction = Boolean(
+        extracted.contractSum &&
+          extracted.contractSum > 0 &&
+          extracted.owner &&
+          extracted.projectName
       );
 
-      const final: ExtractedContract = hasValidExtraction
-        ? { ...DEMO_CONTRACT, ...extracted }
+      const final: ExtractedContractFields = hasValidExtraction
+        ? {
+            ...DEMO_CONTRACT,
+            ...extracted,
+            executedDate: extracted.executedDate ?? DEMO_CONTRACT.executedDate,
+            startDate: extracted.startDate ?? DEMO_CONTRACT.startDate,
+            endDate: extracted.endDate ?? DEMO_CONTRACT.endDate,
+            finalCompletion: extracted.finalCompletion ?? DEMO_CONTRACT.finalCompletion,
+          }
         : DEMO_CONTRACT;
 
       const method = hasValidExtraction ? 'parsed' : 'fallback';
@@ -534,10 +498,32 @@ const ContractUploadModal: React.FC = () => {
                 {extractionMethod === 'fallback' && (
                   <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
                     <p className="text-sm font-medium text-amber-900">
-                      ⚠️ Please verify all dates and amounts are correct before proceeding.
+                      Please verify all dates and amounts are correct before proceeding.
                     </p>
                   </div>
                 )}
+
+                {reviewContractSum != null &&
+                  reviewContractSum > 0 &&
+                  (reviewExtractedLines.length < 5 ||
+                    (reviewLineSum > 0 &&
+                      Math.abs(reviewLineSum - reviewContractSum) > 0.01)) && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 space-y-1">
+                      {reviewExtractedLines.length < 5 && (
+                        <p className="text-sm text-amber-900">
+                          Few line items were detected from the Schedule of Values. You can add or edit lines after upload.
+                        </p>
+                      )}
+                      {reviewLineSum > 0 &&
+                        Math.abs(reviewLineSum - reviewContractSum) > 0.01 && (
+                          <p className="text-sm text-amber-900">
+                            Line item total (${reviewLineSum.toLocaleString()}) does not match the
+                            Contract Sum (${reviewContractSum.toLocaleString()}). Adjust line
+                            values or the contract sum before locking.
+                          </p>
+                        )}
+                    </div>
+                  )}
               </div>
 
               <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-200">
