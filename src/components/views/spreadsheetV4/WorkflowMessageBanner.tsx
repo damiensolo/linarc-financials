@@ -73,12 +73,15 @@ export function getWorkflowMessage(context: {
     return 'Per-line approval is on for this project. Each commit will be routed to your approval chain before it locks.';
   }
   if (step === 4 && hasCommittedLines) {
-    return `Showing ${committedCount} committed lines available for SOV mapping and schedule linking. Open lines will appear here when committed.`;
+    return `${committedCount} committed lines are drafted into the Schedule of Values. They stay in draft until you publish.`;
   }
-  if (step === 5 && !canPublish) {
+  if (step === 5 && hasCommittedLines) {
+    return `Allocate each of the ${committedCount} committed lines across schedule tasks by cost code, then review the cost-loaded forecast.`;
+  }
+  if (step === 6 && !canPublish) {
     return `Publish SOV is not yet available. ${publishRemaining} checks remaining — click any item below to resolve.`;
   }
-  if (step === 5 && canPublish) {
+  if (step === 6 && canPublish) {
     return 'All readiness checks passed. Publishing the SOV will finalize the owner-facing billing schedule and activate the project.';
   }
   return '';

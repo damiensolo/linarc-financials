@@ -4,7 +4,8 @@ import FinancialConfigStep from './FinancialConfigStep';
 import ContractReviewLockScreen from './ContractReviewLockScreen';
 import PrimeContractChoiceStep from './PrimeContractChoiceStep';
 import BudgetSetupGrid from './BudgetSetupGrid';
-import ContinuousOpsWorkspace from './ContinuousOpsWorkspace';
+import SOVMappingGrid from './SOVMappingGrid';
+import BudgetScheduleLinker from './BudgetScheduleLinker';
 import PublishSOVStep from './PublishSOVStep';
 import FinancialOpsHub from './FinancialOpsHub';
 import WorkflowMessageBanner, { getWorkflowMessage } from './WorkflowMessageBanner';
@@ -39,13 +40,20 @@ const StepDetailCard: React.FC = () => {
     publishRemaining: publishReadiness.filter((c) => !c.met).length,
   });
 
-  if (activationState === 'activated' && financialSetupStep === 5) {
+  if (activationState === 'activated' && financialSetupStep === 6) {
     return (
       <div className="w-full h-full flex flex-col items-center justify-center p-6">
         <FinancialOpsHub />
       </div>
     );
   }
+
+  const ScreenHeader: React.FC<{ title: string; subtitle: string }> = ({ title, subtitle }) => (
+    <div className="px-4 py-3 border-b border-gray-200 bg-white flex-shrink-0">
+      <h2 className="text-base font-semibold text-gray-900">{title}</h2>
+      <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>
+    </div>
+  );
 
   const renderStepContent = () => {
     switch (financialSetupStep) {
@@ -80,17 +88,43 @@ const StepDetailCard: React.FC = () => {
         if (!canAccessOperations) {
           return (
             <div className="max-w-md text-center text-gray-600">
-              Commit at least one budget line in Step 3 to access continuous operations.
+              Commit at least one budget line in Step 3 to build the Schedule of Values.
             </div>
           );
         }
         return (
-          <div className="w-full flex-1 min-h-0 flex flex-col">
-            <ContinuousOpsWorkspace />
+          <div className="w-full h-full flex flex-col min-h-0">
+            <ScreenHeader
+              title="Schedule of Values (SOV)"
+              subtitle="Draft SOV lines are created from each committed budget line. They stay in draft until you publish."
+            />
+            <div className="flex-1 min-h-0">
+              <SOVMappingGrid />
+            </div>
           </div>
         );
 
       case 5:
+        if (!canAccessOperations) {
+          return (
+            <div className="max-w-md text-center text-gray-600">
+              Commit at least one budget line in Step 3 to link and allocate the schedule.
+            </div>
+          );
+        }
+        return (
+          <div className="w-full h-full flex flex-col min-h-0">
+            <ScreenHeader
+              title="Schedule Linking & Allocation"
+              subtitle="Allocate each committed budget line across schedule tasks by cost code, then review the cost-loaded forecast."
+            />
+            <div className="flex-1 min-h-0">
+              <BudgetScheduleLinker />
+            </div>
+          </div>
+        );
+
+      case 6:
         return (
           <div className="w-full h-full flex flex-col items-center justify-center p-6">
             <WorkflowMessageBanner message={message} />
@@ -106,11 +140,14 @@ const StepDetailCard: React.FC = () => {
   const fillHeightStep =
     financialSetupStep === 3 ||
     financialSetupStep === 4 ||
+    financialSetupStep === 5 ||
     (financialSetupStep === 2 && primeContractSetupPhase === 'review');
 
   const stepNoPadding =
     (financialSetupStep === 2 && primeContractSetupPhase === 'review') ||
-    financialSetupStep === 3;
+    financialSetupStep === 3 ||
+    financialSetupStep === 4 ||
+    financialSetupStep === 5;
 
   return (
     <div className="w-full h-full min-h-0 flex flex-col">

@@ -7,9 +7,12 @@ const STEP_LABELS: Record<FinancialSetupStep, string> = {
   1: 'Preliminary Config',
   2: 'Prime Contract',
   3: 'Budget Setup',
-  4: 'Operations',
-  5: 'Publish SOV',
+  4: 'Schedule of Values',
+  5: 'Schedule Linking & Allocation',
+  6: 'Publish SOV',
 };
+
+const ALL_STEPS: FinancialSetupStep[] = [1, 2, 3, 4, 5, 6];
 
 interface Blocker {
   id: string;
@@ -39,7 +42,6 @@ const ReadinessSection: React.FC<ReadinessSectionProps> = ({
     hasPcValue,
     lineCounts,
     committedLineCount,
-    canAccessOperations,
     publishReadiness,
     navigateToSetupStep,
   } = useProject();
@@ -66,25 +68,18 @@ const ReadinessSection: React.FC<ReadinessSectionProps> = ({
       met: committedLineCount > 0,
       step: 3,
     },
-    {
-      id: 'ops',
-      title: 'Continuous Operations',
-      description: 'SOV mapping and schedule linking for committed lines',
-      met: canAccessOperations,
-      step: 4,
-    },
     ...publishReadiness.map<Blocker>((check) => ({
       id: check.id,
       title: check.label,
       description: check.met
         ? 'Complete'
         : check.id === 'wbs-linked'
-          ? 'Step 4 → Schedule Linking tab, then Link all or link each line'
+          ? 'Step 5 → allocate each committed line to schedule tasks'
           : check.id === 'sov-mapped'
-            ? 'Step 4 → SOV Mapping tab, then Map all or map each line'
+            ? 'Step 4 → review the Schedule of Values draft lines'
             : 'Action required',
       met: check.met,
-      step: check.actionStep ?? 5,
+      step: check.actionStep ?? 6,
       tab: check.actionTab,
     })),
   ];
@@ -98,7 +93,7 @@ const ReadinessSection: React.FC<ReadinessSectionProps> = ({
   const stepTotal = stepBlockers.length;
   const stepProgress = stepTotal > 0 ? Math.round((stepMet / stepTotal) * 100) : 0;
 
-  const nextUnmetStep = ([1, 2, 3, 4, 5] as FinancialSetupStep[]).find(
+  const nextUnmetStep = ALL_STEPS.find(
     (s) => s > selectedStep && blockers.some((b) => b.step === s && !b.met)
   );
   const nextUnmetCount = nextUnmetStep
@@ -194,7 +189,7 @@ const ReadinessSection: React.FC<ReadinessSectionProps> = ({
 
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {showAll ? (
-          ([1, 2, 3, 4, 5] as FinancialSetupStep[]).map((step) => {
+          ALL_STEPS.map((step) => {
             const items = blockers.filter((b) => b.step === step);
             if (items.length === 0) return null;
             return (

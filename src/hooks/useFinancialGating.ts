@@ -62,18 +62,12 @@ export function useFinancialGating() {
         primeContract: 2,
         budget: 3,
         sov: 4,
-        commitment: 4,
-        allocate: 4,
+        commitment: 5,
+        allocate: 5,
       };
       const step = stepMap[itemKey];
       if (step) {
-        const tab =
-          itemKey === 'sov'
-            ? 'sov'
-            : itemKey === 'allocate'
-              ? 'schedule'
-              : undefined;
-        ctx.navigateToSetupStep(step, tab);
+        ctx.navigateToSetupStep(step);
       }
     },
   };
