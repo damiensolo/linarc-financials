@@ -316,7 +316,7 @@ export function createDefaultFinancialConfig(): FinancialConfig {
     defaultRetainage: 10,
     defaultOverhead: 5,
     billingCutoffDay: 1,
-    allowMultiplePayApps: false,
+    allowMultiplePayApps: true,
     perLineApprovalEnabled: false,
     approvalRouting: { roles: ['gc', 'pe', 'owner'], requireAll: true },
     costCodeEnforcementConfirmed: false,

@@ -1,5 +1,11 @@
 const STORAGE_KEY = 'linarc-financial-workflow-v2';
 
+try {
+  localStorage.removeItem(STORAGE_KEY);
+} catch {
+  // ignore — non-browser env or storage blocked
+}
+
 export interface PersistedFinancialState {
   financialConfig: unknown;
   contractData: unknown;
@@ -9,29 +15,21 @@ export interface PersistedFinancialState {
   sovPublished: boolean;
   approvalQueue: unknown[];
   sovMappings: unknown[];
-  wbsLinks: unknown[];
+  budgetScheduleLinks: unknown[];
   hubCollapsed: boolean;
   primeContractSetupPhase: 'choose' | 'review';
   v3Sheets: unknown;
   v3ActiveSheetId: string | null;
 }
 
+// Persistence intentionally disabled — every reload starts from a clean slate.
+// Re-enable by restoring the localStorage read/write below.
 export function loadFinancialState(): Partial<PersistedFinancialState> | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw) as Partial<PersistedFinancialState>;
-  } catch {
-    return null;
-  }
+  return null;
 }
 
-export function saveFinancialState(state: PersistedFinancialState): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch {
-    // ignore quota errors in prototype
-  }
+export function saveFinancialState(_state: PersistedFinancialState): void {
+  // no-op
 }
 
 export function reviveContractDates(data: Record<string, unknown> | null) {

@@ -26,7 +26,12 @@ const COL = {
 
 const COLUMN_COUNT = 9;
 
-const SOVMappingGrid: React.FC = () => {
+interface SOVMappingGridProps {
+  /** When the SOV is published, the grid is read-only: no confirm, add, delete, or edit controls. */
+  locked?: boolean;
+}
+
+const SOVMappingGrid: React.FC<SOVMappingGridProps> = ({ locked = false }) => {
   const {
     sovMappings,
     addSovMapping,
@@ -129,13 +134,18 @@ const SOVMappingGrid: React.FC = () => {
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-200 bg-gray-50 gap-4 flex-shrink-0">
         <div className="text-sm text-gray-700">
           <span className="font-semibold">
-            {confirmedCount} of {sortedMappings.length} SOV lines confirmed
+            {locked
+              ? `${sortedMappings.length} SOV lines published`
+              : `${confirmedCount} of ${sortedMappings.length} SOV lines confirmed`}
           </span>
-          {draftCount > 0 && (
+          {!locked && draftCount > 0 && (
             <span className="text-amber-600 ml-2">· {draftCount} draft awaiting confirmation</span>
           )}
+          {locked && (
+            <span className="text-gray-500 ml-2">· Locked — owner-facing billing schedule is final</span>
+          )}
         </div>
-        {draftCount > 0 && (
+        {!locked && draftCount > 0 && (
           <button
             type="button"
             onClick={confirmAllSovDrafts}
@@ -175,7 +185,7 @@ const SOVMappingGrid: React.FC = () => {
                   allSelected={allSelectableSelected}
                   someSelected={someSelectableSelected}
                   onToggleAll={handleToggleSelectAll}
-                  disabled={selectableRowIds.length === 0}
+                  disabled={locked || selectableRowIds.length === 0}
                   sticky
                 />
                 <th className="px-2 text-left text-xs font-semibold text-gray-700 bg-gray-100 border-r border-gray-300">SOV Line Item</th>
@@ -206,6 +216,7 @@ const SOVMappingGrid: React.FC = () => {
                         rowId={mapping.rowId}
                         isSelected={selectedRowIds.has(mapping.rowId)}
                         onToggleSelect={handleToggleRowSelect}
+                        disabled={locked}
                         fontSize={fontSize}
                         sticky
                         className="bg-slate-50/90"
@@ -224,7 +235,7 @@ const SOVMappingGrid: React.FC = () => {
                               <ChevronDown size={14} className="text-gray-500" />
                             )}
                           </button>
-                          {isDraft && editingRowId === mapping.rowId ? (
+                          {!locked && isDraft && editingRowId === mapping.rowId ? (
                             <input
                               autoFocus
                               value={editDescription}
@@ -239,8 +250,8 @@ const SOVMappingGrid: React.FC = () => {
                           ) : (
                             <button
                               type="button"
-                              onClick={() => isDraft && startEditDescription(mapping.rowId, mapping.sovDescription)}
-                              className={`text-left truncate text-sm font-medium text-gray-900 ${isDraft ? 'hover:text-blue-600 cursor-pointer' : 'cursor-default'}`}
+                              onClick={() => !locked && isDraft && startEditDescription(mapping.rowId, mapping.sovDescription)}
+                              className={`text-left truncate text-sm font-medium text-gray-900 ${!locked && isDraft ? 'hover:text-blue-600 cursor-pointer' : 'cursor-default'}`}
                             >
                               {mapping.sovDescription || '—'}
                             </button>
@@ -256,7 +267,11 @@ const SOVMappingGrid: React.FC = () => {
                       </td>
                       <td className="border-r border-gray-200 bg-slate-50/90" />
                       <td className="px-2 bg-slate-50/90 whitespace-nowrap">
-                        {isDraft ? (
+                        {locked ? (
+                          <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-gray-200 text-gray-700">
+                            Published
+                          </span>
+                        ) : isDraft ? (
                           <button
                             type="button"
                             onClick={() => confirmSovMapping(mapping.rowId)}
@@ -337,12 +352,14 @@ const SOVMappingGrid: React.FC = () => {
                   <td colSpan={2} className="bg-gray-100" />
                 </tr>
               )}
-              <SpreadsheetTableAddRowRow
-                colSpan={COLUMN_COUNT}
-                onAddRow={addRow}
-                selectedCount={selectedRowIds.size}
-                onDeleteSelected={deleteSelected}
-              />
+              {!locked && (
+                <SpreadsheetTableAddRowRow
+                  colSpan={COLUMN_COUNT}
+                  onAddRow={addRow}
+                  selectedCount={selectedRowIds.size}
+                  onDeleteSelected={deleteSelected}
+                />
+              )}
             </tfoot>
           </table>
         </div>

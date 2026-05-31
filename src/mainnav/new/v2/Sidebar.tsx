@@ -222,6 +222,7 @@ const Sidebar: React.FC<SidebarProps> = ({ version = 'v1', bookmarks = [], onSel
         opsActiveTab,
         financialSetupComplete,
         activeViewMode,
+        activeFinancialSection,
     } = useProject();
     const [activeItemKey, setActiveItemKey] = useState('');
     const [isBookmarksMenuVisible, setBookmarksMenuVisible] = useState(false);
@@ -257,6 +258,13 @@ const Sidebar: React.FC<SidebarProps> = ({ version = 'v1', bookmarks = [], onSel
             return;
         }
 
+        if (financialSetupComplete && activeTopNavCategory === 'contract') {
+            setActiveItemKey(
+                items.some((item) => item.key === activeFinancialSection) ? activeFinancialSection : items[0].key
+            );
+            return;
+        }
+
         setActiveItemKey(items[0].key);
     }, [
         activeTopNavCategory,
@@ -264,6 +272,7 @@ const Sidebar: React.FC<SidebarProps> = ({ version = 'v1', bookmarks = [], onSel
         opsActiveTab,
         financialSetupComplete,
         activeViewMode,
+        activeFinancialSection,
     ]);
 
     // Close bookmarks menu on outside click

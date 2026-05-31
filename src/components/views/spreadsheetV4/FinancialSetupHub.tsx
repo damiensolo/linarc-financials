@@ -7,16 +7,14 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '../../common/ui/Tooltip';
-import SetupTrackerWidget from './SetupTrackerWidget';
+import UnifiedSetupRail from './UnifiedSetupRail';
 import FinancialSetupActionBar from './FinancialSetupActionBar';
 import StepDetailCard from './StepDetailCard';
-import BlockersRail from './BlockersRail';
 
 /** PRD v2.1 — 5-step progressive financial setup hub (Steps 1–5). */
 const FinancialSetupHub: React.FC = () => {
   const { hubCollapsed, setHubCollapsed, activationState } = useProject();
-  const [isTrackerOpen, setIsTrackerOpen] = useState(true);
-  const [isBlockersOpen, setIsBlockersOpen] = useState(true);
+  const [isRailOpen, setIsRailOpen] = useState(true);
 
   if (hubCollapsed && activationState === 'activated') {
     return (
@@ -25,7 +23,7 @@ const FinancialSetupHub: React.FC = () => {
         onClick={() => setHubCollapsed(false)}
         className="absolute left-2 top-2 z-20 px-3 py-1.5 text-xs font-medium bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50"
       >
-        Open Setup Tracker
+        Open Setup
       </button>
     );
   }
@@ -34,10 +32,10 @@ const FinancialSetupHub: React.FC = () => {
     <div className="flex h-full min-h-0 bg-white">
       <aside
         className={`flex-shrink-0 bg-gray-50 border-r border-gray-200 transition-all duration-300 overflow-hidden flex flex-col h-full ${
-          isTrackerOpen ? 'w-[200px]' : 'w-0 border-r-0'
+          isRailOpen ? 'w-[280px]' : 'w-0 border-r-0'
         }`}
       >
-        <SetupTrackerWidget />
+        <UnifiedSetupRail />
       </aside>
 
       <TooltipProvider>
@@ -45,10 +43,10 @@ const FinancialSetupHub: React.FC = () => {
           <TooltipTrigger asChild>
             <button
               type="button"
-              onClick={() => setIsTrackerOpen(!isTrackerOpen)}
+              onClick={() => setIsRailOpen(!isRailOpen)}
               className="flex-shrink-0 w-8 h-full flex items-center justify-center border-r border-gray-200 hover:bg-gray-100 self-stretch"
             >
-              {isTrackerOpen ? (
+              {isRailOpen ? (
                 <ChevronLeftIcon className="w-4 h-4 text-gray-500" />
               ) : (
                 <ChevronRightIcon className="w-4 h-4 text-gray-500" />
@@ -56,44 +54,17 @@ const FinancialSetupHub: React.FC = () => {
             </button>
           </TooltipTrigger>
           <TooltipContent side="right">
-            {isTrackerOpen ? 'Close Setup Tracker' : 'Open Setup Tracker'}
-          </TooltipContent>
-        </Tooltip>
-
-        <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
-          <FinancialSetupActionBar />
-          <div className="flex-1 min-h-0 overflow-hidden">
-            <StepDetailCard />
-          </div>
-        </div>
-
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              onClick={() => setIsBlockersOpen(!isBlockersOpen)}
-              className="flex-shrink-0 w-8 h-full flex items-center justify-center border-l border-gray-200 hover:bg-gray-100 self-stretch"
-            >
-              {isBlockersOpen ? (
-                <ChevronRightIcon className="w-4 h-4 text-gray-500" />
-              ) : (
-                <ChevronLeftIcon className="w-4 h-4 text-gray-500" />
-              )}
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="left">
-            {isBlockersOpen ? 'Close Readiness panel' : 'Open Readiness panel'}
+            {isRailOpen ? 'Close Setup' : 'Open Setup'}
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
 
-      <aside
-        className={`flex-shrink-0 bg-gray-50 border-l border-gray-200 transition-all duration-300 overflow-hidden flex flex-col h-full self-stretch ${
-          isBlockersOpen ? 'w-[300px]' : 'w-0 border-l-0'
-        }`}
-      >
-        <BlockersRail />
-      </aside>
+      <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
+        <FinancialSetupActionBar />
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <StepDetailCard />
+        </div>
+      </div>
     </div>
   );
 };

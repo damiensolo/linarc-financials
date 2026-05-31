@@ -9,10 +9,12 @@ const FinancialOpsHub: React.FC = () => {
     committedLineCount,
     lineCounts,
     sovMappings,
-    wbsLinks,
+    budgetScheduleLinks,
     setHubCollapsed,
     navigateToSetupStep,
   } = useProject();
+
+  const scheduleLinkedCount = budgetScheduleLinks.filter((l) => l.status === 'confirmed').length;
 
   return (
     <div className="flex flex-col h-full">
@@ -42,7 +44,7 @@ const FinancialOpsHub: React.FC = () => {
             <div className="p-4 border border-gray-200 rounded-lg">
               <Calendar className="text-purple-600 mb-2" size={24} />
               <p className="font-semibold text-gray-900">Schedule</p>
-              <p className="text-sm text-gray-600">{wbsLinks.length} WBS links</p>
+              <p className="text-sm text-gray-600">{scheduleLinkedCount} lines linked</p>
             </div>
           </div>
 

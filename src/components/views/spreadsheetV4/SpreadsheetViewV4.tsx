@@ -9,6 +9,8 @@ import AddColumnModal from './components/AddColumnModal';
 import ContractSummaryHeader from './ContractSummaryHeader';
 import FinancialSetupHub from './FinancialSetupHub';
 import FinancialOpsHub from './FinancialOpsHub';
+import PublishedSOVView from './PublishedSOVView';
+import BudgetSetupGrid from './BudgetSetupGrid';
 import { ContextMenu, ContextMenuItem } from '../../common/ui/ContextMenu';
 import ColorPicker from '../../common/ui/ColorPicker';
 import {
@@ -120,7 +122,7 @@ const getModKeyLabel = () => (typeof navigator !== 'undefined' && /Mac/i.test(na
 
 // ─── Main component ──────────────────────────────────────────────────────────
 const SpreadsheetViewV4: React.FC = () => {
-  const { activeView, updateView, contractData, setIsContractUploadOpen, financialSetupComplete, hubCollapsed } = useProject();
+  const { activeView, updateView, contractData, setIsContractUploadOpen, financialSetupComplete, hubCollapsed, activeFinancialSection } = useProject();
 
   // ── Single-sheet state + persistence sync ──────────────────────────────────
   const [localSheet, setLocalSheet] = useState<V3Sheet>(() => {
@@ -1553,6 +1555,15 @@ const SpreadsheetViewV4: React.FC = () => {
         <FinancialOpsHub />
       </div>
     );
+  }
+
+  if (activeFinancialSection === 'sov') {
+    return <PublishedSOVView />;
+  }
+
+  // Post-activation, the Budget section shows the finalized actual budget — read-only.
+  if (activeFinancialSection === 'budget') {
+    return <BudgetSetupGrid locked />;
   }
 
   // Post-setup full spreadsheet

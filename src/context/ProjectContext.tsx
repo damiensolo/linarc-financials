@@ -2,15 +2,21 @@ import React, { createContext, useState, useMemo, useCallback, useContext, useRe
 import { MOCK_TASKS, MOCK_BUDGET_DATA } from '../data';
 import {
   Task, View, FilterRule, HighlightRule, Priority, ColumnId, Status, DisplayDensity, Column, ViewMode, ViewCategory,
-  ContractData, FinancialConfig, FinancialSetupStep, FinancialActivationState, ApprovalRequest, SOVMapping, WBSLink,
+  ContractData, FinancialConfig, FinancialSetupStep, FinancialActivationState, ApprovalRequest, SOVMapping,
+  BudgetScheduleLink, ScheduleTask, ScheduleAllocation, ScheduleDistributionMethod,
   PrimeContractState, PublishReadinessCheck, PrimeContractSetupPhase,
 } from '../types';
 import {
   getBudgetRows, getBudgetSheet, getPrimeContractRows, getPrimeContractSheet, hasPcValue, hasCommittedLines,
   isBudgetFullyLocked, countLinesByState, committedLineCount, getPrimeContractState, createEmptyBudgetSheet,
   createEmptyPrimeContractSheet, createBudgetColumns, seedBudgetRowsFromPrimeContract, APPROVER_NAMES,
-  rowMissingCostCode, createDraftSovMapping, syncDraftSovMappings,
+  rowMissingCostCode, createDraftSovMapping, syncDraftSovMappings, getBudgetLineAmount,
 } from '../lib/financialWorkflow';
+import {
+  syncScheduleLinks, distributeByHours, distributeEqual, isLinkFullyAllocated,
+  computeScheduleCoverage,
+} from '../lib/scheduleLinking';
+import { MOCK_SCHEDULE_TASKS } from '../data/scheduleTasks';
 import { computePublishReadiness, allPublishChecksMet } from '../lib/financialGating';
 import { loadFinancialState, saveFinancialState, reviveContractDates } from '../lib/financialPersistence';
 import type { V3Row } from '../components/views/spreadsheetV4/types';
@@ -174,13 +180,16 @@ interface ProjectContextType {
   sovPublished: boolean;
   approvalQueue: ApprovalRequest[];
   sovMappings: SOVMapping[];
-  wbsLinks: WBSLink[];
+  budgetScheduleLinks: BudgetScheduleLink[];
+  scheduleTasks: ScheduleTask[];
   hubCollapsed: boolean;
   primeContractSetupPhase: import('../types').PrimeContractSetupPhase;
   setPrimeContractSetupPhase: React.Dispatch<React.SetStateAction<import('../types').PrimeContractSetupPhase>>;
   setHubCollapsed: React.Dispatch<SetStateAction<boolean>>;
   opsActiveTab: 'sov' | 'schedule';
   setOpsActiveTab: React.Dispatch<SetStateAction<'sov' | 'schedule'>>;
+  activeFinancialSection: string;
+  setActiveFinancialSection: React.Dispatch<SetStateAction<string>>;
   // Derived selectors
   hasPcValue: boolean;
   primeContractState: PrimeContractState;
@@ -209,9 +218,14 @@ interface ProjectContextType {
   updateSovMapping: (rowId: string, patch: Partial<SOVMapping>) => void;
   confirmSovMapping: (rowId: string) => void;
   confirmAllSovDrafts: () => void;
-  addWbsLink: (link: WBSLink) => void;
   removeSovMapping: (rowId: string) => void;
-  removeWbsLink: (rowId: string) => void;
+  autoMatchSchedule: () => void;
+  confirmScheduleLink: (rowId: string) => void;
+  confirmAllScheduleDrafts: () => void;
+  updateScheduleLink: (rowId: string, patch: Partial<BudgetScheduleLink>) => void;
+  setScheduleLinkMethod: (rowId: string, method: ScheduleDistributionMethod) => void;
+  setScheduleAllocations: (rowId: string, allocations: ScheduleAllocation[]) => void;
+  removeScheduleLink: (rowId: string) => void;
   publishSOV: () => boolean;
   navigateToSetupStep: (step: FinancialSetupStep, tab?: 'sov' | 'schedule') => void;
 }
@@ -252,10 +266,12 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [sovPublished, setSovPublished] = useState(false);
   const [approvalQueue, setApprovalQueue] = useState<ApprovalRequest[]>([]);
   const [sovMappings, setSovMappings] = useState<SOVMapping[]>([]);
-  const [wbsLinks, setWbsLinks] = useState<WBSLink[]>([]);
+  const [budgetScheduleLinks, setBudgetScheduleLinks] = useState<BudgetScheduleLink[]>([]);
+  const scheduleTasks = MOCK_SCHEDULE_TASKS;
   const [hubCollapsed, setHubCollapsed] = useState(false);
   const [primeContractSetupPhase, setPrimeContractSetupPhase] = useState<PrimeContractSetupPhase>('choose');
   const [opsActiveTab, setOpsActiveTab] = useState<'sov' | 'schedule'>('sov');
+  const [activeFinancialSection, setActiveFinancialSection] = useState<string>('primeContract');
 
   // Initialize with System Views
   useEffect(() => {
@@ -286,7 +302,7 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     if (typeof saved.sovPublished === 'boolean') setSovPublished(saved.sovPublished);
     if (saved.approvalQueue) setApprovalQueue(saved.approvalQueue as ApprovalRequest[]);
     if (saved.sovMappings) setSovMappings(saved.sovMappings as SOVMapping[]);
-    if (saved.wbsLinks) setWbsLinks(saved.wbsLinks as WBSLink[]);
+    if (saved.budgetScheduleLinks) setBudgetScheduleLinks(saved.budgetScheduleLinks as BudgetScheduleLink[]);
     if (typeof saved.hubCollapsed === 'boolean') setHubCollapsed(saved.hubCollapsed);
     if (saved.primeContractSetupPhase === 'choose' || saved.primeContractSetupPhase === 'review') {
       setPrimeContractSetupPhase(saved.primeContractSetupPhase);
@@ -652,10 +668,10 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
   const financialSetupComplete = activationState === 'activated';
   const publishReadiness = useMemo(
     () =>
-      computePublishReadiness(budgetRows, sovMappings, wbsLinks, approvalQueue, {
+      computePublishReadiness(budgetRows, sovMappings, budgetScheduleLinks, approvalQueue, {
         contractLocked,
       }),
-    [budgetRows, sovMappings, wbsLinks, approvalQueue, contractLocked]
+    [budgetRows, sovMappings, budgetScheduleLinks, approvalQueue, contractLocked]
   );
   const canPublishSOV = useMemo(() => allPublishChecksMet(publishReadiness), [publishReadiness]);
 
@@ -889,22 +905,90 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     );
   }, []);
 
-  const addWbsLink = useCallback((link: WBSLink) => {
-    setWbsLinks((prev) => [...prev.filter((l) => l.rowId !== link.rowId), link]);
-  }, []);
-
   const removeSovMapping = useCallback((rowId: string) => {
     setSovMappings((prev) => prev.filter((m) => m.rowId !== rowId));
   }, []);
 
-  const removeWbsLink = useCallback((rowId: string) => {
-    setWbsLinks((prev) => prev.filter((l) => l.rowId !== rowId));
+  // ── Budget → Schedule linking ─────────────────────────────────────────────
+  const committedRows = useMemo(
+    () => budgetRows.filter((r) => (r.lineState ?? 'open') === 'locked'),
+    [budgetRows]
+  );
+
+  // Keep one link per committed line: auto-match new lines, preserve user edits, drop removed.
+  useEffect(() => {
+    setBudgetScheduleLinks((prev) => syncScheduleLinks(committedRows, scheduleTasks, prev));
+  }, [committedRows, scheduleTasks]);
+
+  const autoMatchSchedule = useCallback(() => {
+    setBudgetScheduleLinks(() => syncScheduleLinks(committedRows, scheduleTasks, []));
+  }, [committedRows, scheduleTasks]);
+
+  const confirmScheduleLink = useCallback((rowId: string) => {
+    setBudgetScheduleLinks((prev) =>
+      prev.map((link) => {
+        if (link.budgetRowId !== rowId) return link;
+        const row = committedRows.find((r) => r.id === rowId);
+        const amount = row ? getBudgetLineAmount(row) : 0;
+        if (!isLinkFullyAllocated(link, amount)) return link;
+        return { ...link, status: 'confirmed' as const };
+      })
+    );
+  }, [committedRows]);
+
+  const confirmAllScheduleDrafts = useCallback(() => {
+    setBudgetScheduleLinks((prev) =>
+      prev.map((link) => {
+        if (link.status !== 'draft') return link;
+        const row = committedRows.find((r) => r.id === link.budgetRowId);
+        const amount = row ? getBudgetLineAmount(row) : 0;
+        return isLinkFullyAllocated(link, amount) ? { ...link, status: 'confirmed' as const } : link;
+      })
+    );
+  }, [committedRows]);
+
+  const updateScheduleLink = useCallback((rowId: string, patch: Partial<BudgetScheduleLink>) => {
+    setBudgetScheduleLinks((prev) =>
+      prev.map((link) => (link.budgetRowId === rowId ? { ...link, ...patch } : link))
+    );
+  }, []);
+
+  const setScheduleLinkMethod = useCallback((rowId: string, method: ScheduleDistributionMethod) => {
+    setBudgetScheduleLinks((prev) =>
+      prev.map((link) => {
+        if (link.budgetRowId !== rowId) return link;
+        const row = committedRows.find((r) => r.id === rowId);
+        const amount = row ? getBudgetLineAmount(row) : 0;
+        const groupTasks = scheduleTasks.filter(
+          (t) => t.costCode.trim() === link.costCode && link.costCode !== ''
+        );
+        let allocations = link.allocations;
+        if (method === 'by_hours') allocations = distributeByHours(amount, groupTasks);
+        else if (method === 'equal') allocations = distributeEqual(amount, groupTasks);
+        else if (method === 'level_of_effort') allocations = [];
+        // 'manual' keeps existing allocations for hand-editing.
+        return { ...link, method, allocations, status: 'draft' as const };
+      })
+    );
+  }, [committedRows, scheduleTasks]);
+
+  const setScheduleAllocations = useCallback((rowId: string, allocations: ScheduleAllocation[]) => {
+    setBudgetScheduleLinks((prev) =>
+      prev.map((link) =>
+        link.budgetRowId === rowId
+          ? { ...link, method: 'manual' as const, allocations, status: 'draft' as const }
+          : link
+      )
+    );
+  }, []);
+
+  const removeScheduleLink = useCallback((rowId: string) => {
+    setBudgetScheduleLinks((prev) => prev.filter((l) => l.budgetRowId !== rowId));
   }, []);
 
   useEffect(() => {
-    const committed = budgetRows.filter((r) => (r.lineState ?? 'open') === 'locked');
-    setSovMappings((prev) => syncDraftSovMappings(committed, prev));
-  }, [budgetRows]);
+    setSovMappings((prev) => syncDraftSovMappings(committedRows, prev));
+  }, [committedRows]);
 
   const publishSOV = useCallback((): boolean => {
     const rows = getBudgetRows(activeViewRef.current.v3Sheets);
@@ -912,7 +996,7 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
       !contractLocked ||
       !isBudgetFullyLocked(rows) ||
       !allPublishChecksMet(
-        computePublishReadiness(rows, sovMappings, wbsLinks, approvalQueue, { contractLocked })
+        computePublishReadiness(rows, sovMappings, budgetScheduleLinks, approvalQueue, { contractLocked })
       )
     ) {
       return false;
@@ -922,7 +1006,7 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     setFinancialSetupStep(5);
     setHubCollapsed(true);
     return true;
-  }, [contractLocked, sovMappings, wbsLinks, approvalQueue]);
+  }, [contractLocked, sovMappings, budgetScheduleLinks, approvalQueue]);
 
   const navigateToSetupStep = useCallback((step: FinancialSetupStep, tab?: 'sov' | 'schedule') => {
     setFinancialSetupStep(step);
@@ -951,7 +1035,7 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
       sovPublished,
       approvalQueue,
       sovMappings,
-      wbsLinks,
+      budgetScheduleLinks,
       hubCollapsed,
       primeContractSetupPhase,
       v3Sheets: activeView.v3Sheets ?? null,
@@ -966,7 +1050,7 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     sovPublished,
     approvalQueue,
     sovMappings,
-    wbsLinks,
+    budgetScheduleLinks,
     hubCollapsed,
     primeContractSetupPhase,
     activeView.v3Sheets,
@@ -1042,13 +1126,16 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     sovPublished,
     approvalQueue,
     sovMappings,
-    wbsLinks,
+    budgetScheduleLinks,
+    scheduleTasks,
     hubCollapsed,
     setHubCollapsed,
     primeContractSetupPhase,
     setPrimeContractSetupPhase,
     opsActiveTab,
     setOpsActiveTab,
+    activeFinancialSection,
+    setActiveFinancialSection,
     hasPcValue: pcValueExists,
     primeContractState,
     budgetRows,
@@ -1075,9 +1162,14 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     updateSovMapping,
     confirmSovMapping,
     confirmAllSovDrafts,
-    addWbsLink,
     removeSovMapping,
-    removeWbsLink,
+    autoMatchSchedule,
+    confirmScheduleLink,
+    confirmAllScheduleDrafts,
+    updateScheduleLink,
+    setScheduleLinkMethod,
+    setScheduleAllocations,
+    removeScheduleLink,
     publishSOV,
     navigateToSetupStep,
   };

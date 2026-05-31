@@ -6,12 +6,16 @@ const formatValue = (val: number) =>
     Math.abs(val).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const AppHeader: React.FC = () => {
-    const { activeViewMode, activeView } = useProject();
-    
+    const { activeViewMode, activeView, activeFinancialSection } = useProject();
+
     const getTitle = () => {
         if (activeViewMode === 'table') return 'RFIs';
         if (activeViewMode === 'spreadsheetV2') return 'Budget';
-        if (activeViewMode === 'spreadsheetV4') return 'Prime Contract';
+        if (activeViewMode === 'spreadsheetV4') {
+            if (activeFinancialSection === 'sov') return 'Schedule of Values';
+            if (activeFinancialSection === 'budget') return 'Budget';
+            return 'Prime Contract';
+        }
         return 'Budget';
     };
 

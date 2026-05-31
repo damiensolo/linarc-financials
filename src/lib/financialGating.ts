@@ -4,7 +4,7 @@ import {
   PrimeContractSetupPhase,
   FinancialConfig,
   SOVMapping,
-  WBSLink,
+  BudgetScheduleLink,
   ApprovalRequest,
 } from '../types';
 import { V3Row } from '../components/views/spreadsheetV4/types';
@@ -15,7 +15,9 @@ import {
   getBudgetRows,
   committedLineCount,
   countLinesByState,
+  getBudgetLineAmount,
 } from './financialWorkflow';
+import { isLinkFullyAllocated } from './scheduleLinking';
 
 export interface GatingContext {
   financialSetupStep: FinancialSetupStep;
@@ -315,7 +317,7 @@ export function computeSetupMilestoneReadiness(
 export function computePublishReadiness(
   budgetRows: V3Row[],
   sovMappings: SOVMapping[],
-  wbsLinks: WBSLink[],
+  scheduleLinks: BudgetScheduleLink[],
   approvalQueue: ApprovalRequest[],
   options: { contractLocked?: boolean; commitThresholdPercent?: number } = {}
 ): import('../types').PublishReadinessCheck[] {
@@ -337,9 +339,12 @@ export function computePublishReadiness(
     return !mapping || (mapping.status ?? 'confirmed') !== 'confirmed';
   }).length;
 
-  const unlinkedWbs = committedIds.filter(
-    (id) => !wbsLinks.some((l) => l.rowId === id)
-  ).length;
+  const unlinkedSchedule = budgetRows
+    .filter((r) => (r.lineState ?? 'open') === 'locked')
+    .filter((row) => {
+      const link = scheduleLinks.find((l) => l.budgetRowId === row.id);
+      return !link || link.status !== 'confirmed' || !isLinkFullyAllocated(link, getBudgetLineAmount(row));
+    }).length;
 
   const pendingApprovals = approvalQueue.filter((a) => a.status === 'pending').length;
   const pendingPcChanges = approvalQueue.filter(
@@ -382,10 +387,10 @@ export function computePublishReadiness(
     {
       id: 'wbs-linked',
       label:
-        unlinkedWbs === 0
-          ? 'All committed lines linked to WBS'
-          : `${unlinkedWbs} committed line(s) missing WBS links — click to open Schedule Linking`,
-      met: unlinkedWbs === 0 && committed > 0,
+        unlinkedSchedule === 0
+          ? 'All committed lines allocated to the schedule'
+          : `${unlinkedSchedule} committed line(s) not yet allocated to the schedule — click to open Schedule Linking`,
+      met: unlinkedSchedule === 0 && committed > 0,
       actionStep: 4,
       actionTab: 'schedule',
     },

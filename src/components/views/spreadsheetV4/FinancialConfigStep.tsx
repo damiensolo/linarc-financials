@@ -21,7 +21,6 @@ const FinancialConfigStep: React.FC = () => {
   const [perLineApproval, setPerLineApproval] = useState(defaults.perLineApprovalEnabled);
   const [requireAllApprovers, setRequireAllApprovers] = useState(defaults.approvalRouting.requireAll);
   const [selectedRoles, setSelectedRoles] = useState<ApprovalRole[]>(defaults.approvalRouting.roles);
-  const [costCodeConfirmed, setCostCodeConfirmed] = useState(defaults.costCodeEnforcementConfirmed);
 
   const toggleRole = (role: ApprovalRole) => {
     setSelectedRoles((prev) =>
@@ -37,7 +36,7 @@ const FinancialConfigStep: React.FC = () => {
       allowMultiplePayApps,
       perLineApprovalEnabled: perLineApproval,
       approvalRouting: { roles: selectedRoles.length ? selectedRoles : ['gc'], requireAll: requireAllApprovers },
-      costCodeEnforcementConfirmed: costCodeConfirmed,
+      costCodeEnforcementConfirmed: true,
     });
     setPrimeContractSetupPhase('choose');
     setFinancialSetupStep(2);
@@ -89,7 +88,7 @@ const FinancialConfigStep: React.FC = () => {
           <p className="text-xs text-gray-500 ml-7 mt-1">When enabled, each budget line commit requires approval before locking.</p>
         </div>
 
-        {(perLineApproval || true) && (
+        {perLineApproval && (
           <div className="bg-gray-50 rounded-lg p-4 space-y-3">
             <p className="text-sm font-medium text-gray-800">Approval Routing (PC Value changes &amp; per-line commits)</p>
             {ROLES.map((role) => (
@@ -109,14 +108,9 @@ const FinancialConfigStep: React.FC = () => {
 
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <p className="text-sm font-medium text-blue-900 mb-2">Cost Code Enforcement</p>
-          <p className="text-xs text-blue-800 mb-3">
+          <p className="text-xs text-blue-800">
             Cost codes are mandatory on every budget line and schedule activity. This enables budget-to-schedule auto-allocation.
           </p>
-          <label className="flex items-center gap-2 text-sm text-blue-900">
-            <input type="checkbox" checked={costCodeConfirmed}
-              onChange={(e) => setCostCodeConfirmed(e.target.checked)} className="rounded border-blue-400" />
-            I understand cost codes are required on all budget lines
-          </label>
         </div>
 
         <div className="flex gap-3 pt-2">

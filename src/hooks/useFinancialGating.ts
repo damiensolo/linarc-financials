@@ -46,6 +46,18 @@ export function useFinancialGating() {
       getSidebarItemTooltip(categoryKey, itemKey, ...gatingArgs),
     navigateSidebarItem: (categoryKey: string, itemKey: string) => {
       if (categoryKey !== 'contract') return;
+
+      // Post-publish: sidebar selection drives which financial section is shown,
+      // not the setup-step flow.
+      if (ctx.financialSetupComplete) {
+        ctx.setActiveFinancialSection(itemKey);
+        ctx.setHubCollapsed(false);
+        if (itemKey === 'sov' || itemKey === 'allocate') {
+          ctx.setOpsActiveTab(itemKey === 'allocate' ? 'schedule' : 'sov');
+        }
+        return;
+      }
+
       const stepMap: Record<string, FinancialSetupStep> = {
         primeContract: 2,
         budget: 3,

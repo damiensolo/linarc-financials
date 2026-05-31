@@ -256,11 +256,43 @@ export interface SOVMapping {
   location?: string;
 }
 
-export interface WBSLink {
-  rowId: string;
-  wbsActivityId: string;
-  wbsActivityName: string;
+/** A construction schedule activity. Cost code is the connector to budget lines. */
+export interface ScheduleTask {
+  id: string;
+  wbs: string;
+  name: string;
   costCode: string;
+  phase: string;
+  plannedHours: number;
+  planStart: string;
+  planEnd: string;
+}
+
+/** One committed budget line's share assigned to a single schedule task. */
+export interface ScheduleAllocation {
+  taskId: string;
+  amount: number;
+}
+
+export type BudgetScheduleLinkStatus = 'draft' | 'confirmed' | 'needs_review';
+
+/** How a budget line's amount is spread across its linked schedule tasks. */
+export type ScheduleDistributionMethod = 'by_hours' | 'equal' | 'manual' | 'level_of_effort';
+
+/**
+ * Links one committed budget line to the schedule, many-to-many via cost code.
+ * - draft: auto-matched on a unique cost code, ready to confirm.
+ * - needs_review: cost-code collision (multiple lines share a code) or level-of-effort
+ *   line with no matching task — requires a manual split / spread decision.
+ */
+export interface BudgetScheduleLink {
+  budgetRowId: string;
+  costCode: string;
+  status: BudgetScheduleLinkStatus;
+  method: ScheduleDistributionMethod;
+  allocations: ScheduleAllocation[];
+  /** Timeline span for level-of-effort lines that spread evenly rather than per-task. */
+  loeSpread?: { from: string; to: string } | null;
 }
 
 export interface PublishReadinessCheck {

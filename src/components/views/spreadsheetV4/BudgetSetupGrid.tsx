@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 
-import { Upload, AlertTriangle, Info } from 'lucide-react';
+import { Upload, AlertTriangle, Info, Lock } from 'lucide-react';
 
 import { useProject } from '../../../context/ProjectContext';
 import { useScrollToRowOnAdd } from '../../../hooks/useScrollToRowOnAdd';
@@ -58,9 +58,11 @@ const STATE_BADGE: Record<string, { label: string; className: string }> = {
 
 interface BudgetSetupGridProps {
   workflowMessage?: string;
+  /** Post-activation actual-budget view: read-only, no editing, commit, import, add, or delete. */
+  locked?: boolean;
 }
 
-const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '' }) => {
+const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '', locked = false }) => {
 
   const {
 
@@ -274,6 +276,8 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '' 
 
   const handleCellClick = (row: V3Row, colId: string) => {
 
+    if (locked) return;
+
     const state = getLineState(row);
 
     if (state === 'locked') {
@@ -465,13 +469,26 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '' 
 
           <div className="flex flex-col gap-0.5 min-w-0">
 
-            <div className="text-sm text-gray-700">
+            <div className="flex items-center gap-2 text-sm text-gray-700">
 
-              <span className="font-semibold">{lineCounts.locked} of {lineCounts.total} lines committed</span>
+              {locked ? (
+                <>
+                  <span className="font-semibold">Actual budget</span>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-gray-200 text-gray-700">
+                    <Lock size={11} />
+                    Activated &amp; locked
+                  </span>
+                  <span className="text-gray-500">· {lineCounts.total} committed lines — read-only</span>
+                </>
+              ) : (
+                <>
+                  <span className="font-semibold">{lineCounts.locked} of {lineCounts.total} lines committed</span>
 
-              {lineCounts.open > 0 && <span className="text-gray-500 ml-2">· {lineCounts.open} open</span>}
+                  {lineCounts.open > 0 && <span className="text-gray-500">· {lineCounts.open} open</span>}
 
-              {lineCounts.pending > 0 && <span className="text-amber-600 ml-2">· {lineCounts.pending} pending approval</span>}
+                  {lineCounts.pending > 0 && <span className="text-amber-600">· {lineCounts.pending} pending approval</span>}
+                </>
+              )}
 
             </div>
 
@@ -499,23 +516,25 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '' 
 
           </div>
 
-          <div className="flex gap-2 flex-shrink-0">
+          {!locked && (
+            <div className="flex gap-2 flex-shrink-0">
 
-            <button
+              <button
 
-              type="button"
+                type="button"
 
-              onClick={handleImportStub}
+                onClick={handleImportStub}
 
-              className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-700 border border-gray-300 rounded-md hover:bg-white bg-white"
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-700 border border-gray-300 rounded-md hover:bg-white bg-white"
 
-            >
+              >
 
-              <Upload size={14} /> Import Excel
+                <Upload size={14} /> Import Excel
 
-            </button>
+              </button>
 
-          </div>
+            </div>
+          )}
 
         </div>
 
@@ -570,7 +589,7 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '' 
                 allSelected={allSelectableSelected}
                 someSelected={someSelectableSelected}
                 onToggleAll={handleToggleSelectAll}
-                disabled={selectableRowIds.length === 0}
+                disabled={locked || selectableRowIds.length === 0}
                 sticky
               />
               <th
@@ -643,7 +662,7 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '' 
 
                     onToggleSelect={handleToggleRowSelect}
 
-                    disabled={state === 'locked'}
+                    disabled={locked || state === 'locked'}
 
                     fontSize={fontSize}
 
@@ -670,7 +689,7 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '' 
 
                         key={col.id}
 
-                        className={`px-2 border-r border-gray-200 cursor-pointer ${colAlignClass(col)} ${
+                        className={`px-2 border-r border-gray-200 ${locked ? '' : 'cursor-pointer'} ${colAlignClass(col)} ${
 
                           missingCode && col.id === 'costCode' ? 'bg-red-50' : ''
 
@@ -721,7 +740,7 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '' 
                     style={{ width: BUDGET_ACTIONS_COLUMN_WIDTH, minWidth: BUDGET_ACTIONS_COLUMN_WIDTH }}
                   >
 
-                    {state === 'open' && (
+                    {!locked && state === 'open' && (
 
                       <button
 
@@ -739,7 +758,7 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '' 
 
                     )}
 
-                    {state === 'locked' && (
+                    {!locked && state === 'locked' && (
 
                       <button
 
@@ -800,12 +819,14 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '' 
                 style={{ width: BUDGET_ACTIONS_COLUMN_WIDTH, minWidth: BUDGET_ACTIONS_COLUMN_WIDTH }}
               />
             </tr>
-            <SpreadsheetTableAddRowRow
-              colSpan={visibleColumns.length + 3}
-              onAddRow={addRow}
-              selectedCount={selectedRowIds.size}
-              onDeleteSelected={() => deleteRows(selectedRowIds)}
-            />
+            {!locked && (
+              <SpreadsheetTableAddRowRow
+                colSpan={visibleColumns.length + 3}
+                onAddRow={addRow}
+                selectedCount={selectedRowIds.size}
+                onDeleteSelected={() => deleteRows(selectedRowIds)}
+              />
+            )}
           </tfoot>
         </table>
 
