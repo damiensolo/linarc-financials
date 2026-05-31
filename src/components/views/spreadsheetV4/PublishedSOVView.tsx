@@ -3,12 +3,9 @@ import { CheckCircle2, Lock } from 'lucide-react';
 import { useProject } from '../../../context/ProjectContext';
 import ContractSummaryHeader from './ContractSummaryHeader';
 import SOVMappingGrid from './SOVMappingGrid';
-import { isSovMappingConfirmed } from '../../../lib/financialWorkflow';
-
 const PublishedSOVView: React.FC = () => {
   const { contractData, sovMappings, sovPublished } = useProject();
 
-  const confirmedCount = sovMappings.filter(isSovMappingConfirmed).length;
   const totalAmount = sovMappings.reduce((sum, m) => sum + m.amount, 0);
 
   return (
@@ -38,7 +35,7 @@ const PublishedSOVView: React.FC = () => {
             <p className="text-xs text-gray-600">
               {sovPublished
                 ? `${sovMappings.length} lines finalized — read-only`
-                : `${confirmedCount} of ${sovMappings.length} lines confirmed`}
+                : `${sovMappings.length} draft lines`}
             </p>
           </div>
         </div>

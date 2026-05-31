@@ -2,10 +2,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useProject } from '../../../context/ProjectContext';
 import { useScrollToRowOnAdd } from '../../../hooks/useScrollToRowOnAdd';
-import {
-  createManualSovMapping,
-  isSovMappingConfirmed,
-} from '../../../lib/financialWorkflow';
+import { createManualSovMapping } from '../../../lib/financialWorkflow';
 import { SPREADSHEET_INDEX_COLUMN_WIDTH } from '../../../constants/spreadsheetLayout';
 import SpreadsheetIndexCell from './SpreadsheetIndexCell';
 import SpreadsheetIndexHeaderCell from './SpreadsheetIndexHeaderCell';
@@ -36,8 +33,6 @@ const SOVMappingGrid: React.FC<SOVMappingGridProps> = ({ locked = false }) => {
     sovMappings,
     addSovMapping,
     updateSovMapping,
-    confirmSovMapping,
-    confirmAllSovDrafts,
     removeSovMapping,
     activeView,
   } = useProject();
@@ -55,8 +50,6 @@ const SOVMappingGrid: React.FC<SOVMappingGridProps> = ({ locked = false }) => {
 
   const { scrollContainerRef, requestScrollToRow } = useScrollToRowOnAdd(sortedMappings.length);
 
-  const confirmedCount = sortedMappings.filter(isSovMappingConfirmed).length;
-  const draftCount = sortedMappings.length - confirmedCount;
   const totalAmount = sortedMappings.reduce((sum, m) => sum + m.amount, 0);
 
   const selectableRowIds = useMemo(
@@ -133,27 +126,13 @@ const SOVMappingGrid: React.FC<SOVMappingGridProps> = ({ locked = false }) => {
     <div className="flex flex-col h-full min-h-0 bg-white">
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-200 bg-gray-50 gap-4 flex-shrink-0">
         <div className="text-sm text-gray-700">
-          <span className="font-semibold">
-            {locked
-              ? `${sortedMappings.length} SOV lines published`
-              : `${confirmedCount} of ${sortedMappings.length} SOV lines confirmed`}
-          </span>
-          {!locked && draftCount > 0 && (
-            <span className="text-amber-600 ml-2">· {draftCount} draft awaiting confirmation</span>
-          )}
-          {locked && (
-            <span className="text-gray-500 ml-2">· Locked — owner-facing billing schedule is final</span>
+          <span className="font-semibold">{sortedMappings.length} SOV lines</span>
+          {locked ? (
+            <span className="text-gray-500 ml-2">· Published — owner-facing billing schedule is final</span>
+          ) : (
+            <span className="text-gray-500 ml-2">· Draft until the SOV is published</span>
           )}
         </div>
-        {!locked && draftCount > 0 && (
-          <button
-            type="button"
-            onClick={confirmAllSovDrafts}
-            className="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
-          >
-            Confirm all drafts ({draftCount})
-          </button>
-        )}
       </div>
 
       <div className="flex-1 min-h-0 overflow-hidden">
@@ -200,7 +179,8 @@ const SOVMappingGrid: React.FC<SOVMappingGridProps> = ({ locked = false }) => {
             </thead>
             <tbody>
               {sortedMappings.map((mapping) => {
-                const isDraft = !isSovMappingConfirmed(mapping);
+                // Every line stays a draft until the SOV is published (locked).
+                const isDraft = !locked;
                 const isCollapsed = collapsedSovLineIds.has(mapping.rowId);
                 const parentIndex = displayIndex++;
                 const childIndex = isCollapsed ? -1 : displayIndex++;
@@ -271,17 +251,9 @@ const SOVMappingGrid: React.FC<SOVMappingGridProps> = ({ locked = false }) => {
                           <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-gray-200 text-gray-700">
                             Published
                           </span>
-                        ) : isDraft ? (
-                          <button
-                            type="button"
-                            onClick={() => confirmSovMapping(mapping.rowId)}
-                            className="text-xs font-medium text-blue-600 hover:text-blue-800"
-                          >
-                            Confirm
-                          </button>
                         ) : (
-                          <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-                            Confirmed
+                          <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
+                            Draft
                           </span>
                         )}
                       </td>
@@ -319,13 +291,7 @@ const SOVMappingGrid: React.FC<SOVMappingGridProps> = ({ locked = false }) => {
                         <td className="px-2 border-r border-gray-200 text-sm text-gray-800 truncate">
                           {mapping.location || '—'}
                         </td>
-                        <td className="px-2">
-                          {isDraft && (
-                            <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
-                              Draft
-                            </span>
-                          )}
-                        </td>
+                        <td className="px-2" />
                       </tr>
                     )}
                   </React.Fragment>

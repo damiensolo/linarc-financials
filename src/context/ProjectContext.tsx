@@ -295,7 +295,7 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
       setContractData(reviveContractDates(saved.contractData as Record<string, unknown>) as ContractData);
     }
     if (typeof saved.contractLocked === 'boolean') setContractLocked(saved.contractLocked);
-    if (saved.financialSetupStep && saved.financialSetupStep >= 1 && saved.financialSetupStep <= 5) {
+    if (saved.financialSetupStep && saved.financialSetupStep >= 1 && saved.financialSetupStep <= 6) {
       setFinancialSetupStep(saved.financialSetupStep as FinancialSetupStep);
     }
     if (saved.activationState) setActivationState(saved.activationState as FinancialActivationState);
@@ -1001,9 +1001,11 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     ) {
       return false;
     }
+    // Publishing finalizes the SOV — every draft line becomes confirmed.
+    setSovMappings((prev) => prev.map((m) => ({ ...m, status: 'confirmed' as const })));
     setSovPublished(true);
     setActivationState('activated');
-    setFinancialSetupStep(5);
+    setFinancialSetupStep(6);
     setHubCollapsed(true);
     return true;
   }, [contractLocked, sovMappings, budgetScheduleLinks, approvalQueue]);

@@ -222,7 +222,7 @@ export interface FinancialConfig {
 export type PrimeContractState = 'none' | 'open' | 'locked';
 export type BudgetLineState = 'open' | 'pending_approval' | 'locked';
 export type FinancialActivationState = 'setup' | 'operating' | 'activated';
-export type FinancialSetupStep = 1 | 2 | 3 | 4 | 5;
+export type FinancialSetupStep = 1 | 2 | 3 | 4 | 5 | 6;
 export type PrimeContractSetupPhase = 'choose' | 'review';
 
 export interface ApprovalRequest {

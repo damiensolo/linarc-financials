@@ -219,7 +219,6 @@ const Sidebar: React.FC<SidebarProps> = ({ version = 'v1', bookmarks = [], onSel
     } = useFinancialGating();
     const {
         financialSetupStep,
-        opsActiveTab,
         financialSetupComplete,
         activeViewMode,
         activeFinancialSection,
@@ -248,7 +247,7 @@ const Sidebar: React.FC<SidebarProps> = ({ version = 'v1', bookmarks = [], onSel
         const isSetupFlow = activeViewMode === 'spreadsheetV4' && !financialSetupComplete;
 
         if (isSetupFlow && activeTopNavCategory === 'contract') {
-            const key = getSidebarItemKeyForSetupStep(financialSetupStep, opsActiveTab);
+            const key = getSidebarItemKeyForSetupStep(financialSetupStep);
             setActiveItemKey(items.some((item) => item.key === key) ? key : items[0].key);
             return;
         }
@@ -269,7 +268,6 @@ const Sidebar: React.FC<SidebarProps> = ({ version = 'v1', bookmarks = [], onSel
     }, [
         activeTopNavCategory,
         financialSetupStep,
-        opsActiveTab,
         financialSetupComplete,
         activeViewMode,
         activeFinancialSection,

@@ -80,7 +80,12 @@ const PublishSOVStep: React.FC = () => {
             )}
             {!check.met && check.actionStep === 4 && (
               <span className="block text-xs text-amber-700 mt-1">
-                Opens Step 4 — {check.actionTab === 'schedule' ? 'Schedule Linking' : 'SOV Mapping'} tab
+                Opens Step 4 — Schedule of Values
+              </span>
+            )}
+            {!check.met && check.actionStep === 5 && (
+              <span className="block text-xs text-amber-700 mt-1">
+                Opens Step 5 — Schedule Linking & Allocation
               </span>
             )}
           </button>

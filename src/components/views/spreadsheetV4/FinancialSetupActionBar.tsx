@@ -91,10 +91,10 @@ const FinancialSetupActionBar: React.FC = () => {
                   {committedLineCount} of {lineCounts.total} lines committed
                 </span>
                 {' — '}
-                Map SOV and link schedule in the next step. Lock remaining open lines when ready.
+                Build the Schedule of Values next. Lock remaining open lines when ready.
               </>
             ) : (
-              'Commit at least one budget line to continue to SOV mapping and schedule linking.'
+              'Commit at least one budget line to continue to the Schedule of Values.'
             )}
           </p>
           <div className="flex items-center gap-3 flex-shrink-0">
@@ -119,11 +119,11 @@ const FinancialSetupActionBar: React.FC = () => {
                   <span className="inline-flex">
                     <button
                       type="button"
-                      onClick={() => navigateToSetupStep(4, 'sov')}
+                      onClick={() => navigateToSetupStep(4)}
                       disabled={!canContinueToOps}
                       className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
                     >
-                      Continue to SOV Mapping
+                      Continue to Schedule of Values
                       <ChevronRight size={16} />
                     </button>
                   </span>
@@ -157,6 +157,27 @@ const FinancialSetupActionBar: React.FC = () => {
           onCancel={() => setLockBudgetOpen(false)}
         />
       </>
+    );
+  }
+
+  if (financialSetupStep === 4 || financialSetupStep === 5) {
+    const isSov = financialSetupStep === 4;
+    return (
+      <div className="flex items-center justify-between gap-4 px-6 py-3 border-b border-gray-200 bg-gray-50 flex-shrink-0">
+        <p className="text-sm text-gray-600 truncate min-w-0">
+          {isSov
+            ? 'Review the draft Schedule of Values, then link the schedule.'
+            : 'Allocate committed lines across the schedule, then publish the SOV.'}
+        </p>
+        <button
+          type="button"
+          onClick={() => setFinancialSetupStep(isSov ? 5 : 6)}
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 flex-shrink-0"
+        >
+          {isSov ? 'Continue to Schedule Linking & Allocation' : 'Continue to Publish SOV'}
+          <ChevronRight size={16} />
+        </button>
+      </div>
     );
   }
 

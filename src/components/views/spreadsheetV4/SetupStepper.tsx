@@ -7,8 +7,9 @@ const STEPS: { id: FinancialSetupStep; label: string }[] = [
   { id: 1, label: 'Preliminary Config' },
   { id: 2, label: 'Prime Contract' },
   { id: 3, label: 'Budget Setup' },
-  { id: 4, label: 'Operations' },
-  { id: 5, label: 'Publish SOV' },
+  { id: 4, label: 'Schedule of Values' },
+  { id: 5, label: 'Schedule Linking & Allocation' },
+  { id: 6, label: 'Publish SOV' },
 ];
 
 type StepState = 'complete' | 'active' | 'available' | 'locked';
@@ -30,11 +31,11 @@ const SetupStepper: React.FC<SetupStepperProps> = ({ selectedStep, onSelectStep 
   } = useProject();
 
   const stepStates = STEPS.map((step): StepState => {
-    if (activationState === 'activated' && step.id <= 5) return 'complete';
+    if (activationState === 'activated') return 'complete';
     if (step.id < financialSetupStep) return 'complete';
     if (step.id === financialSetupStep) return 'active';
     if (step.id === 3 && hasPcValue) return 'available';
-    if (step.id === 4 && canAccessOperations) return 'available';
+    if ((step.id === 4 || step.id === 5 || step.id === 6) && canAccessOperations) return 'available';
     return 'locked';
   });
 

@@ -11,6 +11,7 @@ import FinancialSetupHub from './FinancialSetupHub';
 import FinancialOpsHub from './FinancialOpsHub';
 import PublishedSOVView from './PublishedSOVView';
 import BudgetSetupGrid from './BudgetSetupGrid';
+import BudgetScheduleLinker from './BudgetScheduleLinker';
 import { ContextMenu, ContextMenuItem } from '../../common/ui/ContextMenu';
 import ColorPicker from '../../common/ui/ColorPicker';
 import {
@@ -1559,6 +1560,11 @@ const SpreadsheetViewV4: React.FC = () => {
 
   if (activeFinancialSection === 'sov') {
     return <PublishedSOVView />;
+  }
+
+  // Post-activation, the Allocate section shows the schedule linking & allocation workspace.
+  if (activeFinancialSection === 'allocate') {
+    return <BudgetScheduleLinker />;
   }
 
   // Post-activation, the Budget section shows the finalized actual budget — read-only.

@@ -13,6 +13,7 @@ const AppHeader: React.FC = () => {
         if (activeViewMode === 'spreadsheetV2') return 'Budget';
         if (activeViewMode === 'spreadsheetV4') {
             if (activeFinancialSection === 'sov') return 'Schedule of Values';
+            if (activeFinancialSection === 'allocate') return 'Schedule Linking & Allocation';
             if (activeFinancialSection === 'budget') return 'Budget';
             return 'Prime Contract';
         }

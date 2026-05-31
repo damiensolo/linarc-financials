@@ -31,10 +31,7 @@ export interface GatingContext {
 }
 
 /** Maps setup step (and ops tab) to the contract sidebar item key for active-state sync. */
-export function getSidebarItemKeyForSetupStep(
-  step: FinancialSetupStep,
-  opsActiveTab: 'sov' | 'schedule' = 'sov'
-): string {
+export function getSidebarItemKeyForSetupStep(step: FinancialSetupStep): string {
   switch (step) {
     case 1:
     case 2:
@@ -42,8 +39,10 @@ export function getSidebarItemKeyForSetupStep(
     case 3:
       return 'budget';
     case 4:
-      return opsActiveTab === 'schedule' ? 'allocate' : 'sov';
+      return 'sov';
     case 5:
+      return 'allocate';
+    case 6:
       return 'sov';
     default:
       return 'primeContract';
@@ -334,10 +333,8 @@ export function computePublishReadiness(
     .filter((r) => (r.lineState ?? 'open') === 'locked')
     .map((r) => r.id);
 
-  const unmappedSov = committedIds.filter((id) => {
-    const mapping = sovMappings.find((m) => m.rowId === id);
-    return !mapping || (mapping.status ?? 'confirmed') !== 'confirmed';
-  }).length;
+  // SOV lines stay draft until publish, so readiness only requires a line per committed budget line.
+  const unmappedSov = committedIds.filter((id) => !sovMappings.some((m) => m.rowId === id)).length;
 
   const unlinkedSchedule = budgetRows
     .filter((r) => (r.lineState ?? 'open') === 'locked')
@@ -378,8 +375,8 @@ export function computePublishReadiness(
       id: 'sov-mapped',
       label:
         unmappedSov === 0
-          ? 'All committed lines confirmed in SOV'
-          : `${unmappedSov} committed line(s) awaiting SOV confirmation — click to open SOV Mapping`,
+          ? 'Every committed line has a Schedule of Values entry'
+          : `${unmappedSov} committed line(s) missing an SOV entry — click to open Schedule of Values`,
       met: unmappedSov === 0 && committed > 0,
       actionStep: 4,
       actionTab: 'sov',
@@ -389,9 +386,9 @@ export function computePublishReadiness(
       label:
         unlinkedSchedule === 0
           ? 'All committed lines allocated to the schedule'
-          : `${unlinkedSchedule} committed line(s) not yet allocated to the schedule — click to open Schedule Linking`,
+          : `${unlinkedSchedule} committed line(s) not yet allocated to the schedule — click to open Schedule Linking & Allocation`,
       met: unlinkedSchedule === 0 && committed > 0,
-      actionStep: 4,
+      actionStep: 5,
       actionTab: 'schedule',
     },
     {
