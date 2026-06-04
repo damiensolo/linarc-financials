@@ -1,10 +1,10 @@
 import React, { useMemo, useState } from 'react';
 import {
   ChevronDown, ChevronRight, Link2, AlertTriangle, Clock, CheckCircle2,
-  ListChecks, TrendingUp, SlidersHorizontal,
+  ListChecks, TrendingUp, SlidersHorizontal, Users,
 } from 'lucide-react';
 import { useProject } from '../../../context/ProjectContext';
-import { getLineState, getBudgetLineAmount } from '../../../lib/financialWorkflow';
+import { getLineState, getBudgetLineAmount, SUBCONTRACTOR_FIELD } from '../../../lib/financialWorkflow';
 import {
   computeScheduleCoverage,
   isLinkFullyAllocated,
@@ -52,6 +52,7 @@ const LinkRow: React.FC<RowProps> = ({ row, link, tasks, siblings }) => {
 
   const name = String(row.cells['name'] ?? 'Line');
   const code = String(row.cells['costCode'] ?? '');
+  const subcontractor = String(row.cells[SUBCONTRACTOR_FIELD] ?? '');
   const amount = getBudgetLineAmount(row);
   const group = link ? taskGroupFor(link, tasks) : [];
   const allocByTask = new Map<string, number>(
@@ -178,6 +179,11 @@ const LinkRow: React.FC<RowProps> = ({ row, link, tasks, siblings }) => {
           <div className="flex items-center gap-2">
             <p className="font-medium text-gray-900 truncate">{name}</p>
             <span className="text-xs font-mono text-gray-500 flex-shrink-0">{code || '—'}</span>
+            {subcontractor && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-gray-100 text-[11px] text-gray-600 flex-shrink-0">
+                <Users size={11} /> {subcontractor}
+              </span>
+            )}
           </div>
           <p className="text-xs text-gray-500 mt-0.5">
             {isLoe ? (

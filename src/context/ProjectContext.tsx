@@ -4,13 +4,13 @@ import {
   Task, View, FilterRule, HighlightRule, Priority, ColumnId, Status, DisplayDensity, Column, ViewMode, ViewCategory,
   ContractData, FinancialConfig, FinancialSetupStep, FinancialActivationState, ApprovalRequest, SOVMapping,
   BudgetScheduleLink, ScheduleTask, ScheduleAllocation, ScheduleDistributionMethod,
-  PrimeContractState, PublishReadinessCheck, PrimeContractSetupPhase,
+  PrimeContractState, PublishReadinessCheck, PrimeContractSetupPhase, BudgetSetupPhase,
 } from '../types';
 import {
   getBudgetRows, getBudgetSheet, getPrimeContractRows, getPrimeContractSheet, hasPcValue, hasCommittedLines,
   isBudgetFullyLocked, countLinesByState, committedLineCount, getPrimeContractState, createEmptyBudgetSheet,
-  createEmptyPrimeContractSheet, createBudgetColumns, seedBudgetRowsFromPrimeContract, APPROVER_NAMES,
-  rowMissingCostCode, createDraftSovMapping, syncDraftSovMappings, getBudgetLineAmount,
+  createEmptyPrimeContractSheet, createBudgetColumns, DEFAULT_PRIME_CONTRACT_COLUMNS, APPROVER_NAMES,
+  rowMissingCostCode, rowMissingSubcontractor, createDraftSovMapping, syncDraftSovMappings, getBudgetLineAmount,
 } from '../lib/financialWorkflow';
 import {
   syncScheduleLinks, distributeByHours, distributeEqual, isLinkFullyAllocated,
@@ -170,6 +170,8 @@ interface ProjectContextType {
   setContractData: React.Dispatch<SetStateAction<ContractData | null>>;
   isContractUploadOpen: boolean;
   setIsContractUploadOpen: (open: boolean) => void;
+  isBudgetUploadOpen: boolean;
+  setIsBudgetUploadOpen: (open: boolean) => void;
   contractLocked: boolean;
   setContractLocked: React.Dispatch<SetStateAction<boolean>>;
   financialConfig: FinancialConfig | null;
@@ -185,6 +187,8 @@ interface ProjectContextType {
   hubCollapsed: boolean;
   primeContractSetupPhase: import('../types').PrimeContractSetupPhase;
   setPrimeContractSetupPhase: React.Dispatch<React.SetStateAction<import('../types').PrimeContractSetupPhase>>;
+  budgetSetupPhase: BudgetSetupPhase;
+  setBudgetSetupPhase: React.Dispatch<React.SetStateAction<BudgetSetupPhase>>;
   setHubCollapsed: React.Dispatch<SetStateAction<boolean>>;
   opsActiveTab: 'sov' | 'schedule';
   setOpsActiveTab: React.Dispatch<SetStateAction<'sov' | 'schedule'>>;
@@ -206,7 +210,6 @@ interface ProjectContextType {
   // Actions
   updateBudgetRows: (rows: V3Row[]) => void;
   updatePrimeContractRows: (rows: V3Row[]) => void;
-  seedBudgetFromPrimeContract: () => void;
   initializeBlankBudget: () => void;
   commitLine: (rowId: string) => void;
   bulkCommitOpenLines: () => void;
@@ -259,6 +262,7 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [isPDFModalOpen, setIsPDFModalOpen] = useState(false);
   const [contractData, setContractData] = useState<ContractData | null>(null);
   const [isContractUploadOpen, setIsContractUploadOpen] = useState(false);
+  const [isBudgetUploadOpen, setIsBudgetUploadOpen] = useState(false);
   const [contractLocked, setContractLocked] = useState(false);
   const [financialConfig, setFinancialConfig] = useState<FinancialConfig | null>(null);
   const [financialSetupStep, setFinancialSetupStep] = useState<FinancialSetupStep>(1);
@@ -270,6 +274,7 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
   const scheduleTasks = MOCK_SCHEDULE_TASKS;
   const [hubCollapsed, setHubCollapsed] = useState(false);
   const [primeContractSetupPhase, setPrimeContractSetupPhase] = useState<PrimeContractSetupPhase>('choose');
+  const [budgetSetupPhase, setBudgetSetupPhase] = useState<BudgetSetupPhase>('choose');
   const [opsActiveTab, setOpsActiveTab] = useState<'sov' | 'schedule'>('sov');
   const [activeFinancialSection, setActiveFinancialSection] = useState<string>('primeContract');
 
@@ -308,6 +313,9 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
       setPrimeContractSetupPhase(saved.primeContractSetupPhase);
     } else {
       setPrimeContractSetupPhase('choose');
+    }
+    if (saved.budgetSetupPhase === 'choose' || saved.budgetSetupPhase === 'grid') {
+      setBudgetSetupPhase(saved.budgetSetupPhase);
     }
     if (saved.v3Sheets) {
       setTransientView((prev) => ({
@@ -688,27 +696,14 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
   const updatePrimeContractRows = useCallback((rows: V3Row[]) => {
     const sheets = activeViewRef.current.v3Sheets ?? [];
     const pcSheet = getPrimeContractSheet(sheets) ?? createEmptyPrimeContractSheet();
+    // Always normalize to the current column set so previously-persisted sheets
+    // (which carried a Cost Code column) drop it — Prime Contract has no cost codes.
+    const normalized = { ...pcSheet, columns: DEFAULT_PRIME_CONTRACT_COLUMNS };
     const updatedSheets = sheets.some((s) => s.id === pcSheet.id)
-      ? sheets.map((s) => (s.id === pcSheet.id ? { ...s, rows } : s))
-      : [...sheets, { ...pcSheet, rows }];
+      ? sheets.map((s) => (s.id === pcSheet.id ? { ...normalized, rows } : s))
+      : [...sheets, { ...normalized, rows }];
     updateView({ v3Sheets: updatedSheets, v3ActiveSheetId: pcSheet.id });
   }, [updateView]);
-
-  const seedBudgetFromPrimeContract = useCallback(() => {
-    const sheets = activeViewRef.current.v3Sheets ?? [];
-    const primeRows = getPrimeContractRows(sheets);
-    const seeded = seedBudgetRowsFromPrimeContract(primeRows);
-    const budgetSheet = getBudgetSheet(sheets) ?? createEmptyBudgetSheet(financialConfig);
-    const updatedSheet = {
-      ...budgetSheet,
-      columns: createBudgetColumns(financialConfig),
-      rows: seeded.length > 0 ? seeded : [{ id: `row-${Date.now()}`, cells: {}, lineState: 'open' as const }],
-    };
-    const updatedSheets = sheets.some((s) => s.id === budgetSheet.id)
-      ? sheets.map((s) => (s.id === budgetSheet.id ? updatedSheet : s))
-      : [...sheets, updatedSheet];
-    updateView({ v3Sheets: updatedSheets, v3ActiveSheetId: budgetSheet.id });
-  }, [financialConfig, updateView]);
 
   const initializeBlankBudget = useCallback(() => {
     const blankRow: V3Row = { id: `row-${Date.now()}`, cells: {}, lineState: 'open' };
@@ -766,7 +761,7 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     const rows = getBudgetRows(activeViewRef.current.v3Sheets);
     const target = rows.find((r) => r.id === rowId);
     if (!target || (target.lineState ?? 'open') !== 'open') return;
-    if (rowMissingCostCode(target)) return;
+    if (rowMissingCostCode(target) || rowMissingSubcontractor(target)) return;
 
     if (perLineApproval) {
       const req = enqueueApproval('line_commit', [rowId], {
@@ -792,7 +787,7 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     const rows = getBudgetRows(activeViewRef.current.v3Sheets);
     const openRows = rows.filter((r) => (r.lineState ?? 'open') === 'open');
     if (openRows.length === 0) return;
-    if (openRows.some(rowMissingCostCode)) return;
+    if (openRows.some(rowMissingCostCode) || openRows.some(rowMissingSubcontractor)) return;
 
     const openIds = openRows.map((r) => r.id);
 
@@ -1040,6 +1035,7 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
       budgetScheduleLinks,
       hubCollapsed,
       primeContractSetupPhase,
+      budgetSetupPhase,
       v3Sheets: activeView.v3Sheets ?? null,
       v3ActiveSheetId: activeView.v3ActiveSheetId ?? null,
     });
@@ -1055,6 +1051,7 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     budgetScheduleLinks,
     hubCollapsed,
     primeContractSetupPhase,
+    budgetSetupPhase,
     activeView.v3Sheets,
     activeView.v3ActiveSheetId,
   ]);
@@ -1118,6 +1115,8 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     setContractData,
     isContractUploadOpen,
     setIsContractUploadOpen,
+    isBudgetUploadOpen,
+    setIsBudgetUploadOpen,
     contractLocked,
     setContractLocked,
     financialConfig,
@@ -1134,6 +1133,8 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     setHubCollapsed,
     primeContractSetupPhase,
     setPrimeContractSetupPhase,
+    budgetSetupPhase,
+    setBudgetSetupPhase,
     opsActiveTab,
     setOpsActiveTab,
     activeFinancialSection,
@@ -1152,7 +1153,6 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     canPublishSOV,
     updateBudgetRows,
     updatePrimeContractRows,
-    seedBudgetFromPrimeContract,
     initializeBlankBudget,
     commitLine,
     bulkCommitOpenLines,

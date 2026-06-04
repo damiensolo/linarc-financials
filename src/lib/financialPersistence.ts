@@ -18,6 +18,7 @@ export interface PersistedFinancialState {
   budgetScheduleLinks: unknown[];
   hubCollapsed: boolean;
   primeContractSetupPhase: 'choose' | 'review';
+  budgetSetupPhase: 'choose' | 'grid';
   v3Sheets: unknown;
   v3ActiveSheetId: string | null;
 }

@@ -215,50 +215,15 @@ export function sumLineItems(items: ExtractedLineItem[]): number {
 }
 
 /**
- * CSI MasterFormat cost codes keyed by work type. Cost code is the connector
- * across Prime Contract → Budget → Schedule, so these must match the codes
- * used on the construction schedule's tasks. Rules are evaluated top-to-bottom;
- * put the most specific patterns first.
- */
-const CSI_CODE_RULES: { test: RegExp; code: string }[] = [
-  { test: /kitchen/i, code: '11 31 00' },                                          // Residential Appliances
-  { test: /bath/i, code: '22 40 00' },                                             // Plumbing Fixtures
-  { test: /plumb/i, code: '22 40 00' },                                            // Plumbing Fixtures (shares code with bath)
-  { test: /floor|lvp|carpet|resilient/i, code: '09 65 13' },                       // Resilient Flooring
-  { test: /demo|demolition|prep/i, code: '02 41 00' },                             // Demolition
-  { test: /drywall|stairwell|gypsum/i, code: '09 29 00' },                         // Gypsum Board
-  { test: /exterior.*(trim|paint)|trim.*paint/i, code: '09 91 00' },               // Painting (exterior)
-  { test: /paint/i, code: '09 91 00' },                                            // Painting (interior — shares code)
-  { test: /light|electric/i, code: '26 51 00' },                                   // Interior Lighting
-  { test: /concrete|entry/i, code: '03 30 00' },                                   // Cast-in-Place Concrete
-  { test: /signage|mail/i, code: '10 14 00' },                                     // Signage
-  { test: /permit|testing|plan\s*fee|inspection/i, code: '01 41 00' },             // Regulatory Requirements
-  { test: /project\s*management|supervision|temp(orary)?\s*facilit|general\s*condition/i, code: '01 31 00' }, // Project Management
-  { test: /overhead|profit|markup|fee/i, code: '01 00 00' },                       // General Requirements (OH&P)
-];
-
-function csiCodeForLineItem(name: string): string {
-  for (const rule of CSI_CODE_RULES) {
-    if (rule.test.test(name)) return rule.code;
-  }
-  return '01 00 00';
-}
-
-/**
  * Convert extracted line items to V3Row format for the prime contract sheet.
+ * Prime Contract lines carry no cost code — only a description and value.
  */
 export function createPrimeContractRowsFromLineItems(items: ExtractedLineItem[]): V3Row[] {
   return items.map((item, index) => ({
     id: `contract-line-${index}`,
     cells: {
       name: item.name,
-      costCode: csiCodeForLineItem(item.name),
       contractValue: item.value,
     },
   }));
-}
-
-/** @deprecated Use createPrimeContractRowsFromLineItems */
-export function createBudgetRowsFromLineItems(items: ExtractedLineItem[]): V3Row[] {
-  return createPrimeContractRowsFromLineItems(items);
 }

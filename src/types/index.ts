@@ -224,6 +224,7 @@ export type BudgetLineState = 'open' | 'pending_approval' | 'locked';
 export type FinancialActivationState = 'setup' | 'operating' | 'activated';
 export type FinancialSetupStep = 1 | 2 | 3 | 4 | 5 | 6;
 export type PrimeContractSetupPhase = 'choose' | 'review';
+export type BudgetSetupPhase = 'choose' | 'grid';
 
 export interface ApprovalRequest {
   id: string;

@@ -163,6 +163,17 @@ setIsContractUploadOpen: (open: boolean) => void
 
 ---
 
+## Recent Changes (2026-06-01)
+
+**Prime Contract without cost codes + Budget dual-mode upload** (see `Financial_Workflow_PRD_and_UX_Spec_v2.1.proposed.md` v2.2):
+- ✅ Removed Cost Code from the Prime Contract table — now Contract Line + Contract Value only
+- ✅ Moved CSI cost-code derivation from `contractLineExtraction.ts` to new `lib/budgetLineExtraction.ts`
+- ✅ Budget Setup is now dual-mode: `BudgetChoiceStep` (Upload | Manual) + `BudgetUploadModal` (Excel/CSV/PDF, mirrors `ContractUploadModal`)
+- ✅ Removed budget-seed-from-Prime-Contract (`BudgetSeedPromptModal`, `seedBudgetFromPrimeContract`, `seedBudgetRowsFromPrimeContract`)
+- ✅ Added `budgetSetupPhase` ('choose' | 'grid') + `isBudgetUploadOpen` to ProjectContext
+
+---
+
 ## Recent Changes (2026-05-12)
 
 **Phase 1 — Cleanup completed:**
@@ -278,6 +289,9 @@ Memories are stored in `.claude/projects/linarc-financials/memory/`.
 - **Spreadsheet data:** V2 uses `spreadsheetData` + `spreadsheetColumns`; V4 uses `v3Sheets`
 - **Contract workflow:** V4 has three states: no contract (empty screen) → contract attached (details form) → contract confirmed (spreadsheet table)
 - **Contract state:** `contractData` holds extracted details; `contractConfirmed` gates visibility of spreadsheet
+- **Prime Contract has NO cost codes:** The Prime Contract line table is two columns only — Contract Line + Contract Value (`DEFAULT_PRIME_CONTRACT_COLUMNS`). Cost codes are Budget-only (the connector to the schedule). CSI cost-code derivation lives in `lib/budgetLineExtraction.ts`, not contract extraction.
+- **Subcontractor required to commit:** The budget grid has a required `subcontractorName` **select** column (label "Subcontractor", options from `INVITED_SUBCONTRACTORS` in `data/subcontractors.ts`). `canCommitBudgetLine`, `commitLine`, and bulk Lock Budget all block until it's set (alongside cost code). It sits AFTER the currency `subcontractor` column (relabeled "Sub Cost") on purpose — `evaluateFormula` resolves the Profit formula's `subcontractor` token by id-or-label first-match, so the currency column must precede the same-labeled dropdown or Profit breaks.
+- **Budget Setup choice screen (Upload | Manual | From Prime Contract):** Step 3 shows `BudgetChoiceStep` when empty, then the grid (gated by `budgetSetupPhase`). `BudgetUploadModal` accepts Excel/CSV/PDF (CSV parsed by header; Excel/PDF demo fallback). "From Prime Contract" is a testing convenience (`createBudgetRowsFromPrimeContract` in `budgetLineExtraction.ts`, auto-derives CSI cost codes) shown only when PC lines exist — there is NO automatic seed prompt (the old `BudgetSeedPromptModal` auto-prompt was removed).
 
 ---
 

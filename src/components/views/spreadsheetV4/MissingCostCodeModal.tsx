@@ -2,22 +2,26 @@ import React from 'react';
 import { AlertTriangle } from 'lucide-react';
 import ModalPortal from './ModalPortal';
 
-interface MissingCostCodeModalProps {
+interface MissingFieldModalProps {
   open: boolean;
+  /** The required field that's missing, e.g. "Cost Code" or "Subcontractor". */
+  fieldLabel?: string;
   lineLabel?: string;
   missingCount?: number;
   openLineCount?: number;
   onClose: () => void;
 }
 
-const MissingCostCodeModal: React.FC<MissingCostCodeModalProps> = ({
+const MissingCostCodeModal: React.FC<MissingFieldModalProps> = ({
   open,
+  fieldLabel = 'Cost Code',
   lineLabel,
   missingCount = 1,
   openLineCount,
   onClose,
 }) => {
   const isBulk = missingCount > 1 || (openLineCount != null && openLineCount > 1);
+  const lower = fieldLabel.toLowerCase();
 
   return (
     <ModalPortal open={open}>
@@ -28,26 +32,26 @@ const MissingCostCodeModal: React.FC<MissingCostCodeModalProps> = ({
         <div className="flex items-start gap-3 mb-4">
           <AlertTriangle className="text-amber-500 flex-shrink-0" size={24} />
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">Cost Code Required</h3>
+            <h3 className="text-lg font-semibold text-gray-900">{fieldLabel} Required</h3>
             {isBulk ? (
               <p className="text-sm text-gray-600 mt-2">
-                You cannot lock the budget until every open line has a Cost Code.
+                You cannot lock the budget until every open line has a {fieldLabel}.
                 {openLineCount != null && (
                   <>
                     {' '}
                     <strong>
                       {missingCount} of {openLineCount} open line{openLineCount === 1 ? '' : 's'}
                     </strong>{' '}
-                    {missingCount === 1 ? 'is' : 'are'} missing a cost code.
+                    {missingCount === 1 ? 'is' : 'are'} missing a {lower}.
                   </>
                 )}
                 {openLineCount == null && (
                   <>
                     {' '}
-                    <strong>{missingCount} open lines</strong> are missing a cost code.
+                    <strong>{missingCount} open lines</strong> are missing a {lower}.
                   </>
                 )}{' '}
-                Add a cost code to each line in the Cost Code column, then try again.
+                Set the {fieldLabel} on each line in the {fieldLabel} column, then try again.
               </p>
             ) : (
               <p className="text-sm text-gray-600 mt-2">
@@ -59,8 +63,8 @@ const MissingCostCodeModal: React.FC<MissingCostCodeModalProps> = ({
                 ) : (
                   'this budget line'
                 )}{' '}
-                until a Cost Code is associated with it. Enter a cost code in the Cost Code column,
-                then try again.
+                until a {fieldLabel} is associated with it. Set the {fieldLabel} in the {fieldLabel}{' '}
+                column, then try again.
               </p>
             )}
           </div>

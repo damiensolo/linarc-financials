@@ -3,6 +3,7 @@ import { ChevronRight, Lock, ArrowLeft } from 'lucide-react';
 import { useProject } from '../../../context/ProjectContext';
 import {
   countOpenRowsMissingCostCode,
+  countOpenRowsMissingSubcontractor,
   hasUploadedContractDocument,
 } from '../../../lib/financialWorkflow';
 import {
@@ -21,6 +22,7 @@ const FinancialSetupActionBar: React.FC = () => {
   const [lockBudgetOpen, setLockBudgetOpen] = useState(false);
   const [missingCostCodeOpen, setMissingCostCodeOpen] = useState(false);
   const [missingCostCodeContext, setMissingCostCodeContext] = useState<{
+    fieldLabel?: string;
     missingCount: number;
     openLineCount?: number;
   }>({ missingCount: 1 });
@@ -52,7 +54,13 @@ const FinancialSetupActionBar: React.FC = () => {
     [budgetRows]
   );
 
-  const canLockBudget = lineCounts.open > 0 && openLinesMissingCostCode === 0;
+  const openLinesMissingSubcontractor = useMemo(
+    () => countOpenRowsMissingSubcontractor(budgetRows),
+    [budgetRows]
+  );
+
+  const canLockBudget =
+    lineCounts.open > 0 && openLinesMissingCostCode === 0 && openLinesMissingSubcontractor === 0;
 
   const lockBudgetTooltip = useMemo(() => {
     if (lineCounts.open === 0) {
@@ -63,13 +71,28 @@ const FinancialSetupActionBar: React.FC = () => {
       const missingWord = openLinesMissingCostCode === 1 ? 'line is' : 'lines are';
       return `Every open line needs a cost code before you can lock the budget. ${openLinesMissingCostCode} of ${lineCounts.open} open ${lineWord} ${missingWord} still missing one.`;
     }
+    if (openLinesMissingSubcontractor > 0) {
+      const lineWord = lineCounts.open === 1 ? 'line' : 'lines';
+      const missingWord = openLinesMissingSubcontractor === 1 ? 'line is' : 'lines are';
+      return `Every open line needs a subcontractor before you can lock the budget. ${openLinesMissingSubcontractor} of ${lineCounts.open} open ${lineWord} ${missingWord} still missing one.`;
+    }
     return `Commit all ${lineCounts.open} remaining open ${lineCounts.open === 1 ? 'line' : 'lines'} at once.`;
-  }, [lineCounts.open, openLinesMissingCostCode]);
+  }, [lineCounts.open, openLinesMissingCostCode, openLinesMissingSubcontractor]);
 
   const handleRequestLockBudget = () => {
     if (openLinesMissingCostCode > 0) {
       setMissingCostCodeContext({
+        fieldLabel: 'Cost Code',
         missingCount: openLinesMissingCostCode,
+        openLineCount: lineCounts.open,
+      });
+      setMissingCostCodeOpen(true);
+      return;
+    }
+    if (openLinesMissingSubcontractor > 0) {
+      setMissingCostCodeContext({
+        fieldLabel: 'Subcontractor',
+        missingCount: openLinesMissingSubcontractor,
         openLineCount: lineCounts.open,
       });
       setMissingCostCodeOpen(true);
@@ -91,10 +114,10 @@ const FinancialSetupActionBar: React.FC = () => {
                   {committedLineCount} of {lineCounts.total} lines committed
                 </span>
                 {' — '}
-                Build the Schedule of Values next. Lock remaining open lines when ready.
+                Link and allocate the schedule next. Lock remaining open lines when ready.
               </>
             ) : (
-              'Commit at least one budget line to continue to the Schedule of Values.'
+              'Commit at least one budget line to continue to Schedule Linking & Allocation.'
             )}
           </p>
           <div className="flex items-center gap-3 flex-shrink-0">
@@ -123,7 +146,7 @@ const FinancialSetupActionBar: React.FC = () => {
                       disabled={!canContinueToOps}
                       className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
                     >
-                      Continue to Schedule of Values
+                      Continue to Schedule Linking & Allocation
                       <ChevronRight size={16} />
                     </button>
                   </span>
@@ -140,6 +163,7 @@ const FinancialSetupActionBar: React.FC = () => {
 
         <MissingCostCodeModal
           open={missingCostCodeOpen}
+          fieldLabel={missingCostCodeContext.fieldLabel}
           missingCount={missingCostCodeContext.missingCount}
           openLineCount={missingCostCodeContext.openLineCount}
           onClose={() => setMissingCostCodeOpen(false)}
@@ -161,20 +185,20 @@ const FinancialSetupActionBar: React.FC = () => {
   }
 
   if (financialSetupStep === 4 || financialSetupStep === 5) {
-    const isSov = financialSetupStep === 4;
+    const isSov = financialSetupStep === 5;
     return (
       <div className="flex items-center justify-between gap-4 px-6 py-3 border-b border-gray-200 bg-gray-50 flex-shrink-0">
         <p className="text-sm text-gray-600 truncate min-w-0">
           {isSov
-            ? 'Review the draft Schedule of Values, then link the schedule.'
-            : 'Allocate committed lines across the schedule, then publish the SOV.'}
+            ? 'Review the draft Schedule of Values, then publish.'
+            : 'Allocate committed lines across the schedule, then review the SOV.'}
         </p>
         <button
           type="button"
-          onClick={() => setFinancialSetupStep(isSov ? 5 : 6)}
+          onClick={() => setFinancialSetupStep(isSov ? 6 : 5)}
           className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 flex-shrink-0"
         >
-          {isSov ? 'Continue to Schedule Linking & Allocation' : 'Continue to Publish SOV'}
+          {isSov ? 'Continue to Publish SOV' : 'Continue to Schedule of Values'}
           <ChevronRight size={16} />
         </button>
       </div>

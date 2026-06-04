@@ -16,7 +16,8 @@ import {
     Clock as ClockIcon,
     Package,
     Zap,
-    Wrench
+    Wrench,
+    HandCoins
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import BookmarksMenu from './FavoritesMenu';
@@ -40,7 +41,7 @@ const BudgetIcon = () => <IconWrapper><DollarSign size={24} strokeWidth={1.5} />
 const SOVIcon = () => <IconWrapper><Briefcase size={24} strokeWidth={1.5} /></IconWrapper>;
 const CommitmentIcon = () => <IconWrapper><CheckCircle size={24} strokeWidth={1.5} /></IconWrapper>;
 const AdjustmentIcon = () => <IconWrapper><Wrench size={24} strokeWidth={1.5} /></IconWrapper>;
-const AllocateIcon = () => <IconWrapper><BarChart size={24} strokeWidth={1.5} /></IconWrapper>;
+const AllocateIcon = () => <IconWrapper><HandCoins size={24} strokeWidth={1.5} /></IconWrapper>;
 const CLSIcon = () => <IconWrapper><FileText size={24} strokeWidth={1.5} /></IconWrapper>;
 const BillingIcon = () => <IconWrapper><DollarSign size={24} strokeWidth={1.5} /></IconWrapper>;
 
@@ -101,10 +102,10 @@ const sidebarItemsByCategory: { [key: string]: Array<{ key: string; label: strin
     contract: [
         { key: 'primeContract', label: 'Prime Contract', icon: <ContractIcon /> },
         { key: 'budget', label: 'Budget', icon: <BudgetIcon /> },
+        { key: 'allocate', label: 'Allocate', icon: <AllocateIcon /> },
         { key: 'sov', label: 'SOV', icon: <SOVIcon /> },
         { key: 'commitment', label: 'Commitment Release', icon: <CommitmentIcon /> },
         { key: 'adjustment', label: 'Adjustment History', icon: <AdjustmentIcon /> },
-        { key: 'allocate', label: 'Allocate', icon: <AllocateIcon /> },
         { key: 'cls', label: 'CLS', icon: <CLSIcon /> },
         { key: 'billing', label: 'Planned Billing', icon: <BillingIcon /> },
     ],

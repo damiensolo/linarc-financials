@@ -157,7 +157,7 @@ const ContractReviewLockScreen: React.FC = () => {
           {isTableEmpty && (
             <SpreadsheetTableEmptyState
               title="Add your first contract line item"
-              description="Enter a cost code, contract line description, and contract value in the row above. Use Add row below when you need additional lines."
+              description="Enter a contract line description and contract value in the row above. Use Add row below when you need additional lines."
             />
           )}
           <table

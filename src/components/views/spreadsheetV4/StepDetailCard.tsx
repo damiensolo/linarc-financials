@@ -3,7 +3,9 @@ import { useProject } from '../../../context/ProjectContext';
 import FinancialConfigStep from './FinancialConfigStep';
 import ContractReviewLockScreen from './ContractReviewLockScreen';
 import PrimeContractChoiceStep from './PrimeContractChoiceStep';
+import BudgetChoiceStep from './BudgetChoiceStep';
 import BudgetSetupGrid from './BudgetSetupGrid';
+import { isBudgetSheetEmpty } from '../../../lib/financialWorkflow';
 import SOVMappingGrid from './SOVMappingGrid';
 import BudgetScheduleLinker from './BudgetScheduleLinker';
 import PublishSOVStep from './PublishSOVStep';
@@ -20,6 +22,8 @@ const StepDetailCard: React.FC = () => {
     activationState,
     primeContractState,
     primeContractSetupPhase,
+    budgetSetupPhase,
+    budgetRows,
     committedLineCount,
     lineCounts,
     financialConfig,
@@ -39,6 +43,11 @@ const StepDetailCard: React.FC = () => {
     canPublish: canPublishSOV,
     publishRemaining: publishReadiness.filter((c) => !c.met).length,
   });
+
+  // Step 3 shows a choice screen (Upload | Manual) until a budget exists, then
+  // the full-height grid. Mirrors the Prime Contract choose → review phasing.
+  const budgetShowsGrid =
+    canAccessBudget && (budgetSetupPhase === 'grid' || !isBudgetSheetEmpty(budgetRows));
 
   if (activationState === 'activated' && financialSetupStep === 6) {
     return (
@@ -78,6 +87,9 @@ const StepDetailCard: React.FC = () => {
             </div>
           );
         }
+        if (!budgetShowsGrid) {
+          return <BudgetChoiceStep />;
+        }
         return (
           <div className="w-full h-full flex flex-col min-h-0">
             <BudgetSetupGrid workflowMessage={message} />
@@ -85,26 +97,6 @@ const StepDetailCard: React.FC = () => {
         );
 
       case 4:
-        if (!canAccessOperations) {
-          return (
-            <div className="max-w-md text-center text-gray-600">
-              Commit at least one budget line in Step 3 to build the Schedule of Values.
-            </div>
-          );
-        }
-        return (
-          <div className="w-full h-full flex flex-col min-h-0">
-            <ScreenHeader
-              title="Schedule of Values (SOV)"
-              subtitle="Draft SOV lines are created from each committed budget line. They stay in draft until you publish."
-            />
-            <div className="flex-1 min-h-0">
-              <SOVMappingGrid />
-            </div>
-          </div>
-        );
-
-      case 5:
         if (!canAccessOperations) {
           return (
             <div className="max-w-md text-center text-gray-600">
@@ -124,6 +116,26 @@ const StepDetailCard: React.FC = () => {
           </div>
         );
 
+      case 5:
+        if (!canAccessOperations) {
+          return (
+            <div className="max-w-md text-center text-gray-600">
+              Commit at least one budget line in Step 3 to build the Schedule of Values.
+            </div>
+          );
+        }
+        return (
+          <div className="w-full h-full flex flex-col min-h-0">
+            <ScreenHeader
+              title="Schedule of Values (SOV)"
+              subtitle="Draft SOV lines are created from each committed budget line. They stay in draft until you publish."
+            />
+            <div className="flex-1 min-h-0">
+              <SOVMappingGrid />
+            </div>
+          </div>
+        );
+
       case 6:
         return (
           <div className="w-full h-full flex flex-col items-center justify-center p-6">
@@ -137,26 +149,28 @@ const StepDetailCard: React.FC = () => {
     }
   };
 
+  // Full-height table steps (Prime Contract review, Budget grid, SOV, Schedule
+  // linking) render inside the same bordered/padded card as the core tables.
   const fillHeightStep =
-    financialSetupStep === 3 ||
+    (financialSetupStep === 3 && budgetShowsGrid) ||
     financialSetupStep === 4 ||
     financialSetupStep === 5 ||
     (financialSetupStep === 2 && primeContractSetupPhase === 'review');
 
-  const stepNoPadding =
-    (financialSetupStep === 2 && primeContractSetupPhase === 'review') ||
-    financialSetupStep === 3 ||
-    financialSetupStep === 4 ||
-    financialSetupStep === 5;
-
   return (
     <div className="w-full h-full min-h-0 flex flex-col">
       <div
-        className={`flex-1 min-h-0 flex flex-col overflow-hidden ${
-          stepNoPadding ? '' : 'p-4'
-        } ${fillHeightStep ? 'items-stretch' : 'items-center justify-center'}`}
+        className={`flex-1 min-h-0 flex flex-col overflow-hidden p-4 ${
+          fillHeightStep ? 'items-stretch' : 'items-center justify-center'
+        }`}
       >
-        {renderStepContent()}
+        {fillHeightStep ? (
+          <div className="flex flex-col flex-1 min-h-0 w-full bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+            {renderStepContent()}
+          </div>
+        ) : (
+          renderStepContent()
+        )}
       </div>
     </div>
   );

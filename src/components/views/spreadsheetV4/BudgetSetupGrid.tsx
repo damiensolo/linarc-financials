@@ -13,13 +13,13 @@ import {
 
   rowMissingCostCode,
 
+  rowMissingSubcontractor,
+
+  SUBCONTRACTOR_FIELD,
+
   createBudgetColumns,
 
   isBudgetSheetEmpty,
-
-  hasPrimeContractLineData,
-
-  countSeedablePrimeContractLines,
 
   getBudgetLineAmount,
 
@@ -32,11 +32,7 @@ import SpreadsheetIndexHeaderCell from './SpreadsheetIndexHeaderCell';
 import { SpreadsheetTableAddRowRow } from './SpreadsheetTableFooterBar';
 import SpreadsheetTableEmptyState from './SpreadsheetTableEmptyState';
 
-import BudgetSeedPromptModal from './BudgetSeedPromptModal';
-
 import CommitLineModal from './CommitLineModal';
-
-import ChangeOrderModal from './ChangeOrderModal';
 
 import MissingCostCodeModal from './MissingCostCodeModal';
 
@@ -72,8 +68,6 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '',
 
     budgetRows,
 
-    primeContractRows,
-
     lineCounts,
 
     commitLine,
@@ -84,9 +78,9 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '',
 
     financialSetupStep,
 
-    seedBudgetFromPrimeContract,
-
     initializeBlankBudget,
+
+    setIsBudgetUploadOpen,
 
   } = useProject();
 
@@ -98,17 +92,12 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '',
 
   const [commitTarget, setCommitTarget] = useState<V3Row | null>(null);
 
-  const [coTarget, setCoTarget] = useState<V3Row | null>(null);
-
   const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
-
-  const [seedPromptOpen, setSeedPromptOpen] = useState(false);
-
-  const [seedPromptHandled, setSeedPromptHandled] = useState(false);
 
   const [missingCostCodeOpen, setMissingCostCodeOpen] = useState(false);
 
   const [missingCostCodeContext, setMissingCostCodeContext] = useState<{
+    fieldLabel?: string;
     lineLabel?: string;
     missingCount: number;
     openLineCount?: number;
@@ -132,40 +121,12 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '',
 
   const fontSize = activeView?.fontSize ?? 12;
 
-  const seedableLineCount = countSeedablePrimeContractLines(primeContractRows);
-
-  const canOfferSeed = hasPrimeContractLineData(primeContractRows);
-
-
-
-  useEffect(() => {
-
-    if (financialSetupStep !== 3) {
-
-      setSeedPromptHandled(false);
-
-      setSeedPromptOpen(false);
-
-      return;
-
-    }
-
-    if (seedPromptHandled) return;
-
-    if (isBudgetSheetEmpty(budgetRows) && canOfferSeed) {
-
-      setSeedPromptOpen(true);
-
-    }
-
-  }, [financialSetupStep, budgetRows, canOfferSeed, seedPromptHandled]);
-
+  // The grid only mounts once a budget exists (upload or manual entry via the
+  // choice screen). Guard against landing here with zero rows.
   useEffect(() => {
     if (financialSetupStep !== 3) return;
-    if (budgetRows.length > 0) return;
-    if (canOfferSeed && !seedPromptHandled) return;
-    initializeBlankBudget();
-  }, [financialSetupStep, budgetRows.length, canOfferSeed, seedPromptHandled, initializeBlankBudget]);
+    if (budgetRows.length === 0) initializeBlankBudget();
+  }, [financialSetupStep, budgetRows.length, initializeBlankBudget]);
 
   const generateId = () => `row-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
@@ -280,13 +241,7 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '',
 
     const state = getLineState(row);
 
-    if (state === 'locked') {
-
-      setCoTarget(row);
-
-      return;
-
-    }
+    if (state === 'locked') return;
 
     if (state === 'pending_approval') return;
 
@@ -382,50 +337,17 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '',
 
 
 
-  const handleSeedPromptClose = (usePrime: boolean) => {
-
-    setSeedPromptOpen(false);
-
-    setSeedPromptHandled(true);
-
-    if (usePrime) {
-
-      seedBudgetFromPrimeContract();
-
-    } else {
-
-      initializeBlankBudget();
-
-    }
-
-  };
-
-
-
-  const handleImportStub = () => {
-
-    const imported: V3Row[] = [
-
-      { id: generateId(), cells: { name: 'Imported — Sitework', costCode: '02-100', budget: 65000, revisedBudget: 65000, labor: 12000, material: 8000, subcontractor: 45000 }, lineState: 'open' },
-
-      { id: generateId(), cells: { name: 'Imported — Concrete', costCode: '03-300', budget: 45000, revisedBudget: 45000, labor: 25000, material: 15000, equipment: 5000 }, lineState: 'open' },
-
-    ];
-
-    updateBudgetRows([...budgetRows, ...imported]);
-
-  };
-
-
-
   const isTableEmpty = useMemo(() => isBudgetSheetEmpty(budgetRows), [budgetRows]);
 
   const handleRequestCommit = (row: V3Row) => {
+    const lineLabel = String(row.cells['name'] ?? '').trim() || undefined;
     if (rowMissingCostCode(row)) {
-      setMissingCostCodeContext({
-        lineLabel: String(row.cells['name'] ?? '').trim() || undefined,
-        missingCount: 1,
-      });
+      setMissingCostCodeContext({ fieldLabel: 'Cost Code', lineLabel, missingCount: 1 });
+      setMissingCostCodeOpen(true);
+      return;
+    }
+    if (rowMissingSubcontractor(row)) {
+      setMissingCostCodeContext({ fieldLabel: 'Subcontractor', lineLabel, missingCount: 1 });
       setMissingCostCodeOpen(true);
       return;
     }
@@ -450,18 +372,6 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '',
   return (
 
     <div className="flex flex-col h-full min-h-0 bg-white">
-
-      <BudgetSeedPromptModal
-
-        open={seedPromptOpen}
-
-        lineCount={seedableLineCount}
-
-        onUsePrimeContract={() => handleSeedPromptClose(true)}
-
-        onStartBlank={() => handleSeedPromptClose(false)}
-
-      />
 
       <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
 
@@ -523,13 +433,15 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '',
 
                 type="button"
 
-                onClick={handleImportStub}
+                onClick={() => setIsBudgetUploadOpen(true)}
+
+                title="Upload an Excel, CSV, or PDF budget"
 
                 className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-700 border border-gray-300 rounded-md hover:bg-white bg-white"
 
               >
 
-                <Upload size={14} /> Import Excel
+                <Upload size={14} /> Upload
 
               </button>
 
@@ -611,7 +523,7 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '',
 
                   {col.label}
 
-                  {col.id === 'costCode' && (
+                  {(col.id === 'costCode' || col.id === SUBCONTRACTOR_FIELD) && (
                     <span className="text-red-500 ml-0.5">*</span>
                   )}
 
@@ -637,6 +549,8 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '',
               const badge = STATE_BADGE[state];
 
               const missingCode = state === 'open' && rowMissingCostCode(row);
+
+              const missingSub = state === 'open' && rowMissingSubcontractor(row);
 
 
 
@@ -683,23 +597,55 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '',
 
                     const isEditing = editingCell?.rowId === row.id && editingCell?.colId === col.id;
 
+                    const isSelect = col.type === 'select';
+
+                    const isSelectEditable = isSelect && !locked && state === 'open';
+
                     return (
 
                       <td
 
                         key={col.id}
 
-                        className={`px-2 border-r border-gray-200 ${locked ? '' : 'cursor-pointer'} ${colAlignClass(col)} ${
+                        className={`px-2 border-r border-gray-200 ${locked || isSelect ? '' : 'cursor-pointer'} ${colAlignClass(col)} ${
 
                           missingCode && col.id === 'costCode' ? 'bg-red-50' : ''
 
-                        }`}
+                        } ${missingSub && col.id === SUBCONTRACTOR_FIELD ? 'bg-red-50' : ''}`}
 
-                        onClick={() => handleCellClick(row, col.id)}
+                        onClick={() => { if (!isSelect) handleCellClick(row, col.id); }}
 
                       >
 
-                        {isEditing ? (
+                        {isSelectEditable ? (
+
+                          <select
+
+                            value={String(row.cells[col.id] ?? '')}
+
+                            onChange={(e) => updateRow(row.id, col.id, e.target.value)}
+
+                            className="w-full bg-transparent text-sm focus:outline-none cursor-pointer"
+
+                          >
+
+                            <option value="">Select subcontractor…</option>
+
+                            {(col.options ?? []).map((opt) => {
+
+                              const label = typeof opt === 'string' ? opt : opt.label;
+
+                              return (
+
+                                <option key={label} value={label}>{label}</option>
+
+                              );
+
+                            })}
+
+                          </select>
+
+                        ) : isEditing ? (
 
                           <input
 
@@ -760,19 +706,7 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '',
 
                     {!locked && state === 'locked' && (
 
-                      <button
-
-                        type="button"
-
-                        onClick={() => setCoTarget(row)}
-
-                        className="text-xs font-medium text-teal-600 hover:text-teal-800"
-
-                      >
-
-                        Change Order
-
-                      </button>
+                      <span className="text-xs text-gray-400">Committed</span>
 
                     )}
 
@@ -840,6 +774,7 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '',
 
       <MissingCostCodeModal
         open={missingCostCodeOpen}
+        fieldLabel={missingCostCodeContext.fieldLabel}
         lineLabel={missingCostCodeContext.lineLabel}
         missingCount={missingCostCodeContext.missingCount}
         openLineCount={missingCostCodeContext.openLineCount}
@@ -856,6 +791,8 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '',
 
         lineAmount={commitTarget ? getBudgetLineAmount(commitTarget) : 0}
 
+        subcontractor={String(commitTarget?.cells[SUBCONTRACTOR_FIELD] ?? '')}
+
         onConfirm={() => {
 
           if (commitTarget) commitLine(commitTarget.id);
@@ -865,38 +802,6 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '',
         }}
 
         onCancel={() => setCommitTarget(null)}
-
-      />
-
-
-
-      <ChangeOrderModal
-
-        open={!!coTarget}
-
-        lineLabel={String(coTarget?.cells['name'] ?? 'Line')}
-
-        onClose={() => setCoTarget(null)}
-
-        onRequest={() => {
-
-          if (coTarget) {
-
-            updateBudgetRows(
-
-              budgetRows.map((r) =>
-
-                r.id === coTarget.id ? { ...r, changeOrderId: `co-${Date.now()}` } : r
-
-              )
-
-            );
-
-          }
-
-          setCoTarget(null);
-
-        }}
 
       />
 

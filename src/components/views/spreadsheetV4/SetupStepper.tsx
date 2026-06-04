@@ -7,8 +7,8 @@ const STEPS: { id: FinancialSetupStep; label: string }[] = [
   { id: 1, label: 'Preliminary Config' },
   { id: 2, label: 'Prime Contract' },
   { id: 3, label: 'Budget Setup' },
-  { id: 4, label: 'Schedule of Values' },
-  { id: 5, label: 'Schedule Linking & Allocation' },
+  { id: 4, label: 'Schedule Linking & Allocation' },
+  { id: 5, label: 'Schedule of Values' },
   { id: 6, label: 'Publish SOV' },
 ];
 

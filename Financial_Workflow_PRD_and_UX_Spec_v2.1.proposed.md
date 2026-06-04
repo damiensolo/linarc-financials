@@ -1,12 +1,22 @@
 **
 
-# PRD & UX Spec: Progressive Financial Workflow (v2.1)
+# PRD & UX Spec: Progressive Financial Workflow (v2.2)
 
 Revision Note (v2): This revision replaces the rigid lock-everything-before-you-move-forward model with a progressive, draft-friendly workflow. Budget work can now begin as soon as a Prime Contract Value exists (uploaded or manually entered), and commitment happens at the line-item level rather than at the budget level. This matches how General Contractors actually work during buyout — building budget detail in parallel with vendor negotiation, partial information, and pending confirmations.
 
-Revision Note (v2.1 — prototype alignment): This revision documents the implemented prototype behavior as of May 2026, including: separate Prime Contract and Budget data stores, a unified 3-column Prime Contract line-item table (upload and manual entry), an optional budget-seed prompt when entering Budget Setup, the full budget column set with formula-driven Overhead/Profit, contract-sum reconciliation warnings, and Step 4 tab naming (SOV Mapping / Schedule Linking).
+Revision Note (v2.1 — prototype alignment): This revision documents the implemented prototype behavior as of May 2026, including: separate Prime Contract and Budget data stores, a unified Prime Contract line-item table (upload and manual entry), the full budget column set with formula-driven Overhead/Profit, contract-sum reconciliation warnings, and Step 4 tab naming (SOV Mapping / Schedule Linking).
 
-Implementation status: SpreadsheetV4 is the canonical financial setup surface. Steps 1–5, cross-cutting approval/change-order stubs, localStorage persistence, and readiness gating are implemented as a frontend prototype (mock extraction, mock approvals, stub Excel import).
+Revision Note (v2.2 — Prime Contract without cost codes; Budget dual-mode upload): Two product changes supersede earlier v2.1 behavior:
+
+1. **Prime Contract line items carry no cost code.** The Prime Contract is the owner-facing baseline and is not the place to capture the GC's internal CSI cost structure. The Prime Contract table is now two columns — Contract Line and Contract Value. Cost codes remain a Budget-only concept (enforced on budget lines, the connector to the schedule).
+
+2. **Budget Setup is dual-mode (Upload or Manual), mirroring Prime Contract Setup.** A budget can be built by uploading an **Excel (.xlsx), CSV, or PDF** file (parsed into reviewable line items) or by entering lines manually. Budgets are **not automatically** seeded from the Prime Contract (the old auto-seed prompt is removed), but a third **"From Prime Contract"** option is offered on the choice screen as a manual, testing convenience — it copies Prime Contract line items into budget rows and auto-derives cost codes (CSI) since the contract carries none.
+
+3. **Schedule of Values now comes after Schedule Linking & Allocation.** In the implemented stepper, Continuous Operations is split into sequential steps; the order is **Schedule Linking & Allocation (Step 4) → Schedule of Values (Step 5) → Publish SOV (Step 6)**. Lines are first allocated across the schedule, then drafted into the owner-facing SOV.
+
+4. **A Subcontractor is required to commit a budget line.** The budget grid has a new **Subcontractor** dropdown column populated from the project's invited subcontractors. A line cannot be committed — per-line or via bulk Lock Budget — until a subcontractor is selected. This is separate from the cost-breakdown amount column, now relabeled **Sub Cost**.
+
+Implementation status: SpreadsheetV4 is the canonical financial setup surface. Steps 1–5, cross-cutting approval/change-order stubs, localStorage persistence, and readiness gating are implemented as a frontend prototype (mock extraction for both contract and budget uploads, mock approvals). Budget upload parses CSV by header for real; Excel/PDF and unparseable files fall back to a demo budget.
 
 ---
 
@@ -35,11 +45,11 @@ Solution (v2): A progressive commitment model where:
     
 5. Approval workflows — both an existing Prime Contract (PC) Value change workflow and a new optional per-line approval — protect the financial controls that progressive commitment would otherwise compromise.
 
-Solution (v2.1 additions):
+Solution (v2.1 / v2.2 additions):
 
-6. Prime Contract line items and Budget line items are stored separately. Step 2 maintains a simple contract baseline table; Step 3 maintains the full project budget grid.
+6. Prime Contract line items and Budget line items are stored separately. Step 2 maintains a simple contract baseline table (Contract Line + Contract Value, **no cost code**); Step 3 maintains the full project budget grid (cost codes enforced).
     
-7. When the user first enters Budget Setup (or returns with an empty budget), the system optionally offers to seed the budget from Prime Contract line items — only if Prime Contract rows contain data.
+7. Budget Setup is dual-mode like Prime Contract Setup: the user either **uploads a budget file (Excel, CSV, or PDF)** that is parsed into reviewable line items, or **enters lines manually**. There is no path that creates a budget from the Prime Contract.
     
 
 ---
@@ -80,15 +90,19 @@ STEP 2: Prime Contract Setup  (DUAL MODE)
 
             ↓ PC VALUE ENTERED ↓ (this is the budget unlock trigger)          
 
-STEP 3: Progressive Budget Setup                    
+STEP 3: Progressive Budget Setup  (DUAL MODE)               
 
          Available the moment a PC Value exists                               
 
-         On first entry (or return with empty budget): optional seed prompt   
+         On entry (empty budget): Upload / Enter Manually / From Prime Contract
 
-           if Prime Contract line items exist (see §2.3 Req 3)                
+           Mode A — Upload: Excel (.xlsx) / CSV / PDF → review → import lines  
 
-         Add line items manually OR import (Excel stub in prototype)          
+           Mode B — Manual: enter budget lines directly in the grid           
+
+           Mode C — From Prime Contract (testing): copy PC lines → budget,     
+
+                    cost codes auto-derived (shown only when PC lines exist)   
 
          Cost codes required per line when enforcement is confirmed in Step 1
 
@@ -100,7 +114,7 @@ STEP 3: Progressive Budget Setup
 
 STEP 4: Continuous Operations  (per committed line, no phase gate)    
 
-         Tab 1: SOV Mapping  |  Tab 2: Schedule Linking                     
+         Tab 1: Schedule Linking & Allocation  |  Tab 2: SOV Mapping        
 
          Each committed line unlocks:                                           
 
@@ -143,6 +157,8 @@ CROSS-CUTTING WORKFLOWS:
 
   ▸ Budget total ≠ Prime Contract Value → inline warning (Step 3)
 
+  ▸ Budget upload (Excel/CSV/PDF) → parse → review → import as Open lines (Step 3)
+
   
 
 ### 2.1 Target Audience
@@ -173,8 +189,8 @@ Data stores (v2.1):
 
 | Store|Sheet ID|Purpose|
 |---|---|---|
-|Prime Contract lines|`sheet-prime-contract`|Step 2 baseline — Cost Code, Contract Line, Contract Value only|
-|Project Budget lines|`sheet-budget`|Step 3 full budget grid with cost breakdown and formulas|
+|Prime Contract lines|`sheet-prime-contract`|Step 2 baseline — Contract Line + Contract Value only (**no cost code**)|
+|Project Budget lines|`sheet-budget`|Step 3 full budget grid with cost codes, cost breakdown, and formulas|
 
 ### 2.3 Functional Requirements
 
@@ -235,17 +251,17 @@ Mode B — Manual:
 - User can upload a contract document later from the choice screen, which re-enters Mode A flow (re-extracts, gives the user the option to merge or replace).
     
 
-Unified Prime Contract line-item table (v2.1 — both modes):
+Unified Prime Contract line-item table (v2.2 — both modes):
 
-Both upload and manual entry use the **same table structure** on the Review & Edit screen:
+Both upload and manual entry use the **same table structure** on the Review & Edit screen. The Prime Contract baseline is owner-facing and intentionally simple — **two data columns, no cost code:**
 
 | Column | Field | Notes |
 |---|---|---|
 | *(index)* | Row number | Sticky index column; shows row number, reveals checkbox on hover (same pattern as main spreadsheet) |
-| Cost Code | `costCode` | Text, editable while contract is open |
 | Contract Line | `name` | Text, editable while contract is open |
 | Contract Value | `contractValue` | Currency, right-aligned; footer shows whole-dollar total |
 
+- **No cost code.** Cost codes are a Budget-side concept (the connector to the schedule) and are captured in Step 3, not on the contract baseline. Upload extraction does **not** assign cost codes to Prime Contract lines.
 - Add row / delete selected rows available while contract is open.
 - Footer total sums Contract Value column.
 - **Contract sum reconciliation:** If the sum of line-item Contract Values differs from the Contract Sum in the metadata bar, show an amber warning banner. User should adjust lines or update the contract sum.
@@ -288,33 +304,29 @@ Entry to budget tool:
 - Widget surfaces: "Budget is in open. You can lock individual line items as they're finalized, or lock the whole budget when ready."
     
 
-Budget seed prompt (v2.1):
+Budget entry — dual mode (v2.2):
 
-When the user navigates to Step 3 — via "Continue to Budget Setup" or by selecting Budget Setup in the tracker — and **both** of the following are true:
+When the user navigates to Step 3 with an **empty budget**, they are presented with a **choice screen** (mirroring Prime Contract Setup), not a grid:
 
-1. The budget table has no meaningful data (empty or all-blank rows), and
-2. The Prime Contract line-item table has at least one row with data,
+- **Upload Budget** — opens the Budget Upload modal accepting **Excel (.xlsx), CSV, or PDF**. The file is parsed into line items, the user reviews them, then imports. Imported lines arrive in Open state. (See Budget Upload flow below.)
+- **Enter Manually** — initializes the budget with one blank Open row and drops the user straight into the grid.
+- **From Prime Contract** *(testing convenience; shown only when Prime Contract line items exist)* — copies Prime Contract line items into budget rows: Contract Line → Description, Contract Value → Budget (and Revised Budget), cost categories → 0, and a **cost code auto-derived (CSI)** from the line description (since the Prime Contract carries no cost code). Lines arrive Open and the user lands on the grid.
 
-Then show a modal:
+Once a budget exists, Step 3 shows the full budget grid directly; the choice screen does not reappear unless the budget is emptied. A "Continue editing current budget" affordance is available on the choice screen when budget data already exists.
 
-> "Create budget from Prime Contract? Your budget table is empty. Would you like to use {N} Prime Contract line(s) as the starting point?"
+> The budget is **not automatically** seeded from the Prime Contract — there is no auto-prompt. The "From Prime Contract" choice is an explicit, optional starting point (primarily for testing); the budget is otherwise the GC's independently-built cost plan.
 
-- **Yes — use Prime Contract data:** Seed budget rows with the following mapping:
-  - Prime `costCode` → Budget `costCode`
-  - Prime `name` (Contract Line) → Budget `name` (Description column label)
-  - Prime `contractValue` → Budget `budget` and `revisedBudget`
-  - Labor, Material, Equipment, Subcontractor, Others → `0`
-- **No — start with a blank row:** Initialize budget with one empty open row.
+Budget Upload flow (Mode A):
 
-If the Prime Contract table has **no line data**, the prompt is **not shown**; the budget initializes with one blank row.
+1. **Upload** — drag/drop or browse for an `.xlsx`, `.csv`, or `.pdf` file. An "Enter Budget Lines Manually" option is also offered here.
+2. **Processing** — animated scan (mock extraction in prototype).
+3. **Review** — extracted lines are shown in a Cost Code / Description / Budget summary with a footer total. CSV files are parsed by header (description, cost code, budget, labor, material, equipment, subcontractor, others, quantity, UOM, location); Excel/PDF and unparseable files fall back to a demo budget with an amber notice. Cost codes are auto-derived (CSI MasterFormat) for any line missing one. The user clicks **Import** to write the lines into the budget grid (all Open).
 
-The prompt re-appears if the user returns to Step 3 later with an empty budget and populated prime contract lines (once per visit until answered).
+Populating the budget (manual entry):
 
-Populating the budget (beyond seed):
-
-- Manual entry: Users click into a spreadsheet-style grid and fill in line items inline. Single-click-to-type.
-    
-- Import: Excel (.xlsx) import affordance present in prototype as stub. PDF import planned for a later phase. Primavera P6 and Microsoft Project (.mpp) formats reserved for schedule imports only. Imported lines arrive in Open state.
+- Users click into a spreadsheet-style grid and fill in line items inline. Single-click-to-type.
+- Add row / delete selected rows available. Uploaded lines and manual lines coexist; the Upload affordance remains in the grid toolbar to append more lines.
+- Primavera P6 and Microsoft Project (.mpp) formats remain reserved for schedule imports only.
     
 
 Budget grid columns (v2.1 — implemented):
@@ -323,19 +335,20 @@ Budget grid columns (v2.1 — implemented):
 |---|---|---|---|
 | *(index)* | — | — | Row number + hover checkbox |
 | Status | badge | — | Open / Pending / Committed |
-| Cost Code | text | Yes | Required when cost code enforcement confirmed |
-| Description | text | Yes | Seeded from Prime Contract Line |
+| Cost Code | text | Yes | Required when cost code enforcement confirmed; auto-derived on upload when missing |
+| Description | text | Yes | From upload or manual entry |
 | Location | text | Yes | |
 | Quantity | number | Yes | Right-aligned |
 | UOM | text | Yes | |
 | Effort hours | number | Yes | Right-aligned; summed in footer |
-| Budget | currency | Yes | Primary line total; seeded from Contract Value |
+| Budget | currency | Yes | Primary line total (from upload or entered) |
 | Revised Budget | currency | Yes | |
-| Labor | currency | Yes | Starts at 0 when seeded |
-| Material | currency | Yes | Starts at 0 when seeded |
-| Equipment | currency | Yes | Starts at 0 when seeded |
-| Subcontractor | currency | Yes | Starts at 0 when seeded |
-| Others | currency | Yes | Starts at 0 when seeded |
+| Labor | currency | Yes | From upload (CSV column) or entered; 0 otherwise |
+| Material | currency | Yes | From upload (CSV column) or entered; 0 otherwise |
+| Equipment | currency | Yes | From upload (CSV column) or entered; 0 otherwise |
+| Sub Cost | currency | Yes | Subcontractor cost amount (cost breakdown). From upload (CSV column) or entered; 0 otherwise |
+| **Subcontractor** | **select** | Yes | **Required to commit.** Dropdown of subcontractors invited to the project; no free text. A line cannot be committed (or bulk-locked) until one is selected |
+| Others | currency | Yes | From upload (CSV column) or entered; 0 otherwise |
 | Overhead | formula | No | `= budget × default overhead %` from Step 1 |
 | Profit | formula | No | `= budget − labor − material − equipment − subcontractor − others − overhead` |
 
@@ -351,11 +364,13 @@ Required fields per line item (Open state):
     
 - Cost Code (required when cost code enforcement is confirmed in Step 1)
     
+- **Subcontractor (required to commit)** — a dropdown selection from the project's invited subcontractors. A budget line cannot be committed (per-line or via bulk Lock Budget) without a subcontractor selected. Distinct from the **Sub Cost** currency column (the cost-breakdown amount).
+    
 - Budget (primary line amount — not auto-calculated from cost categories)
     
 - Quantity, UOM, Effort hours, Location — optional in open/draft posture
     
-- Labor, Material, Equipment, Subcontractor, Others — cost breakdown; default 0 when seeded
+- Labor, Material, Equipment, Subcontractor, Others — cost breakdown; populated from a CSV upload's columns or entered manually, default 0
     
 - Overhead, Profit — formula-driven from Budget and breakdown
     
@@ -373,7 +388,7 @@ This is the central new control. Each row in the budget grid has a per-row commi
     
 - If per-line approval is enabled: state becomes Pending Approval; routing fires to the configured approval chain. On approval, state becomes Committed. On rejection, state returns to Open with a reason captured.
     
-- Once Committed, the line is locked. The user cannot edit the line directly. Any subsequent change requires a Change Order (existing change order flow, now triggerable at line granularity).
+- Once Committed, the line is locked and read-only. The user cannot edit the line directly. **Change orders are not requested from the budget table** — committed lines have no per-row change-order control; change-order handling occurs outside Budget Setup (a later phase).
     
 
 - What committing a line unlocks for that line (and only that line):
@@ -403,7 +418,7 @@ Widget messaging requirements:
 
 - Per-line status badges (Open / Pending Approval / Committed) must be visible at all times in the grid.
     
-- A line-level Change Order indicator appears on Committed lines, with a "Request Change Order" affordance.
+- Committed lines are shown as read-only ("Committed") with no per-row change-order control.
     
 - Bulk progress indicator at top of grid: "12 of 18 lines committed. 4 open, 2 pending approval."
     
@@ -414,7 +429,7 @@ In v1, SOV Review and Schedule Linking were a parallel "phase" gated by full bud
 
 Behavior:
 
-- A dual-tab workspace: **Tab 1: SOV Mapping | Tab 2: Schedule Linking** — available once at least one budget line is committed.
+- A dual-tab workspace: **Tab 1: Schedule Linking & Allocation | Tab 2: SOV Mapping** — available once at least one budget line is committed. (In the implemented stepper these are sequential steps: Schedule Linking & Allocation is Step 4, Schedule of Values is Step 5.)
     
 - Only Committed budget lines appear as eligible for SOV mapping and schedule linking.
     
@@ -422,7 +437,7 @@ Behavior:
     
 - Users move freely between budget work (Step 3) and operations (Step 4) — they are not sequential phases but parallel activities.
     
-- **Bulk actions (prototype):** "Map all" on SOV Mapping tab; "Link all" on Schedule Linking tab (uses cost-code suggestions where available).
+- **Bulk actions (prototype):** "Link all" on Schedule Linking & Allocation tab (uses cost-code suggestions where available); "Map all" on SOV Mapping tab.
     
 - Step 5 readiness items and Blockers Rail link to Step 4 with the correct tab pre-selected (SOV vs Schedule).
     
@@ -496,20 +511,15 @@ Flow:
 
 Edge case: If no budget lines are committed yet, PC Value changes happen without approval (the contract is still in draft posture relative to operations).
 
-#### Workflow B: Change Order on Committed Line Items
+#### Workflow B: Committed Line Items are Read-Only
 
-Trigger: User wants to alter any field on a Committed budget line item.
+Trigger: User attempts to alter any field on a Committed budget line item.
 
 Behavior:
 
-- Direct edit is blocked. The "Request Change Order" affordance appears in place of the edit cursor.
+- Direct edit is blocked; the line is read-only.
     
-- Existing Change Order flow is invoked at line granularity.
-    
-- Approved Change Orders update the line; the change is logged in the line's history.
-    
-
-Important: This is the same logical control as a Change Order at the contract level — it just operates at the line.
+- **Change orders are not initiated from the budget table.** There is no per-row "Request Change Order" control during Budget Setup; the committed line simply shows as read-only. Change-order handling occurs outside Budget Setup (a later phase).
 
 #### Workflow C: Per-Line Approval (optional)
 
@@ -530,16 +540,16 @@ Flow:
 
 Why optional: Smaller GCs may not need per-line approval; enterprise GCs may require it for audit / financial control reasons.
 
-#### Workflow D: Prime Contract → Budget Handoff (v2.1)
+#### Workflow D: Budget Setup — Upload or Manual (v2.2)
 
-Trigger: User enters Step 3 with empty budget and populated Prime Contract lines.
+Trigger: User enters Step 3 with an empty budget.
 
-Behavior: See Budget seed prompt in Requirement 3. This is optional — user may decline and build the budget manually or via import.
+Behavior: User chooses **Upload Budget** (Excel/CSV/PDF → parse → review → import as Open lines), **Enter Manually** (one blank Open row, edit in grid), or **From Prime Contract** (testing convenience, shown only when PC lines exist — copies PC lines with auto-derived cost codes). See Requirement 3 for details. There is no automatic seed prompt.
 
-Validation:
+Validation (independent of how the budget was built):
 
 - Step 2 warns when sum(Contract Value lines) ≠ Contract Sum metadata.
-- Step 3 warns when sum(Budget column) ≠ Prime Contract Value metadata.
+- Step 3 warns when sum(Budget column) ≠ Prime Contract Value metadata. Because the budget is no longer derived from the contract, this reconciliation is the primary signal that the GC's cost plan aligns with the contract baseline.
 
 ---
 
@@ -585,15 +595,15 @@ The default workspace until Publish SOV activates the project.
     
 - Step 2 (Prime Contract):
   - **Choose phase:** Upload Document | Enter Manually cards; option to continue editing saved contract.
-  - **Review phase:** Contract metadata bar + unified 3-column Prime Contract table (Cost Code, Contract Line, Contract Value) with index/hover-checkbox column. Step header actions: optional "Lock Prime Contract" + primary "Continue to Budget Setup" (requires PC Value > 0).
+  - **Review phase:** Contract metadata bar + unified 2-column Prime Contract table (Contract Line, Contract Value — **no cost code**) with index/hover-checkbox column. Step header actions: optional "Lock Prime Contract" + primary "Continue to Budget Setup" (requires PC Value > 0).
     
 - Step 3 (Budget Setup):
-  - Optional seed modal on entry when budget empty and prime lines exist.
-  - Full budget grid (see §2.3 Req 3 columns) with index/hover-checkbox, status badges, per-row Commit, footer totals.
-  - Toolbar shows Prime Contract Value, budget total, commit progress; amber warning if totals diverge.
+  - **Choice phase (empty budget):** Upload Budget | Enter Manually | From Prime Contract (testing, shown only when PC lines exist) cards (mirrors Prime Contract choose screen); "Continue editing current budget" if data already exists.
+  - **Grid phase:** Full budget grid (see §2.3 Req 3 columns) with index/hover-checkbox, status badges, per-row Commit, footer totals.
+  - Toolbar shows Prime Contract Value, budget total, commit progress, and an **Upload** button (Excel/CSV/PDF) to append lines; amber warning if totals diverge.
   - Bulk "Lock Budget" as secondary action.
     
-- Step 5 (Publish SOV): Final readiness summary card listing all checks. Each unmet check is a hyperlink back to the source (e.g., "4 lines not mapped" → opens Step 4 SOV Mapping tab; WBS failures → Schedule Linking tab).
+- Publish SOV: Final readiness summary card listing all checks. Each unmet check is a hyperlink back to the source (e.g., WBS/allocation failures → Schedule Linking & Allocation (Step 4); "lines not mapped" → Schedule of Values (Step 5)).
     
 
 - Right Panel — Blockers & Readiness Rail (collapsible)  
@@ -613,7 +623,7 @@ The default workspace until Publish SOV activates the project.
 
 Available as soon as any budget line is Committed.
 
-- Top Navigation: **Tab 1: SOV Mapping | Tab 2: Schedule Linking**
+- Top Navigation: **Tab 1: Schedule Linking & Allocation | Tab 2: SOV Mapping**
     
 - Primary Work Area: Per-line Map/Link actions for committed rows; open rows shown as not yet eligible. Bulk Map all / Link all in tab header when unmapped/unlinked lines remain.
     
@@ -624,13 +634,13 @@ Available as soon as any budget line is Committed.
 
 ### 3.3 Micro-Interactions & System Feedback
 
-- Budget Seed Prompt (v2.1): Modal on Step 3 entry when budget is empty and prime contract lines exist. Two clear choices; no seed option if prime table is empty.
+- Budget Upload Modal (v2.2): Mirrors the Prime Contract upload — drag/drop or browse an Excel/CSV/PDF file → animated scan → review extracted lines (Cost Code / Description / Budget + total) → Import. An "Enter Budget Lines Manually" option is offered on the upload step, and an amber notice appears when the file falls back to a demo budget. Reachable from the Step 3 choice screen and from the budget grid toolbar.
     
 - Commit Confirmation Dialog (new): Clicking "Commit" on a budget line opens a confirmation modal: "Committing Line 12 ($45,000) will lock it for direct edits. Changes will require a Change Order. This will also enable subcontract issuance, SOV mapping, invoicing, and schedule linking for this line. Continue?"
     
 - Per-Line Approval Indicator (new): Lines in Pending Approval show an inline badge with the approver's name and a "View Request" affordance.
     
-- Change Order Trigger (new): Attempting to edit a Committed line surfaces an inline message: "This line is committed. To change it, request a Change Order." with a one-click "Request Change Order" button.
+- Committed Line (read-only): A Committed line is not editable and shows a "Committed" indicator. There is no change-order control in the budget table.
     
 - PC Value Change Approval (new): Attempting to change a PC Value when committed lines exist surfaces a modal: "Changing the Prime Contract Value will require approval from [routing chain]. The current value remains in effect until approved. Continue?"
     
@@ -655,12 +665,12 @@ The user explicitly called out that the widget must clearly communicate state an
 |Step 2 — PC Value entered, contract unlocked|"Prime Contract is open. Refine line items or lock as baseline — budget setup is already available."|
 |Step 2 — Contract locked|"Contract locked as baseline. Budget setup is available."|
 |Step 2 — Line total ≠ Contract Sum|"Line item total ($X) does not match the Contract Sum ($Y). Adjust line values or update the contract sum."|
-|Step 3 — Budget seed prompt (prime lines exist)|"Create budget from Prime Contract? … Would you like to use {N} Prime Contract line(s) as the starting point?"|
-|Step 3 — Budget unlocked, no lines yet|"Budget is in open. Add line items manually or import from Excel to get started."|
+|Step 3 — Budget unlocked, no lines yet|"Budget is in open. Upload a budget file (Excel, CSV, or PDF) or add line items manually to get started."|
+|Step 3 — Budget upload fell back to demo|"We couldn't read structured budget lines from this file, so a sample budget is shown. Adjust the lines after importing, or cancel and upload a CSV/Excel with a header row."|
 |Step 3 — Budget total ≠ PC Value|"Budget total ($X) does not match the Prime Contract Value ($Y)."|
 |Step 3 — Mix of Open and Committed lines|"{X} of {Y} lines committed. Committed lines are now live for subcontracts, SOV, invoicing, and schedule linking. Open lines are still editable."|
 |Step 3 — Per-line approval enabled|"Per-line approval is on for this project. Each commit will be routed to your approval chain before it locks."|
-|Step 3 — Attempting to edit Committed line|"This line is committed. To change it, request a Change Order."|
+|Step 3 — Attempting to edit Committed line|"This line is committed and read-only."|
 |Step 4 — Operations workspace, mixed state|"Showing {N} committed lines available for SOV mapping and schedule linking. Open lines will appear here when committed."|
 |Step 5 — Readiness unmet (SOV)|"{N} committed line(s) not mapped to SOV — click to open SOV Mapping"|
 |Step 5 — Readiness unmet (WBS)|"{N} committed line(s) missing WBS links — click to open Schedule Linking"|
@@ -674,20 +684,20 @@ For engineering and design reviewing the diff:
 
 |   |   |   |
 |---|---|---|
-|Area|v1|v2 / v2.1|
+|Area|v1|v2 / v2.1 / v2.2|
 |Step count|6 (Steps 0–6)|5 (Steps 1–5)|
 |Budget unlock trigger|Prime Contract must be locked|Prime Contract Value must be entered (lock optional)|
 |Prime Contract entry|Upload only (Mode A)|Upload or manual value entry (Modes A & B)|
-|Prime Contract line items|Mixed with budget / inconsistent by path|Separate store; unified 3-column table (Cost Code, Contract Line, Contract Value) for both modes|
-|Budget seed from PC|Auto-populated on upload (implicit)|Optional prompt on Step 3 entry; maps to full budget grid; skippable|
+|Prime Contract line items|Mixed with budget / inconsistent by path|Separate store; **2-column** table (Contract Line, Contract Value) — **no cost code** (v2.2)|
+|Budget creation|Auto-populated from contract on upload|**Dual mode: Upload (Excel/CSV/PDF) or Manual** — never seeded from the Prime Contract (v2.2)|
 |Budget columns|Total Budget auto-sum of categories|Budget is primary line total; Overhead/Profit formulas; full column set incl. Location, Revised Budget|
 |Budget commit model|Whole budget locked at once|Per-line commit; optional bulk "Lock Budget" preserved|
-|Line edit after commit|Direct edits allowed before lock; blocked after|Direct edits blocked once committed; Change Order required|
+|Line edit after commit|Direct edits allowed before lock; blocked after|Direct edits blocked once committed; line is read-only (no change-order control in the budget table) (v2.2)|
 |SOV & Schedule|Phase-gated; required full budget lock|Continuous; available per committed line; tabs: SOV Mapping / Schedule Linking|
 |Publish SOV|Final step gate for activation|Preserved as final handover anchor; checks link to Step 4 tabs|
 |Approval workflows|None at line level|New: PC Value change approval; optional per-line approval|
-|Cost codes|Configurable|Enforced when confirmed in Step 1 (inline flag on missing codes)|
-|Import support|Not specified|Excel stub in prototype (P6/MPP reserved for schedule)|
+|Cost codes|Configurable|**Budget-only**, enforced when confirmed in Step 1 (inline flag on missing codes); auto-derived on budget upload. Prime Contract carries none (v2.2)|
+|Import support|Not specified|Budget upload: Excel/CSV/PDF → review → import (CSV parsed for real; Excel/PDF demo fallback). P6/MPP reserved for schedule|
 |Reconciliation|Not specified|PC line total vs Contract Sum; Budget total vs PC Value|
 |State vocabulary|Implicit (locked/unlocked)|Explicit (Open / Pending Approval / Committed / Locked)|
 |Row selection UI|Separate checkbox column|Index column with hover checkbox (spreadsheet pattern)|

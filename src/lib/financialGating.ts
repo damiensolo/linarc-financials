@@ -39,9 +39,9 @@ export function getSidebarItemKeyForSetupStep(step: FinancialSetupStep): string 
     case 3:
       return 'budget';
     case 4:
-      return 'sov';
-    case 5:
       return 'allocate';
+    case 5:
+      return 'sov';
     case 6:
       return 'sov';
     default:
@@ -378,7 +378,7 @@ export function computePublishReadiness(
           ? 'Every committed line has a Schedule of Values entry'
           : `${unmappedSov} committed line(s) missing an SOV entry — click to open Schedule of Values`,
       met: unmappedSov === 0 && committed > 0,
-      actionStep: 4,
+      actionStep: 5,
       actionTab: 'sov',
     },
     {
@@ -388,7 +388,7 @@ export function computePublishReadiness(
           ? 'All committed lines allocated to the schedule'
           : `${unlinkedSchedule} committed line(s) not yet allocated to the schedule — click to open Schedule Linking & Allocation`,
       met: unlinkedSchedule === 0 && committed > 0,
-      actionStep: 5,
+      actionStep: 4,
       actionTab: 'schedule',
     },
     {

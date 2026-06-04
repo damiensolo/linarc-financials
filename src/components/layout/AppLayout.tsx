@@ -10,6 +10,7 @@ import ViewManagerModal from '../shared/ViewManagerModal';
 import DownloadModal from '../shared/DownloadModal';
 import PDFExportModal from '../shared/PDFExportModal';
 import ContractUploadModal from '../shared/ContractUploadModal';
+import BudgetUploadModal from '../shared/BudgetUploadModal';
 
 /** Bookmarks data passed from Header (v2) for Sidebar integration */
 type BookmarksData = {
@@ -40,6 +41,7 @@ const AppLayout: React.FC = () => {
         isPDFModalOpen,
         setIsPDFModalOpen,
         isContractUploadOpen,
+        isBudgetUploadOpen,
         activeViewMode,
         financialSetupComplete,
     } = useProject();
@@ -83,6 +85,10 @@ const AppLayout: React.FC = () => {
 
             {isContractUploadOpen && (
                 <ContractUploadModal />
+            )}
+
+            {isBudgetUploadOpen && (
+                <BudgetUploadModal />
             )}
 
             <Header

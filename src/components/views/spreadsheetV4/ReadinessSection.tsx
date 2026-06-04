@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, AlertCircle, ChevronRight } from 'lucide-react';
+import { Check, AlertCircle } from 'lucide-react';
 import { useProject } from '../../../context/ProjectContext';
 import { FinancialSetupStep } from '../../../types';
 
@@ -7,8 +7,8 @@ const STEP_LABELS: Record<FinancialSetupStep, string> = {
   1: 'Preliminary Config',
   2: 'Prime Contract',
   3: 'Budget Setup',
-  4: 'Schedule of Values',
-  5: 'Schedule Linking & Allocation',
+  4: 'Schedule Linking & Allocation',
+  5: 'Schedule of Values',
   6: 'Publish SOV',
 };
 
@@ -74,9 +74,9 @@ const ReadinessSection: React.FC<ReadinessSectionProps> = ({
       description: check.met
         ? 'Complete'
         : check.id === 'wbs-linked'
-          ? 'Step 5 → allocate each committed line to schedule tasks'
+          ? 'Step 4 → allocate each committed line to schedule tasks'
           : check.id === 'sov-mapped'
-            ? 'Step 4 → review the Schedule of Values draft lines'
+            ? 'Step 5 → review the Schedule of Values draft lines'
             : 'Action required',
       met: check.met,
       step: check.actionStep ?? 6,
@@ -92,13 +92,6 @@ const ReadinessSection: React.FC<ReadinessSectionProps> = ({
   const stepMet = stepBlockers.filter((b) => b.met).length;
   const stepTotal = stepBlockers.length;
   const stepProgress = stepTotal > 0 ? Math.round((stepMet / stepTotal) * 100) : 0;
-
-  const nextUnmetStep = ALL_STEPS.find(
-    (s) => s > selectedStep && blockers.some((b) => b.step === s && !b.met)
-  );
-  const nextUnmetCount = nextUnmetStep
-    ? blockers.filter((b) => b.step === nextUnmetStep && !b.met).length
-    : 0;
 
   const handleBlockerClick = (blocker: Blocker) => {
     if (blocker.met) return;
@@ -224,19 +217,6 @@ const ReadinessSection: React.FC<ReadinessSectionProps> = ({
           </div>
         )}
 
-        {!showAll && nextUnmetStep && (
-          <button
-            type="button"
-            onClick={() => onSelectStep(nextUnmetStep)}
-            className="w-full text-left p-2 rounded-md border border-dashed border-gray-300 text-xs text-gray-600 hover:bg-gray-50 flex items-center justify-between"
-          >
-            <span>
-              Next up in Step {nextUnmetStep}: {nextUnmetCount}{' '}
-              {nextUnmetCount === 1 ? 'check' : 'checks'}
-            </span>
-            <ChevronRight size={14} className="text-gray-400" />
-          </button>
-        )}
       </div>
     </div>
   );

@@ -64,7 +64,7 @@ export function getWorkflowMessage(context: {
     return 'Prime Contract locked as baseline. Changes will require a Change Order.';
   }
   if (step === 3 && totalLines === 0) {
-    return 'Budget is in open. Add line items manually or import from Excel to get started.';
+    return 'Budget is in open. Upload a budget file (Excel, CSV, or PDF) or add line items manually to get started.';
   }
   if (step === 3 && committedCount > 0 && openCount > 0) {
     return `${committedCount} of ${totalLines} lines committed. Committed lines are now live for subcontracts, SOV, invoicing, and schedule linking. Open lines are still editable.`;
@@ -73,10 +73,10 @@ export function getWorkflowMessage(context: {
     return 'Per-line approval is on for this project. Each commit will be routed to your approval chain before it locks.';
   }
   if (step === 4 && hasCommittedLines) {
-    return `${committedCount} committed lines are drafted into the Schedule of Values. They stay in draft until you publish.`;
+    return `Allocate each of the ${committedCount} committed lines across schedule tasks by cost code, then review the cost-loaded forecast.`;
   }
   if (step === 5 && hasCommittedLines) {
-    return `Allocate each of the ${committedCount} committed lines across schedule tasks by cost code, then review the cost-loaded forecast.`;
+    return `${committedCount} committed lines are drafted into the Schedule of Values. They stay in draft until you publish.`;
   }
   if (step === 6 && !canPublish) {
     return `Publish SOV is not yet available. ${publishRemaining} checks remaining — click any item below to resolve.`;

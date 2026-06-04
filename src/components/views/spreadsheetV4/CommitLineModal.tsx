@@ -6,6 +6,7 @@ interface CommitLineModalProps {
   open: boolean;
   lineLabel: string;
   lineAmount: number;
+  subcontractor?: string;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -14,6 +15,7 @@ const CommitLineModal: React.FC<CommitLineModalProps> = ({
   open,
   lineLabel,
   lineAmount,
+  subcontractor,
   onConfirm,
   onCancel,
 }) => (
@@ -31,6 +33,11 @@ const CommitLineModal: React.FC<CommitLineModalProps> = ({
             direct edits. Changes will require a Change Order. This will also enable subcontract
             issuance, SOV mapping, invoicing, and schedule linking for this line. Continue?
           </p>
+          {subcontractor && (
+            <p className="text-sm text-gray-600 mt-2">
+              Subcontractor: <strong>{subcontractor}</strong>
+            </p>
+          )}
         </div>
       </div>
       <div className="flex gap-3 justify-end">

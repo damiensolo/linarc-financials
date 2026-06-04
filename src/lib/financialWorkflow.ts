@@ -1,5 +1,9 @@
 import type { ContractData, FinancialConfig, BudgetLineState, PrimeContractState, FinancialActivationState, SOVMapping } from '../types';
 import type { V3Row, V3Sheet, V3Column } from '../components/views/spreadsheetV4/types';
+import { INVITED_SUBCONTRACTORS } from '../data/subcontractors';
+
+/** Budget cell holding the assigned subcontractor (vendor) name — required to commit. */
+export const SUBCONTRACTOR_FIELD = 'subcontractorName';
 
 export const BUDGET_SHEET_ID = 'sheet-budget';
 export const PRIME_CONTRACT_SHEET_ID = 'sheet-prime-contract';
@@ -100,13 +104,24 @@ export function countOpenRowsMissingCostCode(rows: V3Row[]): number {
   return rows.filter((r) => getLineState(r) === 'open' && rowMissingCostCode(r)).length;
 }
 
-export function canCommitBudgetLine(row: V3Row): boolean {
-  return getLineState(row) === 'open' && !rowMissingCostCode(row);
+export function rowMissingSubcontractor(row: V3Row): boolean {
+  const sub = row.cells[SUBCONTRACTOR_FIELD];
+  return sub == null || String(sub).trim() === '';
 }
 
+export function countOpenRowsMissingSubcontractor(rows: V3Row[]): number {
+  return rows.filter((r) => getLineState(r) === 'open' && rowMissingSubcontractor(r)).length;
+}
+
+export function canCommitBudgetLine(row: V3Row): boolean {
+  return getLineState(row) === 'open' && !rowMissingCostCode(row) && !rowMissingSubcontractor(row);
+}
+
+// Prime Contract line items intentionally carry NO cost code — cost codes are a
+// budget-side concept (see createBudgetColumns). The contract baseline is just a
+// description + value per line.
 export const DEFAULT_PRIME_CONTRACT_COLUMNS: V3Column[] = [
-  { id: 'costCode', label: 'Cost Code', type: 'text', width: 120, editable: true, visible: true },
-  { id: 'name', label: 'Contract Line', type: 'text', width: 360, editable: true, visible: true },
+  { id: 'name', label: 'Contract Line', type: 'text', width: 480, editable: true, visible: true },
   {
     id: 'contractValue',
     label: 'Contract Value',
@@ -124,6 +139,15 @@ export function createBudgetColumns(financialConfig?: FinancialConfig | null): V
   return [
     { id: 'costCode', label: 'Cost Code', type: 'text', width: 110, editable: true, visible: true },
     { id: 'name', label: 'Description', type: 'text', width: 220, editable: true, visible: true },
+    {
+      id: SUBCONTRACTOR_FIELD,
+      label: 'Subcontractor',
+      type: 'select',
+      width: 190,
+      editable: true,
+      visible: true,
+      options: INVITED_SUBCONTRACTORS,
+    },
     { id: 'location', label: 'Location', type: 'text', width: 100, editable: true, visible: true },
     { id: 'quantity', label: 'Quantity', type: 'number', width: 80, align: 'right', editable: true, visible: true },
     { id: 'unit', label: 'UOM', type: 'text', width: 90, editable: true, visible: true },
@@ -160,9 +184,11 @@ export function createBudgetColumns(financialConfig?: FinancialConfig | null): V
     { id: 'labor', label: 'Labor', type: 'currency', width: 90, align: 'right', editable: true, visible: true, isTotal: true },
     { id: 'material', label: 'Material', type: 'currency', width: 90, align: 'right', editable: true, visible: true, isTotal: true },
     { id: 'equipment', label: 'Equipment', type: 'currency', width: 90, align: 'right', editable: true, visible: true, isTotal: true },
+    // Cost-breakdown amount. Id is `subCost` (not `subcontractor`) so the Profit
+    // formula token doesn't collide with the `Subcontractor` select column's label.
     {
-      id: 'subcontractor',
-      label: 'Subcontractor',
+      id: 'subCost',
+      label: 'Sub Cost',
       type: 'currency',
       width: 100,
       align: 'right',
@@ -191,7 +217,7 @@ export function createBudgetColumns(financialConfig?: FinancialConfig | null): V
       editable: false,
       visible: true,
       isTotal: true,
-      formula: '=budget-labor-material-equipment-subcontractor-others-overhead',
+      formula: '=budget-labor-material-equipment-subCost-others-overhead',
     },
   ];
 }
@@ -239,7 +265,7 @@ function rowHasMeaningfulData(row: V3Row, fieldIds: string[]): boolean {
 }
 
 export function hasPrimeContractLineData(rows: V3Row[]): boolean {
-  return rows.some((row) => rowHasMeaningfulData(row, ['costCode', 'name', 'contractValue', 'totalBudget']));
+  return rows.some((row) => rowHasMeaningfulData(row, ['name', 'contractValue', 'totalBudget']));
 }
 
 export function isPrimeContractSheetEmpty(rows: V3Row[]): boolean {
@@ -261,39 +287,11 @@ export function isBudgetSheetEmpty(rows: V3Row[]): boolean {
     'labor',
     'material',
     'equipment',
-    'subcontractor',
+    'subCost',
     'others',
     'totalBudget',
   ];
   return rows.every((row) => !rowHasMeaningfulData(row, budgetFields));
-}
-
-export function countSeedablePrimeContractLines(rows: V3Row[]): number {
-  return rows.filter((row) => rowHasMeaningfulData(row, ['costCode', 'name', 'contractValue', 'totalBudget'])).length;
-}
-
-export function seedBudgetRowsFromPrimeContract(primeRows: V3Row[]): V3Row[] {
-  const base = Date.now();
-  return primeRows
-    .filter((row) => rowHasMeaningfulData(row, ['costCode', 'name', 'contractValue', 'totalBudget']))
-    .map((row, idx) => {
-      const amount = getPrimeContractLineValue(row);
-      return {
-        id: `row-${base}-${idx}`,
-        cells: {
-          costCode: row.cells['costCode'] ?? '',
-          name: row.cells['name'] ?? '',
-          budget: amount || null,
-          revisedBudget: amount || null,
-          labor: 0,
-          material: 0,
-          equipment: 0,
-          subcontractor: 0,
-          others: 0,
-        },
-        lineState: 'open' as const,
-      };
-    });
 }
 
 export function contractSumMismatch(
