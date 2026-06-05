@@ -61,6 +61,7 @@ describe('setup milestone readiness', () => {
     allowMultiplePayApps: false,
     perLineApprovalEnabled: false,
     approvalRouting: { roles: ['gc'] as const, requireAll: false },
+    approvalWorkflowId: null,
     costCodeEnforcementConfirmed: true,
   };
 

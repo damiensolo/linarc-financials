@@ -2,13 +2,7 @@ import React, { useState } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { useProject } from '../../../context/ProjectContext';
 import { createDefaultFinancialConfig } from '../../../lib/financialWorkflow';
-import type { ApprovalRole } from '../../../types';
-
-const ROLES: { id: ApprovalRole; label: string }[] = [
-  { id: 'gc', label: 'General Contractor (PM)' },
-  { id: 'pe', label: 'Project Executive' },
-  { id: 'owner', label: 'Owner' },
-];
+import { APPROVAL_WORKFLOWS, approvalWorkflowLabel } from '../../../data/approvalWorkflows';
 
 const FinancialConfigStep: React.FC = () => {
   const { financialConfig, setFinancialConfig, setFinancialSetupStep, setPrimeContractSetupPhase } = useProject();
@@ -18,15 +12,7 @@ const FinancialConfigStep: React.FC = () => {
   const [overhead, setOverhead] = useState(defaults.defaultOverhead);
   const [billingDay, setBillingDay] = useState(defaults.billingCutoffDay);
   const [allowMultiplePayApps, setAllowMultiplePayApps] = useState(defaults.allowMultiplePayApps);
-  const [perLineApproval, setPerLineApproval] = useState(defaults.perLineApprovalEnabled);
-  const [requireAllApprovers, setRequireAllApprovers] = useState(defaults.approvalRouting.requireAll);
-  const [selectedRoles, setSelectedRoles] = useState<ApprovalRole[]>(defaults.approvalRouting.roles);
-
-  const toggleRole = (role: ApprovalRole) => {
-    setSelectedRoles((prev) =>
-      prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role]
-    );
-  };
+  const [approvalWorkflowId, setApprovalWorkflowId] = useState(defaults.approvalWorkflowId ?? '');
 
   const saveConfig = () => {
     setFinancialConfig({
@@ -34,8 +20,9 @@ const FinancialConfigStep: React.FC = () => {
       defaultOverhead: overhead,
       billingCutoffDay: billingDay,
       allowMultiplePayApps,
-      perLineApprovalEnabled: perLineApproval,
-      approvalRouting: { roles: selectedRoles.length ? selectedRoles : ['gc'], requireAll: requireAllApprovers },
+      perLineApprovalEnabled: approvalWorkflowId !== '',
+      approvalRouting: defaults.approvalRouting,
+      approvalWorkflowId: approvalWorkflowId || null,
       costCodeEnforcementConfirmed: true,
     });
     setPrimeContractSetupPhase('choose');
@@ -74,37 +61,37 @@ const FinancialConfigStep: React.FC = () => {
         <label className="flex items-center gap-3 cursor-pointer py-1">
           <input type="checkbox" checked={allowMultiplePayApps}
             onChange={(e) => setAllowMultiplePayApps(e.target.checked)}
-            className="w-4 h-4 rounded border-gray-300 text-orange-500" />
+            className="w-4 h-4 rounded border-gray-300 accent-blue-600" />
           <span className="text-sm font-medium text-gray-700">Allow Multiple Pay Applications per Month</span>
         </label>
 
         <div className="border-t border-gray-200 pt-4">
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input type="checkbox" checked={perLineApproval}
-              onChange={(e) => setPerLineApproval(e.target.checked)}
-              className="w-4 h-4 rounded border-gray-300 text-blue-600" />
-            <span className="text-sm font-medium text-gray-700">Per-Line Approval Workflow</span>
+          <label htmlFor="approvalWorkflow" className="block text-sm font-medium text-gray-700 mb-1">
+            Per-Line Approval Workflow
           </label>
-          <p className="text-xs text-gray-500 ml-7 mt-1">When enabled, each budget line commit requires approval before locking.</p>
-        </div>
-
-        {perLineApproval && (
-          <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-            <p className="text-sm font-medium text-gray-800">Approval Routing (PC Value changes &amp; per-line commits)</p>
-            {ROLES.map((role) => (
-              <label key={role.id} className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={selectedRoles.includes(role.id)}
-                  onChange={() => toggleRole(role.id)} className="rounded border-gray-300" />
-                {role.label}
-              </label>
+          <select
+            id="approvalWorkflow"
+            value={approvalWorkflowId}
+            onChange={(e) => setApprovalWorkflowId(e.target.value)}
+            className="w-full bg-white border border-gray-300 rounded-md pl-3 pr-9 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all appearance-none cursor-pointer"
+            style={{
+              backgroundImage:
+                'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 24 24\' stroke=\'%23a1a1aa\'%3E%3Cpath stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'2\' d=\'M19 9l-7 7-7-7\'%3E%3C/path%3E%3C/svg%3E")',
+              backgroundRepeat: 'no-repeat',
+              backgroundPosition: 'right 0.75rem center',
+              backgroundSize: '1rem',
+            }}
+          >
+            <option value="">No approval required (commits lock immediately)</option>
+            {APPROVAL_WORKFLOWS.map((wf) => (
+              <option key={wf.id} value={wf.id}>{approvalWorkflowLabel(wf)}</option>
             ))}
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={requireAllApprovers}
-                onChange={(e) => setRequireAllApprovers(e.target.checked)} className="rounded border-gray-300" />
-              Require all selected approvers (uncheck = any one suffices)
-            </label>
-          </div>
-        )}
+          </select>
+          <p className="text-xs text-gray-500 mt-1">
+            Choose an approval chain from the workflow engine. When set, each budget line commit is routed
+            through this workflow before it locks.
+          </p>
+        </div>
 
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <p className="text-sm font-medium text-blue-900 mb-2">Cost Code Enforcement</p>

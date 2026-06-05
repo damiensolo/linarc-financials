@@ -240,7 +240,8 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [views, setViews] = useState<View[]>([]);
   const [activeViewId, setActiveViewId] = useState<string | null>(null);
   const [defaultViewId, setDefaultViewId] = useState<string>('');
-  const [activeViewMode, setActiveViewMode] = useState<ViewMode>('table');
+  // Default to the financial setup surface so the app opens on Step 1 (Preliminary Configuration).
+  const [activeViewMode, setActiveViewMode] = useState<ViewMode>('spreadsheetV4');
   const [transientView, setTransientView] = useState<View | null>(null);
   
   const [viewManagerShareId, setViewManagerShareId] = useState<string | null>(null);

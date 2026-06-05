@@ -317,6 +317,7 @@ export function createDefaultFinancialConfig(): FinancialConfig {
     allowMultiplePayApps: true,
     perLineApprovalEnabled: false,
     approvalRouting: { roles: ['gc', 'pe', 'owner'], requireAll: true },
+    approvalWorkflowId: null,
     costCodeEnforcementConfirmed: false,
   };
 }

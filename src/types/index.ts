@@ -216,6 +216,8 @@ export interface FinancialConfig {
   allowMultiplePayApps: boolean;
   perLineApprovalEnabled: boolean;
   approvalRouting: ApprovalRoutingConfig;
+  /** Selected per-line approval workflow (from the workflow engine); null = no approval. */
+  approvalWorkflowId: string | null;
   costCodeEnforcementConfirmed: boolean;
 }
 

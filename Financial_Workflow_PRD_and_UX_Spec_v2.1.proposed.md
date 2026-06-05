@@ -32,6 +32,8 @@ Revision Note (v2.3 — operations, read-only views & nav alignment): Documents 
 
 7. **Navigation entry points.** The Finance mega-menu **Contract** and **Configure** links jump straight to Step 1. The left sidebar has an **Allocate** item (directly below Budget) that opens Schedule Linking & Allocation; it stays disabled until at least one line is committed, matching the other tool gates. All financial tables render inside the standard bordered card container used by the rest of the app.
 
+8. **Per-Line Approval Workflow is a select.** Step 1 replaces the prior on/off toggle + GC/PE/Owner role checkboxes with a single dropdown of preconfigured approval workflows (from the platform workflow engine; dummy chains in the prototype). Selecting a chain enables per-line approval; "No approval required" disables it. Stored as `approvalWorkflowId`. Form controls use the standard styled dropdown (blue accent, no orange).
+
 Implementation status: SpreadsheetV4 is the canonical financial setup surface. Steps 1–5, cross-cutting approval/change-order stubs, localStorage persistence, and readiness gating are implemented as a frontend prototype (mock extraction for both contract and budget uploads, mock approvals). Budget upload parses CSV by header for real; Excel/PDF and unparseable files fall back to a demo budget.
 
 ---
@@ -80,11 +82,11 @@ STEP 1: Preliminary Configuration
 
          Retainage, Overhead, Billing, "Allow Multiple Pay Apps" toggle       
 
-         NEW: Per-Line Approval Workflow toggle                               
+         NEW: Per-Line Approval Workflow (pick a preconfigured chain, or none) 
 
          NEW: Cost Code Enforcement (Budget & Schedule)                       
 
-         NEW: Approval Routing (GC → PE → Owner) for PC Value changes         
+         PC Value change routing defaults to GC → PE → Owner                  
 
             ↓ CONFIRM ↓                                                       
 
@@ -237,9 +239,15 @@ Existing fields (preserved):
 
 New fields (v2):
 
-- Per-Line-Item Approval Workflow (toggle): When enabled, every budget line commit requires approval before it locks. When disabled (default), commits are immediate.
+- Per-Line-Item Approval Workflow (**select**, v2.3): A dropdown of preconfigured approval workflows sourced from the platform's workflow engine (prototype uses dummy chains). Each option is an ordered approver chain, e.g.:
+  - Project Manager → Cost Controller → Finance Manager
+  - Site Manager → Project Accountant → Controller
+  - Subcontractor → Superintendent → Project Manager
+  - Project Manager → Finance Manager → CFO
+  
+  Selecting a workflow enables per-line approval (every budget line commit routes through that chain before it locks); choosing **"No approval required"** (default) makes commits immediate. The selected workflow id is stored on the config as `approvalWorkflowId` (null = none); per-line approval is enabled when it is set. *(Replaces the prior on/off toggle + GC/PE/Owner role checkboxes.)*
     
-- Approval Routing (when per-line approval is enabled, and always for PC Value changes): Configure the approval chain — typically GC → Project Executive → Owner — including whether all are required or any single approver suffices.
+- Approval Routing for PC Value changes: defaults to GC → Project Executive → Owner (`approvalRouting`); not a separate UI control in the prototype.
     
 - Cost Code Enforcement: Cost codes are mandatory on every budget line item. Enforcement for schedule activities will occur strictly for automation or when users manually allocate a budget line to a schedule activity. This is hardwired in v2 to enable budget-to-schedule auto-allocation. Surface as a confirmation rather than an optional toggle.
     
@@ -637,7 +645,7 @@ The default workspace until Publish SOV activates the project.
       
     
 
-- Step 1 (Preliminary Config): Global financial settings form including the three new v2 toggles.
+- Step 1 (Preliminary Config): Global financial settings form — retainage, overhead, billing cutoff, "allow multiple pay apps", the **Per-Line Approval Workflow select** (preconfigured chains from the workflow engine), and the cost-code enforcement confirmation. Controls use the app's standard styling (blue accent; no orange selected-state).
     
 - Step 2 (Prime Contract):
   - **Choose phase:** Upload Document | Enter Manually cards; option to continue editing saved contract.
@@ -766,7 +774,7 @@ For engineering and design reviewing the diff:
 |Subcontractor on commit|n/a|Required **Subcontractor** dropdown (invited subs) right of Description; blocks per-line commit and bulk Lock Budget until set (v2.3)|
 |Publish SOV|Final step gate for activation|Preserved as final handover anchor (Step 6); checks link to Steps 4/5|
 |Post-activation|Single locked spreadsheet|Read-only section views (Prime Contract / Budget / SOV) + Allocate workspace via sidebar; Financial Operations Hub is a waypoint with cards that deep-link to tools (v2.3)|
-|Approval workflows|None at line level|New: PC Value change approval; optional per-line approval|
+|Approval workflows|None at line level|New: PC Value change approval; optional per-line approval **selected from a preconfigured workflow-engine chain** (dropdown), not an on/off toggle + role checkboxes (v2.3)|
 |Cost codes|Configurable|**Budget-only**, enforced when confirmed in Step 1 (inline flag on missing codes); auto-derived on budget upload. Prime Contract carries none (v2.2)|
 |Import support|Not specified|Budget upload: Excel/CSV/PDF → review → import (CSV parsed for real; Excel/PDF demo fallback). P6/MPP reserved for schedule|
 |Reconciliation|Not specified|PC line total vs Contract Sum; Budget total vs PC Value|
