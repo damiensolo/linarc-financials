@@ -14,9 +14,11 @@ import { hasUploadedContractDocument } from '../../../lib/financialWorkflow';
 interface ContractMetadataBarProps {
   isLocked?: boolean;
   isEditable?: boolean;
+  /** Hide the OPEN/LOCKED status pill (used post-activation where AppHeader shows it). */
+  hideStatusBadge?: boolean;
 }
 
-const ContractMetadataBar: React.FC<ContractMetadataBarProps> = ({ isLocked = false, isEditable = false }) => {
+const ContractMetadataBar: React.FC<ContractMetadataBarProps> = ({ isLocked = false, isEditable = false, hideStatusBadge = false }) => {
   const { contractData, setContractData, requestPcValueChange, budgetRows, hasPcValue } = useProject();
 
   const [executedDate, setExecutedDate] = useState(contractData?.executedDate || null);
@@ -164,7 +166,7 @@ const ContractMetadataBar: React.FC<ContractMetadataBarProps> = ({ isLocked = fa
               </TooltipProvider>
             )}
           </div>
-          {isLocked ? (
+          {hideStatusBadge ? null : isLocked ? (
             <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded flex-shrink-0">
               LOCKED
             </span>

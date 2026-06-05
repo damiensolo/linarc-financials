@@ -6,7 +6,7 @@ const formatValue = (val: number) =>
     Math.abs(val).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const AppHeader: React.FC = () => {
-    const { activeViewMode, activeView, activeFinancialSection } = useProject();
+    const { activeViewMode, activeView, activeFinancialSection, financialSetupComplete, contractLocked } = useProject();
 
     const getTitle = () => {
         if (activeViewMode === 'table') return 'RFIs';
@@ -38,6 +38,12 @@ const AppHeader: React.FC = () => {
     }, [activeView.spreadsheetData]);
 
     const { total, distributed, unallocated } = budgetTotals;
+
+    // Locked prime contract shows a LOCKED pill in line with the title.
+    const showContractLocked =
+        activeViewMode === 'spreadsheetV4' &&
+        activeFinancialSection === 'primeContract' &&
+        (financialSetupComplete || contractLocked);
 
     const isScheduleActiveSheet = activeView.v3ActiveSheetId === 'sheet-schedule';
     const isSpreadsheetView = activeViewMode === 'spreadsheetV2' && !isScheduleActiveSheet;
@@ -89,6 +95,12 @@ const AppHeader: React.FC = () => {
                 </div>
                 
                 <div className="flex items-center gap-2">
+
+                    {showContractLocked && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded">
+                            LOCKED
+                        </span>
+                    )}
 
                     {isSpreadsheetView && (
                         <button 

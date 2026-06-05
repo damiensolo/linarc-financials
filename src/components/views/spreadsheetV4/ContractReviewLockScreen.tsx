@@ -147,7 +147,7 @@ const ContractReviewLockScreen: React.FC<ContractReviewLockScreenProps> = ({ rea
       transition={{ duration: 0.3 }}
       className="h-full flex flex-col bg-white min-h-0"
     >
-      <ContractMetadataBar isLocked={isReadOnly} isEditable={!isReadOnly} />
+      <ContractMetadataBar isLocked={isReadOnly} isEditable={!isReadOnly} hideStatusBadge={readOnly} />
 
       <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
         {sumWarning.mismatched && (
@@ -248,7 +248,7 @@ const ContractReviewLockScreen: React.FC<ContractReviewLockScreenProps> = ({ rea
                 {columns.map((col) => (
                   <td
                     key={`total-${col.id}`}
-                    className={`px-3 text-gray-900 bg-gray-100 whitespace-nowrap ${colAlignClass(col)}`}
+                    className={`px-3 text-sm text-gray-900 bg-gray-100 whitespace-nowrap ${colAlignClass(col)}`}
                   >
                     {col.isTotal && totals[col.id] !== undefined
                       ? col.type === 'currency'
@@ -258,14 +258,16 @@ const ContractReviewLockScreen: React.FC<ContractReviewLockScreenProps> = ({ rea
                   </td>
                 ))}
               </tr>
-              <SpreadsheetTableAddRowRow
-                colSpan={columns.length + 1}
-                onAddRow={handleAddRow}
-                addDisabled={isReadOnly}
-                selectedCount={selectedRowIds.size}
-                onDeleteSelected={() => handleDeleteRows(selectedRowIds)}
-                deleteDisabled={isReadOnly}
-              />
+              {!isReadOnly && (
+                <SpreadsheetTableAddRowRow
+                  colSpan={columns.length + 1}
+                  onAddRow={handleAddRow}
+                  addDisabled={isReadOnly}
+                  selectedCount={selectedRowIds.size}
+                  onDeleteSelected={() => handleDeleteRows(selectedRowIds)}
+                  deleteDisabled={isReadOnly}
+                />
+              )}
             </tfoot>
           </table>
         </div>
