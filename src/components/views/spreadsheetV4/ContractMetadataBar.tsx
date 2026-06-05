@@ -234,7 +234,47 @@ const ContractMetadataBar: React.FC<ContractMetadataBarProps> = ({ isLocked = fa
             )}
           </div>
 
-          {/* Column 4: Contract Sum */}
+          {/* Column 4: Owner */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">
+              Owner
+            </label>
+            {isEditable && !isLocked ? (
+              <input
+                type="text"
+                value={owner}
+                onChange={(e) => handleOwnerChange(e.target.value)}
+                placeholder="Enter owner name"
+                className="w-full px-3 py-2 bg-white border border-gray-300 rounded text-gray-900 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              />
+            ) : (
+              <p className="text-gray-900 text-sm px-3 py-2 bg-gray-50 rounded border border-gray-200">
+                {owner || contractData.owner || '—'}
+              </p>
+            )}
+          </div>
+
+          {/* Column 5: Contractor */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">
+              Contractor
+            </label>
+            {isEditable && !isLocked ? (
+              <input
+                type="text"
+                value={contractor}
+                onChange={(e) => handleContractorChange(e.target.value)}
+                placeholder="Enter contractor name"
+                className="w-full px-3 py-2 bg-white border border-gray-300 rounded text-gray-900 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              />
+            ) : (
+              <p className="text-gray-900 text-sm px-3 py-2 bg-gray-50 rounded border border-gray-200">
+                {contractor || contractData.contractor || '—'}
+              </p>
+            )}
+          </div>
+
+          {/* Column 6: Contract Sum (far right) */}
           <div>
             <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">
               Contract Sum
@@ -258,46 +298,6 @@ const ContractMetadataBar: React.FC<ContractMetadataBarProps> = ({ isLocked = fa
             ) : (
               <p className="text-gray-900 font-semibold px-3 py-2 bg-gray-50 rounded border border-gray-200">
                 {formatCurrency(typeof contractSum === 'string' ? Number(contractSum) || 0 : contractSum)}
-              </p>
-            )}
-          </div>
-
-          {/* Column 5: Owner */}
-          <div>
-            <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">
-              Owner
-            </label>
-            {isEditable && !isLocked ? (
-              <input
-                type="text"
-                value={owner}
-                onChange={(e) => handleOwnerChange(e.target.value)}
-                placeholder="Enter owner name"
-                className="w-full px-3 py-2 bg-white border border-gray-300 rounded text-gray-900 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-              />
-            ) : (
-              <p className="text-gray-900 text-sm px-3 py-2 bg-gray-50 rounded border border-gray-200">
-                {owner || contractData.owner || '—'}
-              </p>
-            )}
-          </div>
-
-          {/* Column 6: Contractor */}
-          <div>
-            <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">
-              Contractor
-            </label>
-            {isEditable && !isLocked ? (
-              <input
-                type="text"
-                value={contractor}
-                onChange={(e) => handleContractorChange(e.target.value)}
-                placeholder="Enter contractor name"
-                className="w-full px-3 py-2 bg-white border border-gray-300 rounded text-gray-900 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-              />
-            ) : (
-              <p className="text-gray-900 text-sm px-3 py-2 bg-gray-50 rounded border border-gray-200">
-                {contractor || contractData.contractor || '—'}
               </p>
             )}
           </div>

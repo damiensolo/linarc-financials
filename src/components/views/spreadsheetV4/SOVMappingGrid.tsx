@@ -13,15 +13,13 @@ import { formatCurrency } from './spreadsheetTableUtils';
 const SOV_STATUS_WIDTH = 100;
 const COL = {
   sovLineItem: 240,
-  costCode: 110,
   budgetLineItem: 220,
   quantity: 80,
   uom: 100,
   totalBudget: 120,
-  location: 100,
 } as const;
 
-const COLUMN_COUNT = 9;
+const COLUMN_COUNT = 7;
 
 interface SOVMappingGridProps {
   /** When the SOV is published, the grid is read-only: no confirm, add, delete, or edit controls. */
@@ -150,12 +148,10 @@ const SOVMappingGrid: React.FC<SOVMappingGridProps> = ({ locked = false }) => {
             <colgroup>
               <col style={{ width: SPREADSHEET_INDEX_COLUMN_WIDTH, minWidth: SPREADSHEET_INDEX_COLUMN_WIDTH, maxWidth: SPREADSHEET_INDEX_COLUMN_WIDTH }} />
               <col style={{ width: COL.sovLineItem }} />
-              <col style={{ width: COL.costCode, minWidth: COL.costCode }} />
               <col style={{ width: COL.budgetLineItem }} />
               <col style={{ width: COL.quantity, minWidth: COL.quantity }} />
               <col style={{ width: COL.uom, minWidth: COL.uom }} />
               <col style={{ width: COL.totalBudget, minWidth: COL.totalBudget }} />
-              <col style={{ width: COL.location, minWidth: COL.location }} />
               <col style={{ width: SOV_STATUS_WIDTH, minWidth: SOV_STATUS_WIDTH }} />
             </colgroup>
             <thead className="sticky top-0 bg-gray-100 z-40">
@@ -168,12 +164,10 @@ const SOVMappingGrid: React.FC<SOVMappingGridProps> = ({ locked = false }) => {
                   sticky
                 />
                 <th className="px-2 text-left text-xs font-semibold text-gray-700 bg-gray-100 border-r border-gray-300">SOV Line Item</th>
-                <th className="px-2 text-left text-xs font-semibold text-gray-700 bg-gray-100 border-r border-gray-300">Cost Code</th>
                 <th className="px-2 text-left text-xs font-semibold text-gray-700 bg-gray-100 border-r border-gray-300">Budget Line Item</th>
                 <th className="px-2 text-right text-xs font-semibold text-gray-700 bg-gray-100 border-r border-gray-300">Quantity</th>
                 <th className="px-2 text-left text-xs font-semibold text-gray-700 bg-gray-100 border-r border-gray-300">UOM</th>
                 <th className="px-2 text-right text-xs font-semibold text-gray-700 bg-gray-100 border-r border-gray-300">Total Budget</th>
-                <th className="px-2 text-left text-xs font-semibold text-gray-700 bg-gray-100 border-r border-gray-300">Location</th>
                 <th className="px-2 text-left text-xs font-semibold text-gray-700 bg-gray-100">Status</th>
               </tr>
             </thead>
@@ -241,11 +235,9 @@ const SOVMappingGrid: React.FC<SOVMappingGridProps> = ({ locked = false }) => {
                       <td className="border-r border-gray-200 bg-slate-50/90" />
                       <td className="border-r border-gray-200 bg-slate-50/90" />
                       <td className="border-r border-gray-200 bg-slate-50/90" />
-                      <td className="border-r border-gray-200 bg-slate-50/90" />
                       <td className="px-2 text-right border-r border-gray-200 text-sm tabular-nums font-medium text-gray-900 bg-slate-50/90">
                         ${formatCurrency(mapping.amount)}
                       </td>
-                      <td className="border-r border-gray-200 bg-slate-50/90" />
                       <td className="px-2 bg-slate-50/90 whitespace-nowrap">
                         {locked ? (
                           <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-gray-200 text-gray-700">
@@ -273,9 +265,6 @@ const SOVMappingGrid: React.FC<SOVMappingGridProps> = ({ locked = false }) => {
                           sticky
                         />
                         <td className="border-r border-gray-200" />
-                        <td className="px-2 border-r border-gray-200 text-sm text-gray-800 whitespace-nowrap">
-                          {mapping.costCode || '—'}
-                        </td>
                         <td className="px-2 border-r border-gray-200 text-sm text-gray-800 truncate" title={mapping.budgetLineItem}>
                           {mapping.budgetLineItem || '—'}
                         </td>
@@ -287,9 +276,6 @@ const SOVMappingGrid: React.FC<SOVMappingGridProps> = ({ locked = false }) => {
                         </td>
                         <td className="px-2 text-right border-r border-gray-200 text-sm tabular-nums text-gray-800">
                           ${formatCurrency(mapping.amount)}
-                        </td>
-                        <td className="px-2 border-r border-gray-200 text-sm text-gray-800 truncate">
-                          {mapping.location || '—'}
                         </td>
                         <td className="px-2" />
                       </tr>
@@ -311,11 +297,11 @@ const SOVMappingGrid: React.FC<SOVMappingGridProps> = ({ locked = false }) => {
                   >
                     Total
                   </td>
-                  <td colSpan={5} className="border-r border-gray-300 bg-gray-100" />
+                  <td colSpan={4} className="border-r border-gray-300 bg-gray-100" />
                   <td className="px-2 text-right border-r border-gray-300 bg-gray-100 text-sm tabular-nums text-gray-900">
                     ${formatCurrency(totalAmount)}
                   </td>
-                  <td colSpan={2} className="bg-gray-100" />
+                  <td className="bg-gray-100" />
                 </tr>
               )}
               {!locked && (

@@ -17,11 +17,18 @@ import {
 } from '../../../lib/financialWorkflow';
 import { colAlignClass, formatCurrency, formatCurrencyWhole } from './spreadsheetTableUtils';
 
-const ContractReviewLockScreen: React.FC = () => {
+interface ContractReviewLockScreenProps {
+  /** Force a fully read-only view (used post-activation for the Prime Contract section). */
+  readOnly?: boolean;
+}
+
+const ContractReviewLockScreen: React.FC<ContractReviewLockScreenProps> = ({ readOnly = false }) => {
   const { contractData, contractLocked, activeView, primeContractRows, updatePrimeContractRows } = useProject();
   const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
 
   if (!contractData) return null;
+
+  const isReadOnly = contractLocked || readOnly;
 
   const columns = activeView?.v3Sheets?.find((s) => s.id === 'sheet-prime-contract')?.columns
     ?? DEFAULT_PRIME_CONTRACT_COLUMNS;
@@ -95,7 +102,7 @@ const ContractReviewLockScreen: React.FC = () => {
     setSelectedRowIds(new Set());
   };
 
-  const selectableRowIds = contractLocked ? [] : flatRows.map((r) => r.id);
+  const selectableRowIds = isReadOnly ? [] : flatRows.map((r) => r.id);
   const allSelectableSelected =
     selectableRowIds.length > 0 && selectableRowIds.every((id) => selectedRowIds.has(id));
   const someSelectableSelected = selectableRowIds.some((id) => selectedRowIds.has(id));
@@ -140,7 +147,7 @@ const ContractReviewLockScreen: React.FC = () => {
       transition={{ duration: 0.3 }}
       className="h-full flex flex-col bg-white min-h-0"
     >
-      <ContractMetadataBar isLocked={contractLocked} isEditable={!contractLocked} />
+      <ContractMetadataBar isLocked={isReadOnly} isEditable={!isReadOnly} />
 
       <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
         {sumWarning.mismatched && (
@@ -171,7 +178,7 @@ const ContractReviewLockScreen: React.FC = () => {
                   allSelected={allSelectableSelected}
                   someSelected={someSelectableSelected}
                   onToggleAll={handleToggleSelectAll}
-                  disabled={contractLocked}
+                  disabled={isReadOnly}
                   sticky
                 />
                 {columns.map((col) => (
@@ -198,14 +205,14 @@ const ContractReviewLockScreen: React.FC = () => {
                     rowId={row.id}
                     isSelected={selectedRowIds.has(row.id)}
                     onToggleSelect={handleToggleRowSelect}
-                    disabled={contractLocked}
+                    disabled={isReadOnly}
                     fontSize={fontSize}
                     sticky
                     className="bg-white"
                   />
                   {columns.map((col) => (
                     <td key={`${row.id}-${col.id}`} className={`px-3 relative ${colAlignClass(col)}`}>
-                      {contractLocked ? (
+                      {isReadOnly ? (
                         <span className={`block w-full text-gray-900 text-sm ${colAlignClass(col)}`}>
                           {(col.type === 'currency' && (row.cells[col.id] ?? row.cells['totalBudget']))
                             ? `$${formatCurrency(Number(row.cells[col.id] ?? row.cells['totalBudget']))}`
@@ -254,10 +261,10 @@ const ContractReviewLockScreen: React.FC = () => {
               <SpreadsheetTableAddRowRow
                 colSpan={columns.length + 1}
                 onAddRow={handleAddRow}
-                addDisabled={contractLocked}
+                addDisabled={isReadOnly}
                 selectedCount={selectedRowIds.size}
                 onDeleteSelected={() => handleDeleteRows(selectedRowIds)}
-                deleteDisabled={contractLocked}
+                deleteDisabled={isReadOnly}
               />
             </tfoot>
           </table>

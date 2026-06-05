@@ -10,6 +10,7 @@ import ContractSummaryHeader from './ContractSummaryHeader';
 import FinancialSetupHub from './FinancialSetupHub';
 import FinancialOpsHub from './FinancialOpsHub';
 import PublishedSOVView from './PublishedSOVView';
+import ContractReviewLockScreen from './ContractReviewLockScreen';
 import BudgetSetupGrid from './BudgetSetupGrid';
 import BudgetScheduleLinker from './BudgetScheduleLinker';
 import { ContextMenu, ContextMenuItem } from '../../common/ui/ContextMenu';
@@ -1556,6 +1557,12 @@ const SpreadsheetViewV4: React.FC = () => {
         <FinancialOpsHub />
       </div>
     );
+  }
+
+  // Post-activation, the Prime Contract section shows the same Prime Contract
+  // Tool table (metadata bar + Contract Line / Contract Value), fully read-only.
+  if (activeFinancialSection === 'primeContract') {
+    return <ContractReviewLockScreen readOnly />;
   }
 
   if (activeFinancialSection === 'sov') {

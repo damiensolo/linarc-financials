@@ -223,6 +223,7 @@ const Sidebar: React.FC<SidebarProps> = ({ version = 'v1', bookmarks = [], onSel
         financialSetupComplete,
         activeViewMode,
         activeFinancialSection,
+        hubCollapsed,
     } = useProject();
     const [activeItemKey, setActiveItemKey] = useState('');
     const [isBookmarksMenuVisible, setBookmarksMenuVisible] = useState(false);
@@ -259,6 +260,11 @@ const Sidebar: React.FC<SidebarProps> = ({ version = 'v1', bookmarks = [], onSel
         }
 
         if (financialSetupComplete && activeTopNavCategory === 'contract') {
+            // The collapsed-hub waypoint screen is not a tool — highlight nothing.
+            if (hubCollapsed) {
+                setActiveItemKey('');
+                return;
+            }
             setActiveItemKey(
                 items.some((item) => item.key === activeFinancialSection) ? activeFinancialSection : items[0].key
             );
@@ -272,6 +278,7 @@ const Sidebar: React.FC<SidebarProps> = ({ version = 'v1', bookmarks = [], onSel
         financialSetupComplete,
         activeViewMode,
         activeFinancialSection,
+        hubCollapsed,
     ]);
 
     // Close bookmarks menu on outside click

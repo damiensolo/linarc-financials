@@ -44,6 +44,7 @@ const AppLayout: React.FC = () => {
         isBudgetUploadOpen,
         activeViewMode,
         financialSetupComplete,
+        hubCollapsed,
     } = useProject();
     const mainContentRef = useRef<HTMLDivElement>(null);
     const [isScrolled, setIsScrolled] = useState(false);
@@ -59,6 +60,11 @@ const AppLayout: React.FC = () => {
 
     const isFinancialSetupFlow =
         activeViewMode === 'spreadsheetV4' && !financialSetupComplete;
+
+    // The activated waypoint/confirmation screen (collapsed hub) shows only the
+    // Financial Operations Hub — no tool header.
+    const isFinancialWaypoint =
+        activeViewMode === 'spreadsheetV4' && financialSetupComplete && hubCollapsed;
 
     return (
         <div className="flex flex-col h-full bg-white font-sans text-gray-800 overflow-hidden">
@@ -106,7 +112,7 @@ const AppLayout: React.FC = () => {
                 />
 
                 <div className="flex flex-col flex-1 min-w-0 overflow-hidden relative">
-                    {!isFinancialSetupFlow && <AppHeader />}
+                    {!isFinancialSetupFlow && !isFinancialWaypoint && <AppHeader />}
                     <div className="flex flex-1 overflow-hidden relative">
                         <main
                             ref={mainContentRef}
