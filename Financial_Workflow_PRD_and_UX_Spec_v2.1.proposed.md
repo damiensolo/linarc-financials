@@ -1,6 +1,6 @@
 **
 
-# PRD & UX Spec: Progressive Financial Workflow (v2.2)
+# PRD & UX Spec: Progressive Financial Workflow (v2.3)
 
 Revision Note (v2): This revision replaces the rigid lock-everything-before-you-move-forward model with a progressive, draft-friendly workflow. Budget work can now begin as soon as a Prime Contract Value exists (uploaded or manually entered), and commitment happens at the line-item level rather than at the budget level. This matches how General Contractors actually work during buyout — building budget detail in parallel with vendor negotiation, partial information, and pending confirmations.
 
@@ -15,6 +15,22 @@ Revision Note (v2.2 — Prime Contract without cost codes; Budget dual-mode uplo
 3. **Schedule of Values now comes after Schedule Linking & Allocation.** In the implemented stepper, Continuous Operations is split into sequential steps; the order is **Schedule Linking & Allocation (Step 4) → Schedule of Values (Step 5) → Publish SOV (Step 6)**. Lines are first allocated across the schedule, then drafted into the owner-facing SOV.
 
 4. **A Subcontractor is required to commit a budget line.** The budget grid has a new **Subcontractor** dropdown column populated from the project's invited subcontractors. A line cannot be committed — per-line or via bulk Lock Budget — until a subcontractor is selected. This is separate from the cost-breakdown amount column, now relabeled **Sub Cost**.
+
+Revision Note (v2.3 — operations, read-only views & nav alignment): Documents the implemented prototype as of June 2026:
+
+1. **Six-step stepper.** The implemented setup tracker has six steps: 1 Preliminary Config · 2 Prime Contract · 3 Budget Setup · 4 Schedule Linking & Allocation · 5 Schedule of Values · 6 Publish SOV. (The earlier "five-step / Continuous Operations with tabs" framing is realized as sequential, non-gated steps 4–5.)
+
+2. **Subcontractor column placement.** The required **Subcontractor** dropdown sits immediately to the right of **Description**. The cost-breakdown currency amount is a distinct column, **Sub Cost** (id `subCost`); the Profit formula references `subCost` so it never collides with the Subcontractor select.
+
+3. **Committed lines are read-only.** There is no per-row Change Order control in the budget table; change orders are handled in a later (post-setup) phase.
+
+4. **Schedule Linking & Allocation shows the assigned subcontractor** on each committed line.
+
+5. **SOV table trimmed.** The Schedule of Values shows: SOV Line Item · Budget Line Item · Quantity · UOM · Total Budget · Status. (Cost Code and Location removed.)
+
+6. **Post-activation operations.** After Publish SOV, each finance section is reachable from the sidebar as a read-only/operational view: **Prime Contract** (read-only baseline table, LOCKED badge in the header), **Budget** (read-only actual budget), **SOV** (published, read-only), **Allocate** (Schedule Linking & Allocation). The **Financial Operations Hub** is a lightweight confirmation/waypoint screen — activation message + Budget / SOV / Schedule cards that deep-link into each tool; it shows no tool header and highlights no sidebar tool.
+
+7. **Navigation entry points.** The Finance mega-menu **Contract** and **Configure** links jump straight to Step 1. The left sidebar has an **Allocate** item (directly below Budget) that opens Schedule Linking & Allocation; it stays disabled until at least one line is committed, matching the other tool gates. All financial tables render inside the standard bordered card container used by the rest of the app.
 
 Implementation status: SpreadsheetV4 is the canonical financial setup surface. Steps 1–5, cross-cutting approval/change-order stubs, localStorage persistence, and readiness gating are implemented as a frontend prototype (mock extraction for both contract and budget uploads, mock approvals). Budget upload parses CSV by header for real; Excel/PDF and unparseable files fall back to a demo budget.
 
@@ -56,7 +72,7 @@ Solution (v2.1 / v2.2 additions):
 
 ## 2. Product Requirements (PRD)
 
-### 2.0 Progressive Five-Step Workflow
+### 2.0 Progressive Six-Step Workflow
 
   
 
@@ -112,35 +128,45 @@ STEP 3: Progressive Budget Setup  (DUAL MODE)
 
             ↓ AS LINES ARE COMMITTED ↓          
 
-STEP 4: Continuous Operations  (per committed line, no phase gate)    
+STEP 4: Schedule Linking & Allocation  (per committed line, no phase gate)
 
-         Tab 1: Schedule Linking & Allocation  |  Tab 2: SOV Mapping        
+         Only committed lines are eligible (open/pending shown as not ready)  
 
-         Each committed line unlocks:                                           
+         Allocate each committed line across schedule tasks by cost code      
 
-           ▸ Subcontract / PO issuance against the line                       
+         Each line shows its assigned Subcontractor                           
 
-           ▸ SOV inclusion for owner billing                                  
+         Bulk "Link all" (cost-code suggestions) + per-line manual splits     
 
-           ▸ Invoice & Pay App processing                                     
+            ↓ AS LINES ARE LINKED ↓                                          
 
-           ▸ Schedule WBS linking for milestone billing                       
+STEP 5: Schedule of Values  (owner-facing billing schedule, draft)    
 
-         Bulk "Map all" / "Link all" actions available per tab (prototype)    
+         Draft SOV line per committed budget line (stays draft until publish) 
+
+         Columns: SOV Line Item · Budget Line Item · Quantity · UOM ·         
+
+                  Total Budget · Status  (no Cost Code / Location)            
+
+         Bulk "Map all" + manual SOV lines                                    
 
             ↓ READINESS CHECK PASSES ↓                                        
 
-STEP 5: Publish SOV  (formal owner-facing handover)                  
+STEP 6: Publish SOV  (formal owner-facing handover)                  
 
          Readiness checklist must be satisfied                                
 
-         Unmet checks link back to Step 4 with the relevant tab pre-selected  
+         Unmet checks link back to Step 4 (Schedule) or Step 5 (SOV)          
 
          Publishes finalized SOV to Owner                                     
 
             ↓ PUBLISH ↓                                                       
 
 OUTCOME: Project "Financially Activated" → Financial Operations Hub         
+
+         (waypoint: activation message + Budget / SOV / Schedule cards;       
+
+          each finance section then viewable read-only via the sidebar)      
 
   
   
@@ -149,7 +175,7 @@ CROSS-CUTTING WORKFLOWS:
 
   ▸ Change to PC Value (after any line committed) → GC/PE/Owner Approval flow
 
-  ▸ Edit to a Committed Line → Change Order required (no direct edit)
+  ▸ Committed Line → read-only (no direct edit; no Change Order control in the budget table)
 
   ▸ Per-Line Approval enabled? → Fires on Commit action, before lock takes effect
 
@@ -181,9 +207,9 @@ The widget must consistently use and visually distinguish these states. All in-p
 |Prime Contract|Locked|Explicitly locked by user as baseline|No, only editable through a Change Order flow.|Yes, if committed lines exist|
 |Budget Line|Open|Created or imported, not yet committed|Yes, freely|No|
 |Budget Line|Pending Approval|Commit requested, awaiting approval (only if per-line approval is enabled)|No|Currently in flow|
-|Budget Line|Locked / Committed|Locked at line level, fully operational for subs / SOV / invoicing / schedule. UI badge: "Committed".|No, changes require Change Order|No (already through)|
+|Budget Line|Locked / Committed|Locked at line level, fully operational for subs / SOV / invoicing / schedule. UI badge: "Committed".|No — read-only. Change orders are handled outside Budget Setup (no in-table control).|No (already through)|
 |Budget (Whole)|Mixed State|Default; mixed state of open and committed lines|Per line|Per line|
-|Budget (Whole)|Locked|Bulk action committed all remaining draft lines|No, line-by-line Change Order required.|Already through|
+|Budget (Whole)|Locked|Bulk action committed all remaining draft lines|No — committed lines read-only; change orders handled post-setup.|Already through|
 
 Data stores (v2.1):
 
@@ -337,6 +363,7 @@ Budget grid columns (v2.1 — implemented):
 | Status | badge | — | Open / Pending / Committed |
 | Cost Code | text | Yes | Required when cost code enforcement confirmed; auto-derived on upload when missing |
 | Description | text | Yes | From upload or manual entry |
+| **Subcontractor** | **select** | Yes | **Required to commit** — sits immediately right of Description. Dropdown of subcontractors invited to the project; no free text. A line cannot be committed (or bulk-locked) until one is selected. Stored as `subcontractorName` |
 | Location | text | Yes | |
 | Quantity | number | Yes | Right-aligned |
 | UOM | text | Yes | |
@@ -346,11 +373,10 @@ Budget grid columns (v2.1 — implemented):
 | Labor | currency | Yes | From upload (CSV column) or entered; 0 otherwise |
 | Material | currency | Yes | From upload (CSV column) or entered; 0 otherwise |
 | Equipment | currency | Yes | From upload (CSV column) or entered; 0 otherwise |
-| Sub Cost | currency | Yes | Subcontractor cost amount (cost breakdown). From upload (CSV column) or entered; 0 otherwise |
-| **Subcontractor** | **select** | Yes | **Required to commit.** Dropdown of subcontractors invited to the project; no free text. A line cannot be committed (or bulk-locked) until one is selected |
+| Sub Cost | currency | Yes | Subcontractor cost **amount** (cost breakdown), id `subCost`. From upload (CSV column) or entered; 0 otherwise |
 | Others | currency | Yes | From upload (CSV column) or entered; 0 otherwise |
 | Overhead | formula | No | `= budget × default overhead %` from Step 1 |
-| Profit | formula | No | `= budget − labor − material − equipment − subcontractor − others − overhead` |
+| Profit | formula | No | `= budget − labor − material − equipment − subCost − others − overhead` |
 
 Header context (v2.1):
 
@@ -370,7 +396,7 @@ Required fields per line item (Open state):
     
 - Quantity, UOM, Effort hours, Location — optional in open/draft posture
     
-- Labor, Material, Equipment, Subcontractor, Others — cost breakdown; populated from a CSV upload's columns or entered manually, default 0
+- Labor, Material, Equipment, Sub Cost, Others — cost breakdown; populated from a CSV upload's columns or entered manually, default 0
     
 - Overhead, Profit — formula-driven from Budget and breakdown
     
@@ -423,23 +449,21 @@ Widget messaging requirements:
 - Bulk progress indicator at top of grid: "12 of 18 lines committed. 4 open, 2 pending approval."
     
 
-#### Requirement 4: Step 4 — Continuous Operations (replaces v1 Steps 4 & 5)
+#### Requirement 4: Steps 4 & 5 — Schedule Linking & Allocation, then Schedule of Values (replaces v1 Steps 4 & 5)
 
-In v1, SOV Review and Schedule Linking were a parallel "phase" gated by full budget lock. In v2, these activities become continuous operations that flow as line items are committed.
+In v1, SOV Review and Schedule Linking were a parallel "phase" gated by full budget lock. In v2, these activities flow as line items are committed and are realized as two sequential, non-gated steps: **Step 4 Schedule Linking & Allocation**, then **Step 5 Schedule of Values**.
 
 Behavior:
 
-- A dual-tab workspace: **Tab 1: Schedule Linking & Allocation | Tab 2: SOV Mapping** — available once at least one budget line is committed. (In the implemented stepper these are sequential steps: Schedule Linking & Allocation is Step 4, Schedule of Values is Step 5.)
+- Both steps become available once at least one budget line is committed. Only Committed budget lines are eligible; Open and Pending lines are shown as "not yet available."
     
-- Only Committed budget lines appear as eligible for SOV mapping and schedule linking.
+- **Step 4 — Schedule Linking & Allocation:** each committed line is matched to schedule tasks by cost code and its budget allocated across them. Each line displays its **assigned Subcontractor** (chip) alongside the description and cost code. Methods: split by planned hours / split equally / manual split editor; a "Link all" bulk action applies cost-code suggestions. A Lines / Forecast toggle shows the cost-loaded forecast (CashFlowPreview).
     
-- Open and Pending lines are listed separately as "not yet available."
+- **Step 5 — Schedule of Values:** a draft SOV line is generated per committed budget line and stays draft until Publish. Columns: **SOV Line Item · Budget Line Item · Quantity · UOM · Total Budget · Status** (Cost Code and Location are intentionally not shown). "Map all" bulk action; manual SOV lines can be added.
     
-- Users move freely between budget work (Step 3) and operations (Step 4) — they are not sequential phases but parallel activities.
+- Users move freely between budget work (Step 3) and Steps 4–5 — they are not hard-gated phases.
     
-- **Bulk actions (prototype):** "Link all" on Schedule Linking & Allocation tab (uses cost-code suggestions where available); "Map all" on SOV Mapping tab.
-    
-- Step 5 readiness items and Blockers Rail link to Step 4 with the correct tab pre-selected (SOV vs Schedule).
+- Step 6 (Publish) readiness items and the Blockers Rail link to Step 4 (Schedule) or Step 5 (SOV) as appropriate.
     
 
 Cross-Impact Alerts (preserved from v1):
@@ -458,7 +482,7 @@ Cost Code Auto-Allocation (v2 addition):
 - Users can accept, override, or refine the suggested links.
     
 
-#### Requirement 5: Step 5 — Publish SOV (Owner Handover Anchor)
+#### Requirement 5: Step 6 — Publish SOV (Owner Handover Anchor)
 
 This step is preserved from v1 in spirit but is no longer the gate for downstream operations. Subcontracts, invoicing, and schedule linking can already be active. Publish SOV is specifically the act of finalizing the owner-facing billing schedule.
 
@@ -475,16 +499,38 @@ Readiness checklist (must all pass):
 - No outstanding PC Value change approvals.
     
 
-Each unmet check is clickable — navigates to Step 4 (SOV Mapping or Schedule Linking tab as appropriate) or the relevant setup step.
+Each unmet check is clickable — navigates to Step 4 (Schedule Linking & Allocation), Step 5 (Schedule of Values), or the relevant setup step.
 
 Action:
 
-- "Publish SOV" finalizes the owner-facing document.
+- "Publish SOV" finalizes the owner-facing document (all draft SOV lines become confirmed).
     
 - Triggers project state change to "Financially Activated."
     
-- Widget collapses, user is moved to the Financial Operations Hub for ongoing project life.
+- The setup tracker collapses and the user lands on the Financial Operations Hub waypoint (see Requirement 6).
     
+
+#### Requirement 6: Post-Activation Financial Operations (v2.3)
+
+Once the project is Financially Activated, the setup tracker is no longer the primary surface. The finance module is driven by the left sidebar, and each section is a read-only or operational view of the work finalized during setup.
+
+Financial Operations Hub (waypoint / confirmation):
+
+- Shown when the hub is collapsed immediately after activation. It is intentionally lightweight: a green activation check, the "Project is financially activated" message, and three cards — **Budget**, **SOV**, **Schedule**.
+    
+- Each card is a deep link into its tool (Budget → read-only budget, SOV → published SOV, Schedule → Schedule Linking & Allocation). Clicking a card opens that tool.
+    
+- This screen shows **no tool header** and highlights **no sidebar tool** — it is a waypoint, not a tool. There is no "Reopen Setup Tracker" link.
+    
+
+Read-only section views (via sidebar):
+
+| Sidebar item | Post-activation view | Notes |
+|---|---|---|
+| Prime Contract | Read-only Prime Contract baseline (metadata bar + Contract Line / Contract Value table + total) | Same table built in Step 2, fully read-only; **LOCKED** badge shown in the header in line with the title; no Add Row, no editing, no row checkboxes |
+| Budget | Read-only "actual budget" grid | All committed lines, read-only; no commit/import/add/delete |
+| Allocate | Schedule Linking & Allocation | The live allocation workspace (Lines / Forecast) |
+| SOV | Published SOV | Owner-facing schedule of values, read-only |
 
 ### 2.4 Cross-Cutting Workflows
 
@@ -570,7 +616,7 @@ Validation (independent of how the budget was built):
 
 ### 3.2 Information Architecture & Layouts
 
-#### Screen A: Financial Setup Hub (Steps 1, 2, 3, 5)
+#### Screen A: Financial Setup Hub (Steps 1, 2, 3, 6 in the center; Steps 4–5 in Screen B)
 
 The default workspace until Publish SOV activates the project.
 
@@ -578,7 +624,7 @@ The default workspace until Publish SOV activates the project.
       
     
 
-- Five steps shown vertically with explicit state indicators.
+- Six steps shown vertically with explicit state indicators.
     
 - State icons: Complete (green check), In Progress (blue dot), Available (white circle), Blocked (gray padlock with reason on hover).
     
@@ -595,7 +641,7 @@ The default workspace until Publish SOV activates the project.
     
 - Step 2 (Prime Contract):
   - **Choose phase:** Upload Document | Enter Manually cards; option to continue editing saved contract.
-  - **Review phase:** Contract metadata bar + unified 2-column Prime Contract table (Contract Line, Contract Value — **no cost code**) with index/hover-checkbox column. Step header actions: optional "Lock Prime Contract" + primary "Continue to Budget Setup" (requires PC Value > 0).
+  - **Review phase:** Contract metadata bar + unified 2-column Prime Contract table (Contract Line, Contract Value — **no cost code**) with index/hover-checkbox column. Metadata bar field order: Executed Date · Construction Start · Substantial Completion · Owner · Contractor · **Contract Sum (far right)**. Step header actions: optional "Lock Prime Contract" + primary "Continue to Budget Setup" (requires PC Value > 0).
     
 - Step 3 (Budget Setup):
   - **Choice phase (empty budget):** Upload Budget | Enter Manually | From Prime Contract (testing, shown only when PC lines exist) cards (mirrors Prime Contract choose screen); "Continue editing current budget" if data already exists.
@@ -603,7 +649,7 @@ The default workspace until Publish SOV activates the project.
   - Toolbar shows Prime Contract Value, budget total, commit progress, and an **Upload** button (Excel/CSV/PDF) to append lines; amber warning if totals diverge.
   - Bulk "Lock Budget" as secondary action.
     
-- Publish SOV: Final readiness summary card listing all checks. Each unmet check is a hyperlink back to the source (e.g., WBS/allocation failures → Schedule Linking & Allocation (Step 4); "lines not mapped" → Schedule of Values (Step 5)).
+- Publish SOV (Step 6): Final readiness summary card listing all checks. Each unmet check is a hyperlink back to the source (e.g., WBS/allocation failures → Schedule Linking & Allocation (Step 4); "lines not mapped" → Schedule of Values (Step 5)).
     
 
 - Right Panel — Blockers & Readiness Rail (collapsible)  
@@ -619,28 +665,49 @@ The default workspace until Publish SOV activates the project.
 - Publish readiness checks include actionable hints (e.g., "Step 4 → Schedule Linking tab, then Link all or link each line").
     
 
-#### Screen B: Continuous Operations Workspace (Step 4)
+#### Screen B: Operations Workspace (Steps 4–5)
 
-Available as soon as any budget line is Committed.
+Available as soon as any budget line is Committed. Realized as two sequential steps in the tracker.
 
-- Top Navigation: **Tab 1: Schedule Linking & Allocation | Tab 2: SOV Mapping**
+- **Step 4 — Schedule Linking & Allocation:** Per-line allocation of committed rows across cost-code-matched schedule tasks; each line shows its assigned Subcontractor. Bulk "Link all"; Lines / Forecast toggle.
     
-- Primary Work Area: Per-line Map/Link actions for committed rows; open rows shown as not yet eligible. Bulk Map all / Link all in tab header when unmapped/unlinked lines remain.
+- **Step 5 — Schedule of Values:** Draft SOV lines (SOV Line Item · Budget Line Item · Quantity · UOM · Total Budget · Status); bulk "Map all"; manual SOV lines.
     
-- Cross-Impact Alerts: Persistent, lightweight callouts showing readiness gaps.
+- Open/Pending lines shown as not yet eligible.
     
-- Sticky Footer: "Open Step 5 — Publish SOV" link, with a live readiness indicator. No master "Lock & Publish" button is required to do daily work here — that button is reserved for the Publish step.
+- The Publish step (Step 6) is reached from the tracker / readiness rail. No master "Lock & Publish" button is required to do daily work here.
+    
+
+#### Screen C: Post-Activation Finance Module (v2.3)
+
+After Publish SOV, the finance module is navigated via the left sidebar; the center shows the relevant read-only/operational view (see Requirement 6).
+
+- **Financial Operations Hub (waypoint):** activation message + Budget / SOV / Schedule cards that deep-link into each tool. No tool header; no sidebar tool highlighted; no Reopen link.
+    
+- **Prime Contract:** read-only baseline table; **LOCKED** badge in the header in line with the title; no Add Row / editing / checkboxes; footer total uses the same text size as the rows.
+    
+- **Budget:** read-only actual budget grid.
+    
+- **Allocate / SOV:** Schedule Linking & Allocation and Published SOV, respectively.
+    
+- All of the above render inside the standard bordered card container used by the rest of the app.
     
 
 ### 3.3 Micro-Interactions & System Feedback
 
 - Budget Upload Modal (v2.2): Mirrors the Prime Contract upload — drag/drop or browse an Excel/CSV/PDF file → animated scan → review extracted lines (Cost Code / Description / Budget + total) → Import. An "Enter Budget Lines Manually" option is offered on the upload step, and an amber notice appears when the file falls back to a demo budget. Reachable from the Step 3 choice screen and from the budget grid toolbar.
     
-- Commit Confirmation Dialog (new): Clicking "Commit" on a budget line opens a confirmation modal: "Committing Line 12 ($45,000) will lock it for direct edits. Changes will require a Change Order. This will also enable subcontract issuance, SOV mapping, invoicing, and schedule linking for this line. Continue?"
+- Subcontractor Select (v2.3): The Subcontractor column renders an inline dropdown on open rows (options = invited subcontractors). The header shows a required `*`; an empty cell is highlighted when the line is open. Attempting to commit without one opens a **"Subcontractor Required"** modal (same component as the missing-cost-code modal, generalized by field label). Bulk **Lock Budget** is disabled with an explanatory tooltip until every open line has both a cost code and a subcontractor.
+    
+- Commit Confirmation Dialog: Clicking "Commit" opens a confirmation modal: "Committing Line 12 ($45,000) will lock it for direct edits…" and also displays the selected **Subcontractor**.
     
 - Per-Line Approval Indicator (new): Lines in Pending Approval show an inline badge with the approver's name and a "View Request" affordance.
     
 - Committed Line (read-only): A Committed line is not editable and shows a "Committed" indicator. There is no change-order control in the budget table.
+    
+- Schedule Linking subcontractor (v2.3): Each committed line in Schedule Linking & Allocation shows its assigned subcontractor as a chip (with a people icon) next to the description and cost code.
+    
+- Read-only Prime Contract LOCKED badge (v2.3): Post-activation, the Prime Contract view shows a **LOCKED** pill on the right of the section header, in line with the "Prime Contract" title; the in-table OPEN/LOCKED status pill is suppressed in this state to avoid duplication.
     
 - PC Value Change Approval (new): Attempting to change a PC Value when committed lines exist surfaces a modal: "Changing the Prime Contract Value will require approval from [routing chain]. The current value remains in effect until approved. Continue?"
     
@@ -671,10 +738,12 @@ The user explicitly called out that the widget must clearly communicate state an
 |Step 3 — Mix of Open and Committed lines|"{X} of {Y} lines committed. Committed lines are now live for subcontracts, SOV, invoicing, and schedule linking. Open lines are still editable."|
 |Step 3 — Per-line approval enabled|"Per-line approval is on for this project. Each commit will be routed to your approval chain before it locks."|
 |Step 3 — Attempting to edit Committed line|"This line is committed and read-only."|
-|Step 4 — Operations workspace, mixed state|"Showing {N} committed lines available for SOV mapping and schedule linking. Open lines will appear here when committed."|
-|Step 5 — Readiness unmet (SOV)|"{N} committed line(s) not mapped to SOV — click to open SOV Mapping"|
-|Step 5 — Readiness unmet (WBS)|"{N} committed line(s) missing WBS links — click to open Schedule Linking"|
-|Step 5 — Ready|"All readiness checks passed. Publishing the SOV will finalize the owner-facing billing schedule and activate the project."|
+|Step 3 — Commit blocked, no subcontractor|"Subcontractor Required — you cannot commit this budget line until a Subcontractor is associated with it."|
+|Step 4 — Schedule Linking, mixed state|"Showing {N} committed lines available for schedule linking & allocation. Open lines will appear here when committed."|
+|Step 5 — Schedule of Values|"{N} committed lines are drafted into the Schedule of Values. They stay in draft until you publish."|
+|Step 6 — Readiness unmet (WBS / allocation)|"{N} committed line(s) not yet allocated to the schedule — click to open Schedule Linking & Allocation"|
+|Step 6 — Readiness unmet (SOV)|"{N} committed line(s) missing an SOV entry — click to open Schedule of Values"|
+|Step 6 — Ready|"All readiness checks passed. Publishing the SOV will finalize the owner-facing billing schedule and activate the project."|
 
 ---
 
@@ -684,8 +753,8 @@ For engineering and design reviewing the diff:
 
 |   |   |   |
 |---|---|---|
-|Area|v1|v2 / v2.1 / v2.2|
-|Step count|6 (Steps 0–6)|5 (Steps 1–5)|
+|Area|v1|v2 / v2.1 / v2.2 / v2.3|
+|Step count|6 (Steps 0–6)|6 (Steps 1–6): Config · Prime Contract · Budget · Schedule Linking & Allocation · Schedule of Values · Publish SOV|
 |Budget unlock trigger|Prime Contract must be locked|Prime Contract Value must be entered (lock optional)|
 |Prime Contract entry|Upload only (Mode A)|Upload or manual value entry (Modes A & B)|
 |Prime Contract line items|Mixed with budget / inconsistent by path|Separate store; **2-column** table (Contract Line, Contract Value) — **no cost code** (v2.2)|
@@ -693,8 +762,10 @@ For engineering and design reviewing the diff:
 |Budget columns|Total Budget auto-sum of categories|Budget is primary line total; Overhead/Profit formulas; full column set incl. Location, Revised Budget|
 |Budget commit model|Whole budget locked at once|Per-line commit; optional bulk "Lock Budget" preserved|
 |Line edit after commit|Direct edits allowed before lock; blocked after|Direct edits blocked once committed; line is read-only (no change-order control in the budget table) (v2.2)|
-|SOV & Schedule|Phase-gated; required full budget lock|Continuous; available per committed line; tabs: SOV Mapping / Schedule Linking|
-|Publish SOV|Final step gate for activation|Preserved as final handover anchor; checks link to Step 4 tabs|
+|SOV & Schedule|Phase-gated; required full budget lock|Per committed line; sequential **Step 4 Schedule Linking & Allocation → Step 5 Schedule of Values**. SOV columns trimmed (no Cost Code / Location); Schedule Linking shows assigned subcontractor (v2.3)|
+|Subcontractor on commit|n/a|Required **Subcontractor** dropdown (invited subs) right of Description; blocks per-line commit and bulk Lock Budget until set (v2.3)|
+|Publish SOV|Final step gate for activation|Preserved as final handover anchor (Step 6); checks link to Steps 4/5|
+|Post-activation|Single locked spreadsheet|Read-only section views (Prime Contract / Budget / SOV) + Allocate workspace via sidebar; Financial Operations Hub is a waypoint with cards that deep-link to tools (v2.3)|
 |Approval workflows|None at line level|New: PC Value change approval; optional per-line approval|
 |Cost codes|Configurable|**Budget-only**, enforced when confirmed in Step 1 (inline flag on missing codes); auto-derived on budget upload. Prime Contract carries none (v2.2)|
 |Import support|Not specified|Budget upload: Excel/CSV/PDF → review → import (CSV parsed for real; Excel/PDF demo fallback). P6/MPP reserved for schedule|
