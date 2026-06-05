@@ -543,7 +543,7 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
     const hoverMenuRef = useRef<HTMLDivElement>(null);
     const bookmarksMenuRef = useRef<HTMLDivElement>(null);
     const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-    const { activeViewMode, activeView, financialSetupStep } = useProject();
+    const { activeViewMode, activeView, financialSetupStep, handleViewModeChange, navigateToSetupStep } = useProject();
     const { isHeaderLocked, headerTooltip } = useFinancialGating();
     const { bookmarks, toggleBookmark, getBookmarkItems } = useBookmarks();
 
@@ -654,12 +654,18 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
                     setActiveCategoryKey(categoryKey as StandardCategoryKey);
                     setActiveSubcategoryKey(subcategoryKey);
                     onSelectionChange(`${category.title} / ${subcategory.label}`);
+
+                    // Finance → Configure / Contract jump straight to the financial setup UI (Step 1).
+                    if (categoryKey === 'finance' && (subcategoryKey === 'configure' || subcategoryKey === 'contract')) {
+                        handleViewModeChange('spreadsheetV4');
+                        navigateToSetupStep(1);
+                    }
                 }
             }
         }
         setMenuVisible(false);
         setBookmarksMenuVisible(false);
-    }, [navigationData, onSelectionChange, financialSetupStep]);
+    }, [navigationData, onSelectionChange, financialSetupStep, handleViewModeChange, navigateToSetupStep]);
 
     // Expose bookmarks data to parent for v2 sidebar integration
     useEffect(() => {

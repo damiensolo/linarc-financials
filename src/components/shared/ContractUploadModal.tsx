@@ -18,15 +18,13 @@ import {
   PRIME_CONTRACT_SHEET_ID,
   createEmptyPrimeContractSheet,
 } from '../../lib/financialWorkflow';
-import type { ContractData } from '../../types';
 import { V3Sheet, V3Row } from '../views/spreadsheetV4/types';
 import { uid } from '../views/spreadsheetV4/SpreadsheetViewV4';
 
 // Set up PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
-type ModalStep = 'method' | 'upload' | 'processing' | 'review' | 'manual-entry';
-type EntryMethod = 'file' | 'manual' | null;
+type ModalStep = 'upload' | 'processing' | 'review';
 
 // Fallback demo values
 const DEMO_CONTRACT = {
@@ -61,7 +59,6 @@ const ContractUploadModal: React.FC = () => {
   const { isContractUploadOpen, setIsContractUploadOpen, contractData, setContractData, updateView, activeView, setFinancialSetupStep, setContractLocked, setPrimeContractSetupPhase } = useProject();
 
   const [step, setStep] = useState<ModalStep>('upload');
-  const [entryMethod, setEntryMethod] = useState<EntryMethod>('file');
   const [dragActive, setDragActive] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [scanLines, setScanLines] = useState<string[]>([]);
@@ -76,19 +73,12 @@ const ContractUploadModal: React.FC = () => {
   const [reviewContractSum, setReviewContractSum] = useState<number | null>(null);
   const [extractionMethod, setExtractionMethod] = useState<'parsed' | 'fallback'>('fallback');
 
-  // Manual entry state
-  const [manualConstructionStart, setManualConstructionStart] = useState<Date | undefined>(undefined);
-  const [manualConstructionEnd, setManualConstructionEnd] = useState<Date | undefined>(undefined);
-  const [manualDateExecuted, setManualDateExecuted] = useState<Date | undefined>(undefined);
-  const [manualContractSum, setManualContractSum] = useState<string>('');
-
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleClose = () => {
     setIsContractUploadOpen(false);
     // Reset modal state
     setStep('upload');
-    setEntryMethod('file');
     setDragActive(false);
     setUploadedFile(null);
     setScanLines([]);
@@ -96,10 +86,6 @@ const ContractUploadModal: React.FC = () => {
     setRawContractText('');
     setReviewData(null);
     setReviewContractSum(null);
-    setManualConstructionStart(undefined);
-    setManualConstructionEnd(undefined);
-    setManualDateExecuted(undefined);
-    setManualContractSum('');
   };
 
   const SCAN_MESSAGES = [
@@ -275,34 +261,6 @@ const ContractUploadModal: React.FC = () => {
     handleClose();
   };
 
-  const handleManualEntryConfirm = () => {
-    const contractSum = manualContractSum ? parseFloat(manualContractSum.replace(/[^0-9.]/g, '')) : null;
-
-    setContractData({
-      executedDate:     manualDateExecuted ?? null,
-      startDate:        manualConstructionStart ?? null,
-      endDate:          manualConstructionEnd ?? null,
-      finalCompletion:  manualConstructionEnd ?? null,
-      contractSum:      contractSum,
-      owner:            'Owner',
-      contractor:       'Contractor',
-      projectName:      'Project',
-      fileName:         'Manual Entry',
-      uploadedAt:       new Date().toISOString(),
-      extractionMethod: 'manual',
-    } as ContractData);
-
-    updateView({
-      v3Sheets: [createEmptyPrimeContractSheet()],
-      v3ActiveSheetId: PRIME_CONTRACT_SHEET_ID,
-    });
-
-    setContractLocked(false);
-    setPrimeContractSetupPhase('review');
-    setFinancialSetupStep(2);
-    handleClose();
-  };
-
   return createPortal(
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <motion.div
@@ -360,24 +318,6 @@ const ContractUploadModal: React.FC = () => {
                   />
                 </div>
 
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-gray-300" />
-                  </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-white px-2 text-gray-500 font-medium">Or</span>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => {
-                    setEntryMethod('manual');
-                    setStep('manual-entry');
-                  }}
-                  className="w-full px-4 py-3 text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-                >
-                  Enter Contract Details Manually
-                </button>
               </div>
 
             </motion.div>
@@ -543,90 +483,6 @@ const ContractUploadModal: React.FC = () => {
             </motion.div>
           )}
 
-          {/* Manual Entry Step */}
-          {step === 'manual-entry' && (
-            <motion.div
-              key="manual-entry"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              transition={{ duration: 0.2 }}
-              className="flex flex-col h-full"
-            >
-              <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">Enter Contract Details</h2>
-                <button
-                  onClick={handleClose}
-                  className="text-gray-400 hover:text-gray-600 transition-colors p-1"
-                >
-                  <XIcon className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-                <div>
-                  <label className="text-[11px] font-semibold text-gray-600 uppercase tracking-wide block mb-1">
-                    Construction Start
-                  </label>
-                  <DatePicker date={manualConstructionStart} setDate={setManualConstructionStart} />
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-semibold text-gray-600 uppercase tracking-wide block mb-1">
-                    Construction End
-                  </label>
-                  <DatePicker date={manualConstructionEnd} setDate={setManualConstructionEnd} />
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-semibold text-gray-600 uppercase tracking-wide block mb-1">
-                    Date Executed
-                  </label>
-                  <DatePicker date={manualDateExecuted} setDate={setManualDateExecuted} />
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-semibold text-gray-600 uppercase tracking-wide block mb-1">
-                    Contract Sum
-                  </label>
-                  <input
-                    type="text"
-                    value={manualContractSum}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/[^0-9.]/g, '');
-                      setManualContractSum(value);
-                    }}
-                    placeholder="0.00"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-200">
-                <button
-                  onClick={() => {
-                    setStep('upload');
-                    setEntryMethod('file');
-                  }}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  Back
-                </button>
-                <button
-                  onClick={handleClose}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleManualEntryConfirm}
-                  className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors active:scale-95"
-                >
-                  Confirm & Proceed
-                </button>
-              </div>
-            </motion.div>
-          )}
         </AnimatePresence>
       </motion.div>
     </div>,
