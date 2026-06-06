@@ -57,13 +57,6 @@ const StepDetailCard: React.FC = () => {
     );
   }
 
-  const ScreenHeader: React.FC<{ title: string; subtitle: string }> = ({ title, subtitle }) => (
-    <div className="px-4 py-3 border-b border-gray-200 bg-white flex-shrink-0">
-      <h2 className="text-base font-semibold text-gray-900">{title}</h2>
-      <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>
-    </div>
-  );
-
   const renderStepContent = () => {
     switch (financialSetupStep) {
       case 1:
@@ -106,10 +99,6 @@ const StepDetailCard: React.FC = () => {
         }
         return (
           <div className="w-full h-full flex flex-col min-h-0">
-            <ScreenHeader
-              title="Schedule Linking & Allocation"
-              subtitle="Allocate each committed budget line across schedule tasks by cost code, then review the cost-loaded forecast."
-            />
             <div className="flex-1 min-h-0">
               <BudgetScheduleLinker />
             </div>
@@ -126,10 +115,6 @@ const StepDetailCard: React.FC = () => {
         }
         return (
           <div className="w-full h-full flex flex-col min-h-0">
-            <ScreenHeader
-              title="Schedule of Values (SOV)"
-              subtitle="Draft SOV lines are created from each committed budget line. They stay in draft until you publish."
-            />
             <div className="flex-1 min-h-0">
               <SOVMappingGrid />
             </div>

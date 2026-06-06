@@ -189,6 +189,10 @@ const FinancialSetupActionBar: React.FC = () => {
     return (
       <div className="flex items-center justify-between gap-4 px-6 py-3 border-b border-gray-200 bg-gray-50 flex-shrink-0">
         <p className="text-sm text-gray-600 truncate min-w-0">
+          <span className="text-base font-semibold text-gray-900">
+            {isSov ? 'Schedule of Values' : 'Schedule Linking & Allocation'}
+          </span>
+          {' — '}
           {isSov
             ? 'Review the draft Schedule of Values, then publish.'
             : 'Allocate committed lines across the schedule, then review the SOV.'}

@@ -1,6 +1,6 @@
 **
 
-# PRD & UX Spec: Progressive Financial Workflow (v2.3)
+# PRD & UX Spec: Progressive Financial Workflow (v2.4)
 
 Revision Note (v2): This revision replaces the rigid lock-everything-before-you-move-forward model with a progressive, draft-friendly workflow. Budget work can now begin as soon as a Prime Contract Value exists (uploaded or manually entered), and commitment happens at the line-item level rather than at the budget level. This matches how General Contractors actually work during buyout — building budget detail in parallel with vendor negotiation, partial information, and pending confirmations.
 
@@ -33,6 +33,16 @@ Revision Note (v2.3 — operations, read-only views & nav alignment): Documents 
 7. **Navigation entry points.** The Finance mega-menu **Contract** and **Configure** links jump straight to Step 1. The left sidebar has an **Allocate** item (directly below Budget) that opens Schedule Linking & Allocation; it stays disabled until at least one line is committed, matching the other tool gates. All financial tables render inside the standard bordered card container used by the rest of the app.
 
 8. **Per-Line Approval Workflow is a select.** Step 1 replaces the prior on/off toggle + GC/PE/Owner role checkboxes with a single dropdown of preconfigured approval workflows (from the platform workflow engine; dummy chains in the prototype). Selecting a chain enables per-line approval; "No approval required" disables it. Stored as `approvalWorkflowId`. Form controls use the standard styled dropdown (blue accent, no orange).
+
+Revision Note (v2.4 — allocation timeline & visual calm): Documents UI refinements to the **Schedule Linking & Allocation** screen (June 2026):
+
+1. **Mini-gantt timeline in allocation cards.** Each committed line's cost-code-matched tasks render as horizontal duration bars on a card-local time axis (the group's earliest start → latest end), in both the read-only expanded line and the manual split editor. Bar colour encodes allocation: **blue = allocated** (saturation scales with the task's share of the line total), **grey = unallocated**. A month-tick header with ALL-CAPS month labels, faint vertical month gridlines, and subtle row dividers provide time orientation; hovering a bar shows its dates. In the split editor the bars sit beside the existing checkbox / task / date / amount controls and recolour live as amounts change. No charting dependency — inline positioned bars.
+
+2. **Calmer allocation palette.** Saturation is reserved for primary actions. Gantt bars use a soft blue so they read as data rather than buttons; status chips are flattened (Linked green-50/700, Level-of-effort purple-50/700, Needs-review amber-50/700); the **Draft** chip is neutral gray (freeing blue for CTAs); the coverage progress bar is softened to emerald. The Confirm buttons remain the most saturated elements on screen.
+
+3. **Blue focus rings.** Allocation inputs, selects, and checkboxes use the app-standard blue focus ring (replacing the browser-default orange).
+
+4. **Consolidated step header.** The separate in-card screen header (title + long subtitle) on Steps 4 and 5 is removed. The step title now leads the top action bar inline with its one-line description — e.g., "**Schedule Linking & Allocation** — Allocate committed lines across the schedule, then review the SOV." — reclaiming vertical space for the table.
 
 Implementation status: SpreadsheetV4 is the canonical financial setup surface. Steps 1–5, cross-cutting approval/change-order stubs, localStorage persistence, and readiness gating are implemented as a frontend prototype (mock extraction for both contract and budget uploads, mock approvals). Budget upload parses CSV by header for real; Excel/PDF and unparseable files fall back to a demo budget.
 
@@ -465,7 +475,7 @@ Behavior:
 
 - Both steps become available once at least one budget line is committed. Only Committed budget lines are eligible; Open and Pending lines are shown as "not yet available."
     
-- **Step 4 — Schedule Linking & Allocation:** each committed line is matched to schedule tasks by cost code and its budget allocated across them. Each line displays its **assigned Subcontractor** (chip) alongside the description and cost code. Methods: split by planned hours / split equally / manual split editor; a "Link all" bulk action applies cost-code suggestions. A Lines / Forecast toggle shows the cost-loaded forecast (CashFlowPreview).
+- **Step 4 — Schedule Linking & Allocation:** each committed line is matched to schedule tasks by cost code and its budget allocated across them. Each line displays its **assigned Subcontractor** (chip) alongside the description and cost code. Methods: split by planned hours / split equally / manual split editor; a "Link all" bulk action applies cost-code suggestions. A Lines / Forecast toggle shows the cost-loaded forecast (CashFlowPreview). Allocations are visualized as a **mini-gantt** (v2.4): each matched task is a duration bar on a card-local timeline — **blue when allocated** (intensity by share), **grey when not** — shown in both the expanded line and the manual split editor.
     
 - **Step 5 — Schedule of Values:** a draft SOV line is generated per committed budget line and stays draft until Publish. Columns: **SOV Line Item · Budget Line Item · Quantity · UOM · Total Budget · Status** (Cost Code and Location are intentionally not shown). "Map all" bulk action; manual SOV lines can be added.
     
@@ -677,9 +687,11 @@ The default workspace until Publish SOV activates the project.
 
 Available as soon as any budget line is Committed. Realized as two sequential steps in the tracker.
 
-- **Step 4 — Schedule Linking & Allocation:** Per-line allocation of committed rows across cost-code-matched schedule tasks; each line shows its assigned Subcontractor. Bulk "Link all"; Lines / Forecast toggle.
+- **Step 4 — Schedule Linking & Allocation:** Per-line allocation of committed rows across cost-code-matched schedule tasks; each line shows its assigned Subcontractor. Bulk "Link all"; Lines / Forecast toggle. Matched tasks render as a **mini-gantt** (blue allocated / grey unallocated) in the expanded line and the split editor.
     
 - **Step 5 — Schedule of Values:** Draft SOV lines (SOV Line Item · Budget Line Item · Quantity · UOM · Total Budget · Status); bulk "Map all"; manual SOV lines.
+    
+- **Header (v2.4):** Steps 4–5 have no separate in-card title block; the step title leads the top action bar inline with its one-line description (e.g., "**Schedule Linking & Allocation** — Allocate committed lines across the schedule, then review the SOV."), and the table fills the card below.
     
 - Open/Pending lines shown as not yet eligible.
     
@@ -714,6 +726,10 @@ After Publish SOV, the finance module is navigated via the left sidebar; the cen
 - Committed Line (read-only): A Committed line is not editable and shows a "Committed" indicator. There is no change-order control in the budget table.
     
 - Schedule Linking subcontractor (v2.3): Each committed line in Schedule Linking & Allocation shows its assigned subcontractor as a chip (with a people icon) next to the description and cost code.
+    
+- Allocation mini-gantt (v2.4): In Schedule Linking & Allocation, each committed line's cost-code-matched tasks render as horizontal duration bars on a card-local timeline (group's earliest start → latest end). Bars are **blue when allocated** (saturation scales with the task's share of the line) and **grey when unallocated**; a month-tick header with ALL-CAPS labels, faint month gridlines, and subtle row dividers give orientation, and hovering a bar shows its dates. The same bars appear in the manual split editor beside the checkbox / task / date / amount controls and recolour live as amounts change.
+    
+- Allocation palette & focus (v2.4): The allocation screen reserves saturated colour for primary actions — gantt bars use a soft blue; status chips are flattened (Linked green-50/700, Level-of-effort purple-50/700, Needs-review amber-50/700); the Draft chip is neutral gray; the coverage progress bar is emerald; the Confirm buttons stay the most saturated elements. All inputs / selects / checkboxes use the app-standard blue focus ring (no orange).
     
 - Read-only Prime Contract LOCKED badge (v2.3): Post-activation, the Prime Contract view shows a **LOCKED** pill on the right of the section header, in line with the "Prime Contract" title; the in-table OPEN/LOCKED status pill is suppressed in this state to avoid duplication.
     
@@ -771,6 +787,7 @@ For engineering and design reviewing the diff:
 |Budget commit model|Whole budget locked at once|Per-line commit; optional bulk "Lock Budget" preserved|
 |Line edit after commit|Direct edits allowed before lock; blocked after|Direct edits blocked once committed; line is read-only (no change-order control in the budget table) (v2.2)|
 |SOV & Schedule|Phase-gated; required full budget lock|Per committed line; sequential **Step 4 Schedule Linking & Allocation → Step 5 Schedule of Values**. SOV columns trimmed (no Cost Code / Location); Schedule Linking shows assigned subcontractor (v2.3)|
+|Allocation view|Plain link/amount list|Per-line **mini-gantt** timeline (blue allocated / grey unallocated) in the expanded line and split editor; calmer palette reserving saturation for CTAs; step title moved into the top action bar (v2.4)|
 |Subcontractor on commit|n/a|Required **Subcontractor** dropdown (invited subs) right of Description; blocks per-line commit and bulk Lock Budget until set (v2.3)|
 |Publish SOV|Final step gate for activation|Preserved as final handover anchor (Step 6); checks link to Steps 4/5|
 |Post-activation|Single locked spreadsheet|Read-only section views (Prime Contract / Budget / SOV) + Allocate workspace via sidebar; Financial Operations Hub is a waypoint with cards that deep-link to tools (v2.3)|

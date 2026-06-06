@@ -35,6 +35,128 @@ function dateRange(tasks: ScheduleTask[]): string {
   return `${fmtDate(starts[0])} – ${fmtDate(ends[ends.length - 1])}`;
 }
 
+// ── Mini-gantt (Concept A: inline task bars) ───────────────────────────────
+const DAY = 86_400_000;
+const toTime = (iso: string) => new Date(iso + 'T00:00:00').getTime();
+
+// Card-local time domain spanning the group's earliest start to latest end.
+function timelineDomain(tasks: ScheduleTask[]): { start: number; end: number } | null {
+  if (tasks.length === 0) return null;
+  let start = Infinity;
+  let end = -Infinity;
+  for (const t of tasks) {
+    start = Math.min(start, toTime(t.planStart));
+    end = Math.max(end, toTime(t.planEnd));
+  }
+  if (!isFinite(start) || !isFinite(end)) return null;
+  if (end <= start) end = start + 7 * DAY; // pad zero/negative spans so bars render
+  return { start, end };
+}
+
+// Month-boundary tick marks strictly inside (start, end), as % offsets.
+function monthTicks(start: number, end: number): { pct: number; label: string }[] {
+  const span = end - start;
+  const ticks: { pct: number; label: string }[] = [];
+  const d = new Date(start);
+  d.setDate(1);
+  d.setMonth(d.getMonth() + 1);
+  while (d.getTime() < end) {
+    ticks.push({
+      pct: ((d.getTime() - start) / span) * 100,
+      label: d.toLocaleDateString('en-US', { month: 'short' }),
+    });
+    d.setMonth(d.getMonth() + 1);
+  }
+  return ticks;
+}
+
+// Shared bar track: faint month gridlines + one duration bar.
+// Allocated → blue (saturation scales with the $ share); unallocated → grey.
+const GanttTrack: React.FC<{
+  start: number;
+  span: number;
+  ticks: { pct: number; label: string }[];
+  task: ScheduleTask;
+  allocated: number;
+  intensity: number;
+}> = ({ start, span, ticks, task, allocated, intensity }) => {
+  const left = ((toTime(task.planStart) - start) / span) * 100;
+  const width = Math.max(((toTime(task.planEnd) - toTime(task.planStart)) / span) * 100, 1.5);
+  return (
+    <div className="flex-[2] relative self-stretch min-h-[20px]" title={`${fmtDate(task.planStart)} – ${fmtDate(task.planEnd)}`}>
+      {ticks.map((t) => (
+        <div key={t.pct} className="absolute inset-y-0 w-px bg-gray-100" style={{ left: `${t.pct}%` }} />
+      ))}
+      <div
+        className="absolute top-1/2 -translate-y-1/2 h-3 rounded-sm transition-colors"
+        style={{
+          left: `${left}%`,
+          width: `${width}%`,
+          backgroundColor:
+            allocated > 0 ? `rgba(96, 165, 250, ${0.3 + 0.4 * intensity})` : 'rgba(148, 163, 184, 0.25)',
+        }}
+      />
+    </div>
+  );
+};
+
+// Month-label header that lines up over a GanttTrack column.
+const TimelineMonths: React.FC<{ ticks: { pct: number; label: string }[] }> = ({ ticks }) => (
+  <div className="flex-[2] relative h-3">
+    {ticks.map((t) => (
+      <span
+        key={`${t.label}-${t.pct}`}
+        className="absolute top-0 -translate-x-1/2 text-[10px] font-semibold uppercase tracking-wide text-gray-600"
+        style={{ left: `${t.pct}%` }}
+      >
+        {t.label}
+      </span>
+    ))}
+  </div>
+);
+
+const AllocationTimeline: React.FC<{
+  tasks: ScheduleTask[];
+  allocByTask: Map<string, number>;
+}> = ({ tasks, allocByTask }) => {
+  const domain = timelineDomain(tasks);
+  if (!domain) return null;
+  const { start, end } = domain;
+  const span = end - start;
+  const ticks = monthTicks(start, end);
+  const maxAlloc = tasks.reduce((m, t) => Math.max(m, allocByTask.get(t.id) ?? 0), 0);
+
+  return (
+    <div className="border-t border-gray-100">
+      <div className="flex items-center gap-3 px-3 py-1.5 bg-gray-50 border-b border-gray-100">
+        <span className="flex-1 min-w-0 text-[10px] font-semibold uppercase tracking-wide text-gray-600">Task</span>
+        <TimelineMonths ticks={ticks} />
+        <span className="w-24 text-right text-[10px] font-semibold uppercase tracking-wide text-gray-600">Allocated</span>
+      </div>
+
+      {tasks.map((task) => {
+        const alloc = allocByTask.get(task.id) ?? 0;
+        return (
+          <div key={task.id} className="flex items-stretch gap-3 px-3 py-1.5 border-b border-gray-100 last:border-b-0 text-sm">
+            <span className="flex-1 min-w-0 self-center truncate text-gray-700">{task.name}</span>
+            <GanttTrack
+              start={start}
+              span={span}
+              ticks={ticks}
+              task={task}
+              allocated={alloc}
+              intensity={maxAlloc > 0 ? alloc / maxAlloc : 0}
+            />
+            <span className="font-mono text-gray-900 w-24 text-right self-center flex-shrink-0">
+              ${formatCurrency(alloc)}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 interface RowProps {
   row: V3Row;
   link: BudgetScheduleLink | undefined;
@@ -87,6 +209,13 @@ const LinkRow: React.FC<RowProps> = ({ row, link, tasks, siblings }) => {
   const editingRemaining = round2(amount - editingTotal);
   const canSave = Math.abs(editingRemaining) <= 0.01 && included.size > 0;
 
+  // Timeline for the split editor — domain over the whole group so the axis is
+  // stable as tasks toggle; bar colour tracks the live input value.
+  const editDomain = timelineDomain(group);
+  const editTicks = editDomain ? monthTicks(editDomain.start, editDomain.end) : [];
+  const editAmt = (t: ScheduleTask) => (included.has(t.id) ? parseFloat(amounts[t.id]) || 0 : 0);
+  const maxEditAmt = group.reduce((m, t) => Math.max(m, editAmt(t)), 0);
+
   const applyAmounts = (allocs: ScheduleAllocation[]) => {
     const next: Record<string, string> = { ...amounts };
     group.forEach((t) => (next[t.id] = '0'));
@@ -129,19 +258,19 @@ const LinkRow: React.FC<RowProps> = ({ row, link, tasks, siblings }) => {
   const hasUnitSplit = group.some(isUnitTask) && group.some((t) => !isUnitTask(t));
 
   const statusChip = isConfirmed ? (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-green-50 text-green-700">
       <Link2 size={11} /> Linked
     </span>
   ) : isLoe ? (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-purple-50 text-purple-700">
       <Clock size={11} /> Level of effort
     </span>
   ) : isReview ? (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-amber-50 text-amber-700">
       <AlertTriangle size={11} /> Needs review
     </span>
   ) : (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
       Draft
     </span>
   );
@@ -224,7 +353,7 @@ const LinkRow: React.FC<RowProps> = ({ row, link, tasks, siblings }) => {
                 <select
                   value={link?.method === 'equal' ? 'equal' : 'by_hours'}
                   onChange={(e) => setScheduleLinkMethod(row.id, e.target.value as 'by_hours' | 'equal')}
-                  className="text-xs border border-gray-300 rounded px-2 py-1 bg-white"
+                  className="text-xs border border-gray-300 rounded px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="by_hours">Split by planned hours</option>
                   <option value="equal">Split equally</option>
@@ -280,22 +409,45 @@ const LinkRow: React.FC<RowProps> = ({ row, link, tasks, siblings }) => {
             <button type="button" onClick={distributeRemaining} className="text-xs px-2 py-1 rounded border border-gray-300 bg-white hover:bg-gray-50">Distribute remaining</button>
           </div>
 
+          {editDomain && (
+            <div className="flex items-center gap-3 px-3 py-1.5 bg-gray-50 border-b border-gray-100">
+              <span className="w-3.5 flex-shrink-0" />
+              <span className="flex-1 min-w-0 text-[10px] font-semibold uppercase tracking-wide text-gray-600">Task</span>
+              <TimelineMonths ticks={editTicks} />
+              <span className="w-24 text-[10px] font-semibold uppercase tracking-wide text-gray-600 flex-shrink-0">Dates</span>
+              <span className="w-28 text-right text-[10px] font-semibold uppercase tracking-wide text-gray-600 flex-shrink-0">Amount</span>
+            </div>
+          )}
+
           <div className="max-h-72 overflow-auto">
             {group.map((task) => {
               const inc = included.has(task.id);
+              const amt = editAmt(task);
               return (
-                <div key={task.id} className={`flex items-center gap-3 px-3 py-1.5 border-b border-gray-50 last:border-b-0 text-sm ${inc ? '' : 'opacity-40'}`}>
-                  <input type="checkbox" checked={inc} onChange={() => toggleInclude(task.id)} className="flex-shrink-0" />
-                  <span className="flex-1 min-w-0 truncate text-gray-700">{task.name}</span>
-                  <span className="text-xs text-gray-400 flex-shrink-0">{fmtDate(task.planStart)} – {fmtDate(task.planEnd)}</span>
-                  <div className="flex items-center gap-1 flex-shrink-0">
+                <div key={task.id} className={`flex items-stretch gap-3 px-3 py-1.5 border-b border-gray-100 last:border-b-0 text-sm ${inc ? '' : 'opacity-40'}`}>
+                  <input type="checkbox" checked={inc} onChange={() => toggleInclude(task.id)} className="w-3.5 self-center flex-shrink-0 accent-blue-600" />
+                  <span className="flex-1 min-w-0 self-center truncate text-gray-700">{task.name}</span>
+                  {editDomain ? (
+                    <GanttTrack
+                      start={editDomain.start}
+                      span={editDomain.end - editDomain.start}
+                      ticks={editTicks}
+                      task={task}
+                      allocated={amt}
+                      intensity={maxEditAmt > 0 ? amt / maxEditAmt : 0}
+                    />
+                  ) : (
+                    <span className="flex-[2]" />
+                  )}
+                  <span className="w-24 self-center text-xs text-gray-400 flex-shrink-0 whitespace-nowrap">{fmtDate(task.planStart)} – {fmtDate(task.planEnd)}</span>
+                  <div className="flex items-center gap-1 self-center flex-shrink-0 w-28 justify-end">
                     <span className="text-gray-400 text-xs">$</span>
                     <input
                       type="number"
                       value={amounts[task.id] ?? ''}
                       disabled={!inc}
                       onChange={(e) => setAmounts((prev) => ({ ...prev, [task.id]: e.target.value }))}
-                      className="w-24 text-right font-mono text-sm border border-gray-300 rounded px-1.5 py-0.5 disabled:bg-gray-100"
+                      className="w-24 text-right font-mono text-sm border border-gray-300 rounded px-1.5 py-0.5 disabled:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
                 </div>
@@ -318,19 +470,9 @@ const LinkRow: React.FC<RowProps> = ({ row, link, tasks, siblings }) => {
         </div>
       )}
 
-      {/* Read-only allocations */}
+      {/* Read-only allocations — inline mini-gantt */}
       {expanded && !editing && !isLoe && group.length > 0 && (
-        <div className="border-t border-gray-100">
-          {group.map((task) => (
-            <div key={task.id} className="flex items-center gap-3 px-3 py-1.5 border-b border-gray-50 last:border-b-0 text-sm">
-              <span className="flex-1 min-w-0 truncate text-gray-700">{task.name}</span>
-              <span className="text-xs text-gray-400 flex-shrink-0">{fmtDate(task.planStart)} – {fmtDate(task.planEnd)}</span>
-              <span className="font-mono text-gray-900 w-24 text-right flex-shrink-0">
-                ${formatCurrency(allocByTask.get(task.id) ?? 0)}
-              </span>
-            </div>
-          ))}
-        </div>
+        <AllocationTimeline tasks={group} allocByTask={allocByTask} />
       )}
     </div>
   );
@@ -432,7 +574,7 @@ const BudgetScheduleLinker: React.FC = () => {
           </div>
         </div>
         <div className="h-2 rounded-full bg-gray-200 overflow-hidden">
-          <div className="h-full bg-green-500 transition-all" style={{ width: `${pct}%` }} />
+          <div className="h-full bg-emerald-400 transition-all" style={{ width: `${pct}%` }} />
         </div>
       </div>
 
