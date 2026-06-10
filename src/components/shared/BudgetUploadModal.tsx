@@ -137,14 +137,14 @@ const BudgetUploadModal: React.FC = () => {
     });
     updateBudgetRows([...existing, ...createBudgetRowsFromExtractedLines(reviewLines)]);
     setBudgetSetupPhase('grid');
-    setFinancialSetupStep(3);
+    setFinancialSetupStep(2);
     handleClose();
   };
 
   const handleEnterManually = () => {
     initializeBlankBudget();
     setBudgetSetupPhase('grid');
-    setFinancialSetupStep(3);
+    setFinancialSetupStep(2);
     handleClose();
   };
 

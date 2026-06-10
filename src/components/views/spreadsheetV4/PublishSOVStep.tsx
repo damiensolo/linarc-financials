@@ -68,24 +68,24 @@ const PublishSOVStep: React.FC = () => {
             <span className={`text-sm ${check.met ? 'text-green-900' : 'text-amber-900'}`}>
               {check.label}
             </span>
+            {!check.met && check.actionStep === 1 && (
+              <span className="block text-xs text-amber-700 mt-1">
+                Opens Step 1 — lock Prime Contract as baseline
+              </span>
+            )}
             {!check.met && check.actionStep === 2 && (
               <span className="block text-xs text-amber-700 mt-1">
-                Opens Step 2 — lock Prime Contract as baseline
+                Opens Step 2 — commit or lock all budget lines
               </span>
             )}
             {!check.met && check.actionStep === 3 && (
               <span className="block text-xs text-amber-700 mt-1">
-                Opens Step 3 — commit or lock all budget lines
+                Opens Step 3 — Schedule Linking & Allocation
               </span>
             )}
             {!check.met && check.actionStep === 4 && (
               <span className="block text-xs text-amber-700 mt-1">
                 Opens Step 4 — Schedule of Values
-              </span>
-            )}
-            {!check.met && check.actionStep === 5 && (
-              <span className="block text-xs text-amber-700 mt-1">
-                Opens Step 5 — Schedule Linking & Allocation
               </span>
             )}
           </button>

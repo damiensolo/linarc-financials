@@ -240,7 +240,7 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [views, setViews] = useState<View[]>([]);
   const [activeViewId, setActiveViewId] = useState<string | null>(null);
   const [defaultViewId, setDefaultViewId] = useState<string>('');
-  // Default to the financial setup surface so the app opens on Step 1 (Preliminary Configuration).
+  // Default to the financial setup surface so the app opens on Step 1 (Prime Contract).
   const [activeViewMode, setActiveViewMode] = useState<ViewMode>('spreadsheetV4');
   const [transientView, setTransientView] = useState<View | null>(null);
   
@@ -301,7 +301,7 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
       setContractData(reviveContractDates(saved.contractData as Record<string, unknown>) as ContractData);
     }
     if (typeof saved.contractLocked === 'boolean') setContractLocked(saved.contractLocked);
-    if (saved.financialSetupStep && saved.financialSetupStep >= 1 && saved.financialSetupStep <= 6) {
+    if (saved.financialSetupStep && saved.financialSetupStep >= 1 && saved.financialSetupStep <= 5) {
       setFinancialSetupStep(saved.financialSetupStep as FinancialSetupStep);
     }
     if (saved.activationState) setActivationState(saved.activationState as FinancialActivationState);
@@ -1001,7 +1001,7 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     setSovMappings((prev) => prev.map((m) => ({ ...m, status: 'confirmed' as const })));
     setSovPublished(true);
     setActivationState('activated');
-    setFinancialSetupStep(6);
+    setFinancialSetupStep(5);
     setHubCollapsed(true);
     return true;
   }, [contractLocked, sovMappings, budgetScheduleLinks, approvalQueue]);

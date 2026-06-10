@@ -46,8 +46,8 @@ const FinancialSetupActionBar: React.FC = () => {
   } = useProject();
 
   const showContractActions =
-    financialSetupStep === 2 && primeContractSetupPhase === 'review' && contractData;
-  const showBudgetActions = financialSetupStep === 3;
+    financialSetupStep === 1 && primeContractSetupPhase === 'review' && contractData;
+  const showBudgetActions = financialSetupStep === 2;
 
   const openLinesMissingCostCode = useMemo(
     () => countOpenRowsMissingCostCode(budgetRows),
@@ -142,7 +142,7 @@ const FinancialSetupActionBar: React.FC = () => {
                   <span className="inline-flex">
                     <button
                       type="button"
-                      onClick={() => navigateToSetupStep(4)}
+                      onClick={() => navigateToSetupStep(3)}
                       disabled={!canContinueToOps}
                       className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
                     >
@@ -184,8 +184,8 @@ const FinancialSetupActionBar: React.FC = () => {
     );
   }
 
-  if (financialSetupStep === 4 || financialSetupStep === 5) {
-    const isSov = financialSetupStep === 5;
+  if (financialSetupStep === 3 || financialSetupStep === 4) {
+    const isSov = financialSetupStep === 4;
     return (
       <div className="flex items-center justify-between gap-4 px-6 py-3 border-b border-gray-200 bg-gray-50 flex-shrink-0">
         <p className="text-sm text-gray-600 truncate min-w-0">
@@ -199,7 +199,7 @@ const FinancialSetupActionBar: React.FC = () => {
         </p>
         <button
           type="button"
-          onClick={() => setFinancialSetupStep(isSov ? 6 : 5)}
+          onClick={() => setFinancialSetupStep(isSov ? 5 : 4)}
           className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 flex-shrink-0"
         >
           {isSov ? 'Continue to Publish SOV' : 'Continue to Schedule of Values'}
@@ -282,7 +282,7 @@ const FinancialSetupActionBar: React.FC = () => {
                 <span className="inline-flex">
                   <button
                     type="button"
-                    onClick={() => setFinancialSetupStep(3)}
+                    onClick={() => setFinancialSetupStep(2)}
                     disabled={!hasPcValue}
                     className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
                   >

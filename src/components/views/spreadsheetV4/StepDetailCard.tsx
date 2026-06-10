@@ -1,6 +1,5 @@
 import React from 'react';
 import { useProject } from '../../../context/ProjectContext';
-import FinancialConfigStep from './FinancialConfigStep';
 import ContractReviewLockScreen from './ContractReviewLockScreen';
 import PrimeContractChoiceStep from './PrimeContractChoiceStep';
 import BudgetChoiceStep from './BudgetChoiceStep';
@@ -44,12 +43,12 @@ const StepDetailCard: React.FC = () => {
     publishRemaining: publishReadiness.filter((c) => !c.met).length,
   });
 
-  // Step 3 shows a choice screen (Upload | Manual) until a budget exists, then
+  // Step 2 shows a choice screen (Upload | Manual) until a budget exists, then
   // the full-height grid. Mirrors the Prime Contract choose → review phasing.
   const budgetShowsGrid =
     canAccessBudget && (budgetSetupPhase === 'grid' || !isBudgetSheetEmpty(budgetRows));
 
-  if (activationState === 'activated' && financialSetupStep === 6) {
+  if (activationState === 'activated' && financialSetupStep === 5) {
     return (
       <div className="w-full h-full flex flex-col items-center justify-center p-6">
         <FinancialOpsHub />
@@ -60,9 +59,6 @@ const StepDetailCard: React.FC = () => {
   const renderStepContent = () => {
     switch (financialSetupStep) {
       case 1:
-        return <FinancialConfigStep />;
-
-      case 2:
         if (primeContractSetupPhase === 'review' && contractData) {
           return (
             <div className="w-full h-full flex flex-col min-h-0">
@@ -72,11 +68,11 @@ const StepDetailCard: React.FC = () => {
         }
         return <PrimeContractChoiceStep />;
 
-      case 3:
+      case 2:
         if (!canAccessBudget) {
           return (
             <div className="max-w-md text-center text-gray-600">
-              Enter a Prime Contract Value in Step 2 to unlock budget setup.
+              Enter a Prime Contract Value in Step 1 to unlock budget setup.
             </div>
           );
         }
@@ -89,11 +85,11 @@ const StepDetailCard: React.FC = () => {
           </div>
         );
 
-      case 4:
+      case 3:
         if (!canAccessOperations) {
           return (
             <div className="max-w-md text-center text-gray-600">
-              Commit at least one budget line in Step 3 to link and allocate the schedule.
+              Commit at least one budget line in Step 2 to link and allocate the schedule.
             </div>
           );
         }
@@ -105,11 +101,11 @@ const StepDetailCard: React.FC = () => {
           </div>
         );
 
-      case 5:
+      case 4:
         if (!canAccessOperations) {
           return (
             <div className="max-w-md text-center text-gray-600">
-              Commit at least one budget line in Step 3 to build the Schedule of Values.
+              Commit at least one budget line in Step 2 to build the Schedule of Values.
             </div>
           );
         }
@@ -121,7 +117,7 @@ const StepDetailCard: React.FC = () => {
           </div>
         );
 
-      case 6:
+      case 5:
         return (
           <div className="w-full h-full flex flex-col items-center justify-center p-6">
             <WorkflowMessageBanner message={message} />
@@ -137,10 +133,10 @@ const StepDetailCard: React.FC = () => {
   // Full-height table steps (Prime Contract review, Budget grid, SOV, Schedule
   // linking) render inside the same bordered/padded card as the core tables.
   const fillHeightStep =
-    (financialSetupStep === 3 && budgetShowsGrid) ||
+    (financialSetupStep === 2 && budgetShowsGrid) ||
+    financialSetupStep === 3 ||
     financialSetupStep === 4 ||
-    financialSetupStep === 5 ||
-    (financialSetupStep === 2 && primeContractSetupPhase === 'review');
+    (financialSetupStep === 1 && primeContractSetupPhase === 'review');
 
   return (
     <div className="w-full h-full min-h-0 flex flex-col">

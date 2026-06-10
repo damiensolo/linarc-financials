@@ -59,11 +59,11 @@ export function useFinancialGating() {
       }
 
       const stepMap: Record<string, FinancialSetupStep> = {
-        primeContract: 2,
-        budget: 3,
-        allocate: 4,
-        sov: 5,
-        commitment: 4,
+        primeContract: 1,
+        budget: 2,
+        allocate: 3,
+        sov: 4,
+        commitment: 3,
       };
       const step = stepMap[itemKey];
       if (step) {

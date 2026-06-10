@@ -655,7 +655,7 @@ const Header: React.FC<HeaderProps> = ({ onSelectionChange, version = 'v1', onBo
                     setActiveSubcategoryKey(subcategoryKey);
                     onSelectionChange(`${category.title} / ${subcategory.label}`);
 
-                    // Finance → Configure / Contract jump straight to the financial setup UI (Step 1).
+                    // Finance → Configure / Contract jump straight to the financial setup UI (Step 1 — Prime Contract).
                     if (categoryKey === 'finance' && (subcategoryKey === 'configure' || subcategoryKey === 'contract')) {
                         handleViewModeChange('spreadsheetV4');
                         navigateToSetupStep(1);

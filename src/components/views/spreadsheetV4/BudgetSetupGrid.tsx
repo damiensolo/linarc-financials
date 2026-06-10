@@ -124,7 +124,7 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '',
   // The grid only mounts once a budget exists (upload or manual entry via the
   // choice screen). Guard against landing here with zero rows.
   useEffect(() => {
-    if (financialSetupStep !== 3) return;
+    if (financialSetupStep !== 2) return;
     if (budgetRows.length === 0) initializeBlankBudget();
   }, [financialSetupStep, budgetRows.length, initializeBlankBudget]);
 

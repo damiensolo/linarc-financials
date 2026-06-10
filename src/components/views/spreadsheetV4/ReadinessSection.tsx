@@ -4,15 +4,14 @@ import { useProject } from '../../../context/ProjectContext';
 import { FinancialSetupStep } from '../../../types';
 
 const STEP_LABELS: Record<FinancialSetupStep, string> = {
-  1: 'Preliminary Config',
-  2: 'Prime Contract',
-  3: 'Budget Setup',
-  4: 'Schedule Linking & Allocation',
-  5: 'Schedule of Values',
-  6: 'Publish SOV',
+  1: 'Prime Contract',
+  2: 'Budget Setup',
+  3: 'Schedule Linking & Allocation',
+  4: 'Schedule of Values',
+  5: 'Publish SOV',
 };
 
-const ALL_STEPS: FinancialSetupStep[] = [1, 2, 3, 4, 5, 6];
+const ALL_STEPS: FinancialSetupStep[] = [1, 2, 3, 4, 5];
 
 interface Blocker {
   id: string;
@@ -38,7 +37,6 @@ const ReadinessSection: React.FC<ReadinessSectionProps> = ({
 }) => {
   const {
     financialSetupStep,
-    financialConfig,
     hasPcValue,
     lineCounts,
     committedLineCount,
@@ -48,25 +46,18 @@ const ReadinessSection: React.FC<ReadinessSectionProps> = ({
 
   const blockers: Blocker[] = [
     {
-      id: 'config',
-      title: 'Financial Configuration',
-      description: 'Set retainage, overhead, billing, and approval settings',
-      met: !!financialConfig,
-      step: 1,
-    },
-    {
       id: 'pc-value',
       title: 'Prime Contract Value',
       description: 'Enter contract sum via upload or manual entry',
       met: hasPcValue,
-      step: 2,
+      step: 1,
     },
     {
       id: 'budget-lines',
       title: 'Budget Lines',
       description: `${committedLineCount} of ${lineCounts.total} lines committed`,
       met: committedLineCount > 0,
-      step: 3,
+      step: 2,
     },
     ...publishReadiness.map<Blocker>((check) => ({
       id: check.id,
@@ -74,12 +65,12 @@ const ReadinessSection: React.FC<ReadinessSectionProps> = ({
       description: check.met
         ? 'Complete'
         : check.id === 'wbs-linked'
-          ? 'Step 4 → allocate each committed line to schedule tasks'
+          ? 'Step 3 → allocate each committed line to schedule tasks'
           : check.id === 'sov-mapped'
-            ? 'Step 5 → review the Schedule of Values draft lines'
+            ? 'Step 4 → review the Schedule of Values draft lines'
             : 'Action required',
       met: check.met,
-      step: check.actionStep ?? 6,
+      step: check.actionStep ?? 5,
       tab: check.actionTab,
     })),
   ];
@@ -210,7 +201,7 @@ const ReadinessSection: React.FC<ReadinessSectionProps> = ({
           stepBlockers.map(renderBlockerCard)
         )}
 
-        {!showAll && selectedStep === 3 && financialSetupStep === 3 && lineCounts.open > 0 && (
+        {!showAll && selectedStep === 2 && financialSetupStep === 2 && lineCounts.open > 0 && (
           <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-900">
             Subcontract issuance for open lines is blocked. Commit each line to enable downstream
             activities.

@@ -5,7 +5,7 @@ import { isBudgetSheetEmpty, hasPrimeContractLineData } from '../../../lib/finan
 import { createBudgetRowsFromPrimeContract } from '../../../lib/budgetLineExtraction';
 
 /**
- * Step 3 entry screen — mirrors PrimeContractChoiceStep. The budget is built by
+ * Step 2 entry screen — mirrors PrimeContractChoiceStep. The budget is built by
  * uploading a file (Excel/CSV/PDF) or entering lines manually. A third option
  * seeds the budget from Prime Contract line items (testing convenience).
  */

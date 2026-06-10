@@ -34,15 +34,14 @@ export interface GatingContext {
 export function getSidebarItemKeyForSetupStep(step: FinancialSetupStep): string {
   switch (step) {
     case 1:
-    case 2:
       return 'primeContract';
-    case 3:
+    case 2:
       return 'budget';
-    case 4:
+    case 3:
       return 'allocate';
-    case 5:
+    case 4:
       return 'sov';
-    case 6:
+    case 5:
       return 'sov';
     default:
       return 'primeContract';
@@ -271,13 +270,12 @@ export function getSidebarItemTooltip(
 }
 
 export interface SetupMilestoneReadiness {
-  financialConfigMet: boolean;
   primeContractValueMet: boolean;
   budgetLinesMet: boolean;
   continuousOpsMet: boolean;
 }
 
-/** Setup milestones are complete only after the user advances past that step (or locks PC on step 2). */
+/** Setup milestones are complete only after the user advances past that step (or locks PC on step 1). */
 export function isPrimeContractReadinessComplete(
   financialSetupStep: FinancialSetupStep,
   contractData: ContractData | null,
@@ -285,15 +283,14 @@ export function isPrimeContractReadinessComplete(
   primeContractSetupPhase: PrimeContractSetupPhase
 ): boolean {
   if (!hasPcValue(contractData)) return false;
-  if (financialSetupStep > 2) return true;
-  if (financialSetupStep === 2 && contractLocked) return true;
-  if (financialSetupStep === 2 && primeContractSetupPhase === 'review') return true;
+  if (financialSetupStep > 1) return true;
+  if (financialSetupStep === 1 && contractLocked) return true;
+  if (financialSetupStep === 1 && primeContractSetupPhase === 'review') return true;
   return false;
 }
 
 export function computeSetupMilestoneReadiness(
   financialSetupStep: FinancialSetupStep,
-  financialConfig: FinancialConfig | null,
   contractData: ContractData | null,
   contractLocked: boolean,
   primeContractSetupPhase: PrimeContractSetupPhase,
@@ -301,15 +298,14 @@ export function computeSetupMilestoneReadiness(
   canAccessOperations: boolean
 ): SetupMilestoneReadiness {
   return {
-    financialConfigMet: financialSetupStep > 1 && financialConfig != null,
     primeContractValueMet: isPrimeContractReadinessComplete(
       financialSetupStep,
       contractData,
       contractLocked,
       primeContractSetupPhase
     ),
-    budgetLinesMet: financialSetupStep >= 3 && committedCount > 0,
-    continuousOpsMet: financialSetupStep >= 4 && canAccessOperations,
+    budgetLinesMet: financialSetupStep >= 2 && committedCount > 0,
+    continuousOpsMet: financialSetupStep >= 3 && canAccessOperations,
   };
 }
 
@@ -355,7 +351,7 @@ export function computePublishReadiness(
         ? 'Prime Contract locked as baseline'
         : 'Lock Prime Contract before publishing SOV',
       met: contractLocked,
-      actionStep: 2,
+      actionStep: 1,
     },
     {
       id: 'budget-locked',
@@ -363,13 +359,13 @@ export function computePublishReadiness(
         ? 'Budget fully committed (locked)'
         : 'Lock budget — commit all open lines before publishing SOV',
       met: budgetFullyLocked,
-      actionStep: 3,
+      actionStep: 2,
     },
     {
       id: 'commit-threshold',
       label: `${committed} of ${counts.total} budget lines committed (${commitThresholdPercent}% required)`,
       met: thresholdMet,
-      actionStep: 3,
+      actionStep: 2,
     },
     {
       id: 'sov-mapped',
@@ -378,7 +374,7 @@ export function computePublishReadiness(
           ? 'Every committed line has a Schedule of Values entry'
           : `${unmappedSov} committed line(s) missing an SOV entry — click to open Schedule of Values`,
       met: unmappedSov === 0 && committed > 0,
-      actionStep: 5,
+      actionStep: 4,
       actionTab: 'sov',
     },
     {
@@ -388,7 +384,7 @@ export function computePublishReadiness(
           ? 'All committed lines allocated to the schedule'
           : `${unlinkedSchedule} committed line(s) not yet allocated to the schedule — click to open Schedule Linking & Allocation`,
       met: unlinkedSchedule === 0 && committed > 0,
-      actionStep: 4,
+      actionStep: 3,
       actionTab: 'schedule',
     },
     {

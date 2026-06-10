@@ -254,11 +254,6 @@ const Sidebar: React.FC<SidebarProps> = ({ version = 'v1', bookmarks = [], onSel
             return;
         }
 
-        if (isSetupFlow && activeTopNavCategory === 'configure' && financialSetupStep === 1) {
-            setActiveItemKey('financeConfig');
-            return;
-        }
-
         if (financialSetupComplete && activeTopNavCategory === 'contract') {
             // The collapsed-hub waypoint screen is not a tool — highlight nothing.
             if (hubCollapsed) {

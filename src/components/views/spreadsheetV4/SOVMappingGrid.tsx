@@ -138,7 +138,7 @@ const SOVMappingGrid: React.FC<SOVMappingGridProps> = ({ locked = false }) => {
           {sortedMappings.length === 0 && (
             <SpreadsheetTableEmptyState
               title="No SOV lines yet"
-              description="Commit budget lines in Step 3 — each committed line will appear here as a draft SOV entry. You can also add manual SOV lines below."
+              description="Commit budget lines in Step 2 — each committed line will appear here as a draft SOV entry. You can also add manual SOV lines below."
             />
           )}
           <table

@@ -54,37 +54,24 @@ describe('setup milestone readiness', () => {
     extractionMethod: 'manual',
   };
 
-  const config = {
-    defaultRetainage: 10,
-    defaultOverhead: 5,
-    billingCutoffDay: 1,
-    allowMultiplePayApps: false,
-    perLineApprovalEnabled: false,
-    approvalRouting: { roles: ['gc'] as const, requireAll: false },
-    approvalWorkflowId: null,
-    costCodeEnforcementConfirmed: true,
-  };
-
-  it('does not mark milestones complete on step 1 despite persisted data', () => {
-    const readiness = computeSetupMilestoneReadiness(1, config, pcData, false, 'choose', 1, true);
-    expect(readiness.financialConfigMet).toBe(false);
+  it('does not mark milestones complete on step 1 (Prime Contract) choose phase despite persisted data', () => {
+    const readiness = computeSetupMilestoneReadiness(1, pcData, false, 'choose', 1, true);
     expect(readiness.primeContractValueMet).toBe(false);
     expect(readiness.budgetLinesMet).toBe(false);
     expect(readiness.continuousOpsMet).toBe(false);
   });
 
-  it('marks prime contract complete in step 2 review when value is present', () => {
-    expect(isPrimeContractReadinessComplete(2, pcData, false, 'review')).toBe(true);
+  it('marks prime contract complete in step 1 review when value is present', () => {
+    expect(isPrimeContractReadinessComplete(1, pcData, false, 'review')).toBe(true);
   });
 
-  it('marks prime contract complete when locked on step 2', () => {
-    expect(isPrimeContractReadinessComplete(2, pcData, true, 'choose')).toBe(true);
+  it('marks prime contract complete when locked on step 1', () => {
+    expect(isPrimeContractReadinessComplete(1, pcData, true, 'choose')).toBe(true);
   });
 
-  it('keeps prime contract incomplete on step 2 choose phase', () => {
+  it('keeps prime contract incomplete on step 1 choose phase, complete once past it', () => {
     expect(isPrimeContractReadinessComplete(1, pcData, false, 'choose')).toBe(false);
-    expect(isPrimeContractReadinessComplete(2, pcData, false, 'choose')).toBe(false);
-    expect(isPrimeContractReadinessComplete(3, pcData, false, 'choose')).toBe(true);
+    expect(isPrimeContractReadinessComplete(2, pcData, false, 'choose')).toBe(true);
   });
 });
 

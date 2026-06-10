@@ -257,7 +257,7 @@ const ContractUploadModal: React.FC = () => {
 
     setContractLocked(false);
     setPrimeContractSetupPhase('review');
-    setFinancialSetupStep(2);
+    setFinancialSetupStep(1);
     handleClose();
   };
 
