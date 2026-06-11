@@ -7,10 +7,11 @@ import {
   PrimeContractState, PublishReadinessCheck, PrimeContractSetupPhase, BudgetSetupPhase,
 } from '../types';
 import {
-  getBudgetRows, getBudgetSheet, getPrimeContractRows, getPrimeContractSheet, hasPcValue, hasCommittedLines,
+  getBudgetRows, getBudgetSheet, getPrimeContractRows, getPrimeContractSheet, hasPcValue,
+  hasSovLines, sovLineCount, isLineInSov,
   isBudgetFullyLocked, countLinesByState, committedLineCount, getPrimeContractState, createEmptyBudgetSheet,
   createEmptyPrimeContractSheet, createBudgetColumns, DEFAULT_PRIME_CONTRACT_COLUMNS, APPROVER_NAMES,
-  rowMissingCostCode, rowMissingSubcontractor, createDraftSovMapping, syncDraftSovMappings, getBudgetLineAmount,
+  rowMissingCostCode, rowMissingSubcontractor, rowMissingTrade, canCommitBudgetLine, createDraftSovMapping, syncDraftSovMappings, getBudgetLineAmount,
 } from '../lib/financialWorkflow';
 import {
   syncScheduleLinks, distributeByHours, distributeEqual, isLinkFullyAllocated,
@@ -201,6 +202,7 @@ interface ProjectContextType {
   primeContractRows: V3Row[];
   lineCounts: ReturnType<typeof countLinesByState>;
   committedLineCount: number;
+  sovLineCount: number;
   canAccessBudget: boolean;
   canAccessOperations: boolean;
   budgetFullyLocked: boolean;
@@ -211,8 +213,10 @@ interface ProjectContextType {
   updateBudgetRows: (rows: V3Row[]) => void;
   updatePrimeContractRows: (rows: V3Row[]) => void;
   initializeBlankBudget: () => void;
+  lockLine: (rowId: string) => void;
+  bulkLockOpenLines: () => void;
   commitLine: (rowId: string) => void;
-  bulkCommitOpenLines: () => void;
+  bulkCommitLines: () => void;
   approveRequest: (requestId: string) => void;
   rejectRequest: (requestId: string, reason: string) => void;
   requestPcValueChange: (newValue: number) => boolean;
@@ -671,8 +675,9 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     [contractData, contractLocked]
   );
   const committedCount = useMemo(() => committedLineCount(budgetRows), [budgetRows]);
+  const sovCount = useMemo(() => sovLineCount(budgetRows), [budgetRows]);
   const canAccessBudgetFlag = pcValueExists;
-  const canAccessOperationsFlag = useMemo(() => hasCommittedLines(budgetRows), [budgetRows]);
+  const canAccessOperationsFlag = useMemo(() => hasSovLines(budgetRows), [budgetRows]);
   const budgetFullyLocked = useMemo(() => isBudgetFullyLocked(budgetRows), [budgetRows]);
   const financialSetupComplete = activationState === 'activated';
   const publishReadiness = useMemo(
@@ -757,12 +762,44 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     });
   }, []);
 
+  // Lock: open → locked. Requires Cost Code + Trade. The line is added to the SOV and
+  // Schedule Linking & Allocation as a draft (the sync effects below pick it up).
+  const lockLine = useCallback((rowId: string) => {
+    const rows = getBudgetRows(activeViewRef.current.v3Sheets);
+    const target = rows.find((r) => r.id === rowId);
+    if (!target || (target.lineState ?? 'open') !== 'open') return;
+    if (rowMissingCostCode(target) || rowMissingTrade(target)) return;
+    updateBudgetRows(
+      rows.map((r) => (r.id === rowId ? { ...r, lineState: 'locked' as const } : r))
+    );
+    appendDraftSovForRows([rowId]);
+  }, [updateBudgetRows, appendDraftSovForRows]);
+
+  // Bulk Lock All: lock every eligible open line at once (each needs Cost Code + Trade).
+  const bulkLockOpenLines = useCallback(() => {
+    const rows = getBudgetRows(activeViewRef.current.v3Sheets);
+    const openRows = rows.filter((r) => (r.lineState ?? 'open') === 'open');
+    if (openRows.length === 0) return;
+    if (openRows.some(rowMissingCostCode) || openRows.some(rowMissingTrade)) return;
+
+    const openIds = openRows.map((r) => r.id);
+    updateBudgetRows(
+      rows.map((r) => (openIds.includes(r.id) ? { ...r, lineState: 'locked' as const } : r))
+    );
+    appendDraftSovForRows(openIds);
+  }, [updateBudgetRows, appendDraftSovForRows]);
+
+  // Commit: assign a Subcontractor and make the line live. Available from open (commits
+  // directly, also locking it into the SOV) or from an already-locked line. Requires
+  // Cost Code + Trade + Subcontractor. Routes through approval when per-line approval is on.
   const commitLine = useCallback((rowId: string) => {
     const perLineApproval = financialConfig?.perLineApprovalEnabled ?? false;
     const rows = getBudgetRows(activeViewRef.current.v3Sheets);
     const target = rows.find((r) => r.id === rowId);
-    if (!target || (target.lineState ?? 'open') !== 'open') return;
-    if (rowMissingCostCode(target) || rowMissingSubcontractor(target)) return;
+    if (!target) return;
+    const state = target.lineState ?? 'open';
+    if (state !== 'open' && state !== 'locked') return;
+    if (rowMissingCostCode(target) || rowMissingTrade(target) || rowMissingSubcontractor(target)) return;
 
     if (perLineApproval) {
       const req = enqueueApproval('line_commit', [rowId], {
@@ -775,39 +812,40 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
             : r
         )
       );
+      // Committing from open implies lock — keep the SOV/schedule entry while it awaits approval.
+      appendDraftSovForRows([rowId]);
     } else {
       updateBudgetRows(
-        rows.map((r) => (r.id === rowId ? { ...r, lineState: 'locked' as const } : r))
+        rows.map((r) => (r.id === rowId ? { ...r, lineState: 'committed' as const } : r))
       );
       appendDraftSovForRows([rowId]);
     }
   }, [financialConfig, enqueueApproval, updateBudgetRows, appendDraftSovForRows]);
 
-  const bulkCommitOpenLines = useCallback(() => {
+  // Bulk Commit All: commit every line that's ready (open or locked, with Cost Code +
+  // Trade + Subcontractor). Lines still missing a subcontractor are left untouched.
+  const bulkCommitLines = useCallback(() => {
     const perLineApproval = financialConfig?.perLineApprovalEnabled ?? false;
     const rows = getBudgetRows(activeViewRef.current.v3Sheets);
-    const openRows = rows.filter((r) => (r.lineState ?? 'open') === 'open');
-    if (openRows.length === 0) return;
-    if (openRows.some(rowMissingCostCode) || openRows.some(rowMissingSubcontractor)) return;
-
-    const openIds = openRows.map((r) => r.id);
+    const eligible = rows.filter(canCommitBudgetLine);
+    if (eligible.length === 0) return;
+    const ids = eligible.map((r) => r.id);
 
     if (perLineApproval) {
-      const req = enqueueApproval('bulk_line_commit', openIds);
+      const req = enqueueApproval('bulk_line_commit', ids);
       updateBudgetRows(
         rows.map((r) =>
-          openIds.includes(r.id)
+          ids.includes(r.id)
             ? { ...r, lineState: 'pending_approval' as const, approvalRequestId: req.id }
             : r
         )
       );
+      appendDraftSovForRows(ids);
     } else {
       updateBudgetRows(
-        rows.map((r) =>
-          openIds.includes(r.id) ? { ...r, lineState: 'locked' as const } : r
-        )
+        rows.map((r) => (ids.includes(r.id) ? { ...r, lineState: 'committed' as const } : r))
       );
-      appendDraftSovForRows(openIds);
+      appendDraftSovForRows(ids);
     }
   }, [financialConfig, enqueueApproval, updateBudgetRows, appendDraftSovForRows]);
 
@@ -830,7 +868,7 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
       const rows = getBudgetRows(activeViewRef.current.v3Sheets);
       updateBudgetRows(
         rows.map((r) =>
-          rowIds.includes(r.id) ? { ...r, lineState: 'locked' as const } : r
+          rowIds.includes(r.id) ? { ...r, lineState: 'committed' as const } : r
         )
       );
       appendDraftSovForRows(rowIds);
@@ -848,10 +886,12 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     if (req.type === 'line_commit' || req.type === 'bulk_line_commit') {
       const rowIds = req.rowIds ?? [];
       const rows = getBudgetRows(activeViewRef.current.v3Sheets);
+      // A rejected commit falls back to locked — the line stays in the SOV/schedule
+      // (it was locked when the commit was submitted); only the subcontractor needs rework.
       updateBudgetRows(
         rows.map((r) =>
           rowIds.includes(r.id)
-            ? { ...r, lineState: 'open' as const, approvalRequestId: undefined }
+            ? { ...r, lineState: 'locked' as const, approvalRequestId: undefined }
             : r
         )
       );
@@ -860,7 +900,7 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const requestPcValueChange = useCallback((newValue: number): boolean => {
     if (!contractData) return false;
-    if (!hasCommittedLines(getBudgetRows(activeViewRef.current.v3Sheets))) {
+    if (!hasSovLines(getBudgetRows(activeViewRef.current.v3Sheets))) {
       setContractData((prev) => (prev ? { ...prev, contractSum: newValue } : prev));
       return true;
     }
@@ -906,12 +946,14 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
   }, []);
 
   // ── Budget → Schedule linking ─────────────────────────────────────────────
+  // Every line locked into the SOV (locked, pending, or committed) gets a schedule link
+  // and an SOV mapping — locking is what pushes a line into these downstream surfaces.
   const committedRows = useMemo(
-    () => budgetRows.filter((r) => (r.lineState ?? 'open') === 'locked'),
+    () => budgetRows.filter(isLineInSov),
     [budgetRows]
   );
 
-  // Keep one link per committed line: auto-match new lines, preserve user edits, drop removed.
+  // Keep one link per locked line: auto-match new lines, preserve user edits, drop removed.
   useEffect(() => {
     setBudgetScheduleLinks((prev) => syncScheduleLinks(committedRows, scheduleTasks, prev));
   }, [committedRows, scheduleTasks]);
@@ -1016,7 +1058,7 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     if (activationState === 'activated') return;
     if (sovPublished) {
       setActivationState('activated');
-    } else if (hasCommittedLines(budgetRows) || pcValueExists) {
+    } else if (hasSovLines(budgetRows) || pcValueExists) {
       setActivationState('operating');
     } else {
       setActivationState('setup');
@@ -1146,6 +1188,7 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     primeContractRows,
     lineCounts,
     committedLineCount: committedCount,
+    sovLineCount: sovCount,
     canAccessBudget: canAccessBudgetFlag,
     canAccessOperations: canAccessOperationsFlag,
     budgetFullyLocked,
@@ -1155,8 +1198,10 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     updateBudgetRows,
     updatePrimeContractRows,
     initializeBlankBudget,
+    lockLine,
+    bulkLockOpenLines,
     commitLine,
-    bulkCommitOpenLines,
+    bulkCommitLines,
     approveRequest,
     rejectRequest,
     requestPcValueChange,

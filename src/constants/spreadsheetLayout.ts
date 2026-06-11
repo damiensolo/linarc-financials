@@ -5,8 +5,8 @@
 /** Fixed width (in px) for the sticky index / “#” column. */
 export const SPREADSHEET_INDEX_COLUMN_WIDTH = 40;
 
-/** Budget setup — status pill column (fits "Committed" / "Pending"). */
-export const BUDGET_STATUS_COLUMN_WIDTH = 100;
+/** Budget setup — status pill column (fits "Committed" + lock icon / "Pending"). */
+export const BUDGET_STATUS_COLUMN_WIDTH = 118;
 
-/** Budget setup — sticky actions column (Commit, Change Order). */
-export const BUDGET_ACTIONS_COLUMN_WIDTH = 100;
+/** Budget setup — sticky actions column (fits "Lock · Commit" on open lines). */
+export const BUDGET_ACTIONS_COLUMN_WIDTH = 140;

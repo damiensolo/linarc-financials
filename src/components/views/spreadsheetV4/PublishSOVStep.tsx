@@ -13,7 +13,7 @@ const PublishSOVStep: React.FC = () => {
     primeContractState,
     hasPcValue,
     canAccessOperations,
-    committedLineCount,
+    sovLineCount,
     lineCounts,
     financialConfig,
     setPrimeContractSetupPhase,
@@ -23,8 +23,8 @@ const PublishSOVStep: React.FC = () => {
     step: financialSetupStep,
     primeContractState,
     hasPcValue,
-    hasCommittedLines: canAccessOperations,
-    committedCount: committedLineCount,
+    hasLockedLines: canAccessOperations,
+    lockedCount: sovLineCount,
     totalLines: lineCounts.total,
     openCount: lineCounts.open,
     perLineApprovalEnabled: financialConfig?.perLineApprovalEnabled ?? false,
@@ -75,7 +75,7 @@ const PublishSOVStep: React.FC = () => {
             )}
             {!check.met && check.actionStep === 2 && (
               <span className="block text-xs text-amber-700 mt-1">
-                Opens Step 2 — commit or lock all budget lines
+                Opens Step 2 — lock all open budget lines into the SOV
               </span>
             )}
             {!check.met && check.actionStep === 3 && (

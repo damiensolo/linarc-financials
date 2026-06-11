@@ -39,7 +39,7 @@ const ReadinessSection: React.FC<ReadinessSectionProps> = ({
     financialSetupStep,
     hasPcValue,
     lineCounts,
-    committedLineCount,
+    sovLineCount,
     publishReadiness,
     navigateToSetupStep,
   } = useProject();
@@ -55,8 +55,8 @@ const ReadinessSection: React.FC<ReadinessSectionProps> = ({
     {
       id: 'budget-lines',
       title: 'Budget Lines',
-      description: `${committedLineCount} of ${lineCounts.total} lines committed`,
-      met: committedLineCount > 0,
+      description: `${sovLineCount} of ${lineCounts.total} lines locked into the SOV`,
+      met: sovLineCount > 0,
       step: 2,
     },
     ...publishReadiness.map<Blocker>((check) => ({
@@ -203,8 +203,8 @@ const ReadinessSection: React.FC<ReadinessSectionProps> = ({
 
         {!showAll && selectedStep === 2 && financialSetupStep === 2 && lineCounts.open > 0 && (
           <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-900">
-            Subcontract issuance for open lines is blocked. Commit each line to enable downstream
-            activities.
+            Lock each open line (cost code + trade) to add it to the SOV & schedule. Subcontract
+            issuance stays blocked until a line is committed with a subcontractor.
           </div>
         )}
 

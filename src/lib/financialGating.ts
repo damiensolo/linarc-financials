@@ -11,10 +11,11 @@ import { V3Row } from '../components/views/spreadsheetV4/types';
 import {
   hasPcValue,
   hasCommittedLines,
+  hasSovLines,
   isBudgetFullyLocked,
   getBudgetRows,
-  committedLineCount,
-  countLinesByState,
+  isLineInSov,
+  sovLineCount,
   getBudgetLineAmount,
 } from './financialWorkflow';
 import { isLinkFullyAllocated } from './scheduleLinking';
@@ -98,28 +99,28 @@ export const CONTRACT_SIDEBAR_GATING: Record<
     tooltip: 'Enter a Prime Contract Value to access Budget Setup.',
   },
   sov: {
-    check: (ctx) => !hasCommittedLines(ctx.budgetRows),
-    tooltip: 'Commit budget lines to access SOV mapping.',
+    check: (ctx) => !hasSovLines(ctx.budgetRows),
+    tooltip: 'Lock at least one budget line (Cost Code + Trade) to access SOV mapping.',
   },
   commitment: {
     check: (ctx) => !hasCommittedLines(ctx.budgetRows),
-    tooltip: 'Commit budget lines to issue subcontracts and POs.',
+    tooltip: 'Commit a budget line (assign a Subcontractor) to issue subcontracts and POs.',
   },
   adjustment: {
-    check: (ctx) => !hasCommittedLines(ctx.budgetRows),
-    tooltip: 'Commit budget lines to access Adjustment History.',
+    check: (ctx) => !hasSovLines(ctx.budgetRows),
+    tooltip: 'Lock at least one budget line to access Adjustment History.',
   },
   allocate: {
-    check: (ctx) => !hasCommittedLines(ctx.budgetRows),
-    tooltip: 'Commit budget lines to access Budget Allocation.',
+    check: (ctx) => !hasSovLines(ctx.budgetRows),
+    tooltip: 'Lock at least one budget line (Cost Code + Trade) to access Budget Allocation.',
   },
   cls: {
-    check: (ctx) => !hasCommittedLines(ctx.budgetRows),
-    tooltip: 'Commit budget lines to access CLS.',
+    check: (ctx) => !hasSovLines(ctx.budgetRows),
+    tooltip: 'Lock at least one budget line to access CLS.',
   },
   billing: {
     check: (ctx) => !hasCommittedLines(ctx.budgetRows),
-    tooltip: 'Commit budget lines to access Billing.',
+    tooltip: 'Commit a budget line (assign a Subcontractor) to access Billing.',
   },
 };
 
@@ -294,7 +295,7 @@ export function computeSetupMilestoneReadiness(
   contractData: ContractData | null,
   contractLocked: boolean,
   primeContractSetupPhase: PrimeContractSetupPhase,
-  committedCount: number,
+  lockedLineCount: number,
   canAccessOperations: boolean
 ): SetupMilestoneReadiness {
   return {
@@ -304,7 +305,7 @@ export function computeSetupMilestoneReadiness(
       contractLocked,
       primeContractSetupPhase
     ),
-    budgetLinesMet: financialSetupStep >= 2 && committedCount > 0,
+    budgetLinesMet: financialSetupStep >= 2 && lockedLineCount > 0,
     continuousOpsMet: financialSetupStep >= 3 && canAccessOperations,
   };
 }
@@ -314,26 +315,20 @@ export function computePublishReadiness(
   sovMappings: SOVMapping[],
   scheduleLinks: BudgetScheduleLink[],
   approvalQueue: ApprovalRequest[],
-  options: { contractLocked?: boolean; commitThresholdPercent?: number } = {}
+  options: { contractLocked?: boolean } = {}
 ): import('../types').PublishReadinessCheck[] {
-  const { contractLocked = false, commitThresholdPercent = 100 } = options;
+  const { contractLocked = false } = options;
   const budgetFullyLocked = isBudgetFullyLocked(budgetRows);
-  const counts = countLinesByState(budgetRows);
-  const committed = committedLineCount(budgetRows);
-  const thresholdMet =
-    counts.total === 0
-      ? false
-      : (committed / counts.total) * 100 >= commitThresholdPercent;
+  const sovLines = sovLineCount(budgetRows);
 
-  const committedIds = budgetRows
-    .filter((r) => (r.lineState ?? 'open') === 'locked')
-    .map((r) => r.id);
+  // The SOV is built from every line locked into it (locked, pending, or committed).
+  const sovRowIds = budgetRows.filter(isLineInSov).map((r) => r.id);
 
-  // SOV lines stay draft until publish, so readiness only requires a line per committed budget line.
-  const unmappedSov = committedIds.filter((id) => !sovMappings.some((m) => m.rowId === id)).length;
+  // SOV lines stay draft until publish, so readiness only requires a line per locked budget line.
+  const unmappedSov = sovRowIds.filter((id) => !sovMappings.some((m) => m.rowId === id)).length;
 
   const unlinkedSchedule = budgetRows
-    .filter((r) => (r.lineState ?? 'open') === 'locked')
+    .filter(isLineInSov)
     .filter((row) => {
       const link = scheduleLinks.find((l) => l.budgetRowId === row.id);
       return !link || link.status !== 'confirmed' || !isLinkFullyAllocated(link, getBudgetLineAmount(row));
@@ -356,24 +351,18 @@ export function computePublishReadiness(
     {
       id: 'budget-locked',
       label: budgetFullyLocked
-        ? 'Budget fully committed (locked)'
-        : 'Lock budget — commit all open lines before publishing SOV',
+        ? 'All budget lines locked into the SOV'
+        : 'Lock every open budget line (Cost Code + Trade) before publishing SOV',
       met: budgetFullyLocked,
-      actionStep: 2,
-    },
-    {
-      id: 'commit-threshold',
-      label: `${committed} of ${counts.total} budget lines committed (${commitThresholdPercent}% required)`,
-      met: thresholdMet,
       actionStep: 2,
     },
     {
       id: 'sov-mapped',
       label:
         unmappedSov === 0
-          ? 'Every committed line has a Schedule of Values entry'
-          : `${unmappedSov} committed line(s) missing an SOV entry — click to open Schedule of Values`,
-      met: unmappedSov === 0 && committed > 0,
+          ? 'Every locked line has a Schedule of Values entry'
+          : `${unmappedSov} locked line(s) missing an SOV entry — click to open Schedule of Values`,
+      met: unmappedSov === 0 && sovLines > 0,
       actionStep: 4,
       actionTab: 'sov',
     },
@@ -381,9 +370,9 @@ export function computePublishReadiness(
       id: 'wbs-linked',
       label:
         unlinkedSchedule === 0
-          ? 'All committed lines allocated to the schedule'
-          : `${unlinkedSchedule} committed line(s) not yet allocated to the schedule — click to open Schedule Linking & Allocation`,
-      met: unlinkedSchedule === 0 && committed > 0,
+          ? 'All locked lines allocated to the schedule'
+          : `${unlinkedSchedule} locked line(s) not yet allocated to the schedule — click to open Schedule Linking & Allocation`,
+      met: unlinkedSchedule === 0 && sovLines > 0,
       actionStep: 3,
       actionTab: 'schedule',
     },

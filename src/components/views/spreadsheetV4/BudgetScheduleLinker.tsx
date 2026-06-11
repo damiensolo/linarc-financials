@@ -483,8 +483,9 @@ const BudgetScheduleLinker: React.FC = () => {
 
   const [view, setView] = useState<'lines' | 'forecast'>('lines');
 
+  // Every line locked into the SOV (locked, pending, or committed) appears in the linker.
   const committedRows = useMemo(
-    () => budgetRows.filter((r) => getLineState(r) === 'locked'),
+    () => budgetRows.filter((r) => getLineState(r) !== 'open'),
     [budgetRows]
   );
 

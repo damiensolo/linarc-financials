@@ -1,9 +1,10 @@
 import React, { useMemo, useState } from 'react';
-import { ChevronRight, Lock, ArrowLeft } from 'lucide-react';
+import { ChevronRight, Lock, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { useProject } from '../../../context/ProjectContext';
 import {
   countOpenRowsMissingCostCode,
-  countOpenRowsMissingSubcontractor,
+  countOpenRowsMissingTrade,
+  canCommitBudgetLine,
   hasUploadedContractDocument,
 } from '../../../lib/financialWorkflow';
 import {
@@ -37,10 +38,11 @@ const FinancialSetupActionBar: React.FC = () => {
     primeContractSetupPhase,
     setPrimeContractSetupPhase,
     committedLineCount,
+    sovLineCount,
     lineCounts,
     budgetRows,
-    bulkCommitOpenLines,
-    financialConfig,
+    bulkLockOpenLines,
+    bulkCommitLines,
     navigateToSetupStep,
     setIsContractUploadOpen,
   } = useProject();
@@ -54,30 +56,40 @@ const FinancialSetupActionBar: React.FC = () => {
     [budgetRows]
   );
 
-  const openLinesMissingSubcontractor = useMemo(
-    () => countOpenRowsMissingSubcontractor(budgetRows),
+  const openLinesMissingTrade = useMemo(
+    () => countOpenRowsMissingTrade(budgetRows),
+    [budgetRows]
+  );
+
+  const committableCount = useMemo(
+    () => budgetRows.filter(canCommitBudgetLine).length,
     [budgetRows]
   );
 
   const canLockBudget =
-    lineCounts.open > 0 && openLinesMissingCostCode === 0 && openLinesMissingSubcontractor === 0;
+    lineCounts.open > 0 && openLinesMissingCostCode === 0 && openLinesMissingTrade === 0;
+
+  const commitAllTooltip =
+    committableCount === 0
+      ? 'No lines are ready to commit — each needs a cost code, trade, and subcontractor.'
+      : `Commit all ${committableCount} line${committableCount === 1 ? '' : 's'} that have a cost code, trade, and subcontractor.`;
 
   const lockBudgetTooltip = useMemo(() => {
     if (lineCounts.open === 0) {
-      return 'All budget lines are already committed — there is nothing left to lock.';
+      return 'All budget lines are already locked into the SOV — there is nothing left to lock.';
     }
     if (openLinesMissingCostCode > 0) {
       const lineWord = lineCounts.open === 1 ? 'line' : 'lines';
       const missingWord = openLinesMissingCostCode === 1 ? 'line is' : 'lines are';
-      return `Every open line needs a cost code before you can lock the budget. ${openLinesMissingCostCode} of ${lineCounts.open} open ${lineWord} ${missingWord} still missing one.`;
+      return `Every open line needs a cost code before you can lock all. ${openLinesMissingCostCode} of ${lineCounts.open} open ${lineWord} ${missingWord} still missing one.`;
     }
-    if (openLinesMissingSubcontractor > 0) {
+    if (openLinesMissingTrade > 0) {
       const lineWord = lineCounts.open === 1 ? 'line' : 'lines';
-      const missingWord = openLinesMissingSubcontractor === 1 ? 'line is' : 'lines are';
-      return `Every open line needs a subcontractor before you can lock the budget. ${openLinesMissingSubcontractor} of ${lineCounts.open} open ${lineWord} ${missingWord} still missing one.`;
+      const missingWord = openLinesMissingTrade === 1 ? 'line is' : 'lines are';
+      return `Every open line needs a trade before you can lock all. ${openLinesMissingTrade} of ${lineCounts.open} open ${lineWord} ${missingWord} still missing one.`;
     }
-    return `Commit all ${lineCounts.open} remaining open ${lineCounts.open === 1 ? 'line' : 'lines'} at once.`;
-  }, [lineCounts.open, openLinesMissingCostCode, openLinesMissingSubcontractor]);
+    return `Lock all ${lineCounts.open} remaining open ${lineCounts.open === 1 ? 'line' : 'lines'} into the SOV & schedule at once.`;
+  }, [lineCounts.open, openLinesMissingCostCode, openLinesMissingTrade]);
 
   const handleRequestLockBudget = () => {
     if (openLinesMissingCostCode > 0) {
@@ -89,10 +101,10 @@ const FinancialSetupActionBar: React.FC = () => {
       setMissingCostCodeOpen(true);
       return;
     }
-    if (openLinesMissingSubcontractor > 0) {
+    if (openLinesMissingTrade > 0) {
       setMissingCostCodeContext({
-        fieldLabel: 'Subcontractor',
-        missingCount: openLinesMissingSubcontractor,
+        fieldLabel: 'Trade',
+        missingCount: openLinesMissingTrade,
         openLineCount: lineCounts.open,
       });
       setMissingCostCodeOpen(true);
@@ -102,7 +114,7 @@ const FinancialSetupActionBar: React.FC = () => {
   };
 
   if (showBudgetActions) {
-    const canContinueToOps = committedLineCount > 0;
+    const canContinueToOps = sovLineCount > 0;
 
     return (
       <>
@@ -111,13 +123,14 @@ const FinancialSetupActionBar: React.FC = () => {
             {canContinueToOps ? (
               <>
                 <span className="font-medium text-gray-900">
-                  {committedLineCount} of {lineCounts.total} lines committed
+                  {sovLineCount} of {lineCounts.total} lines locked into the SOV
                 </span>
+                {committedLineCount > 0 && ` (${committedLineCount} committed)`}
                 {' — '}
                 Link and allocate the schedule next. Lock remaining open lines when ready.
               </>
             ) : (
-              'Commit at least one budget line to continue to Schedule Linking & Allocation.'
+              'Lock at least one budget line (cost code + trade) to continue to Schedule Linking & Allocation.'
             )}
           </p>
           <div className="flex items-center gap-3 flex-shrink-0">
@@ -131,11 +144,26 @@ const FinancialSetupActionBar: React.FC = () => {
                       disabled={!canLockBudget}
                       className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-md hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <Lock size={16} /> Lock Budget
+                      <Lock size={16} /> Lock All
                     </button>
                   </span>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">{lockBudgetTooltip}</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex">
+                    <button
+                      type="button"
+                      onClick={bulkCommitLines}
+                      disabled={committableCount === 0}
+                      className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-md hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <CheckCircle2 size={16} /> Commit All
+                    </button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">{commitAllTooltip}</TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -153,7 +181,7 @@ const FinancialSetupActionBar: React.FC = () => {
                 </TooltipTrigger>
                 {!canContinueToOps && (
                   <TooltipContent side="bottom">
-                    Commit at least one budget line to open continuous operations.
+                    Lock at least one budget line to open continuous operations.
                   </TooltipContent>
                 )}
               </Tooltip>
@@ -166,16 +194,16 @@ const FinancialSetupActionBar: React.FC = () => {
           fieldLabel={missingCostCodeContext.fieldLabel}
           missingCount={missingCostCodeContext.missingCount}
           openLineCount={missingCostCodeContext.openLineCount}
+          actionVerb="lock"
           onClose={() => setMissingCostCodeOpen(false)}
         />
 
         <LockBudgetModal
           open={lockBudgetOpen}
           openLineCount={lineCounts.open}
-          committedLineCount={lineCounts.locked}
-          perLineApprovalEnabled={financialConfig?.perLineApprovalEnabled ?? false}
+          alreadyLockedCount={lineCounts.locked + lineCounts.committed + lineCounts.pending}
           onConfirm={() => {
-            bulkCommitOpenLines();
+            bulkLockOpenLines();
             setLockBudgetOpen(false);
           }}
           onCancel={() => setLockBudgetOpen(false)}
@@ -303,7 +331,7 @@ const FinancialSetupActionBar: React.FC = () => {
 
       <LockPrimeContractModal
         open={showLockPrimeModal}
-        hasCommittedBudgetLines={committedLineCount > 0}
+        hasCommittedBudgetLines={sovLineCount > 0}
         onConfirm={() => {
           setContractLocked(true);
           setShowLockPrimeModal(false);

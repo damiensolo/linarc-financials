@@ -8,22 +8,20 @@ import { useScrollToRowOnAdd } from '../../../hooks/useScrollToRowOnAdd';
 import { V3Row, V3Column, evaluateFormula } from './types';
 
 import {
-
   getLineState,
-
   rowMissingCostCode,
-
+  rowMissingTrade,
   rowMissingSubcontractor,
-
+  canLockBudgetLine,
+  canCommitBudgetLine,
   SUBCONTRACTOR_FIELD,
-
+  TRADE_FIELD,
   createBudgetColumns,
-
   isBudgetSheetEmpty,
-
   getBudgetLineAmount,
-
 } from '../../../lib/financialWorkflow';
+
+import { getSubcontractorsForTrade } from '../../../data/trades';
 
 import { SPREADSHEET_INDEX_COLUMN_WIDTH, BUDGET_STATUS_COLUMN_WIDTH, BUDGET_ACTIONS_COLUMN_WIDTH } from '../../../constants/spreadsheetLayout';
 
@@ -41,13 +39,25 @@ import { colAlignClass, formatCurrency, formatCellCurrency } from './spreadsheet
 
 
 const STATE_BADGE: Record<string, { label: string; className: string }> = {
-
   open: { label: 'Open', className: 'bg-gray-100 text-gray-700' },
-
+  locked: { label: 'Locked', className: 'bg-blue-100 text-blue-800' },
   pending_approval: { label: 'Pending', className: 'bg-amber-100 text-amber-800' },
+  committed: { label: 'Committed', className: 'bg-green-100 text-green-800' },
+};
 
-  locked: { label: 'Committed', className: 'bg-green-100 text-green-800' },
+// Action links render as micro pill buttons. Lock and Commit share the same shape;
+// each dims when its required fields aren't filled (still clickable — the click
+// surfaces a modal explaining what's missing).
+const PILL_BASE =
+  'inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border transition-colors cursor-pointer';
+const PILL_ACTIVE = 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 hover:border-blue-300';
+const PILL_DIM = 'bg-gray-50 text-gray-400 border-gray-200 hover:bg-gray-100';
 
+// Lock-icon tooltip shown next to the status badge once a line is locked into the SOV.
+const LOCK_TOOLTIP: Record<string, string> = {
+  locked: 'Locked into the SOV & schedule — cost code and trade are fixed. Add a subcontractor to commit.',
+  pending_approval: 'Locked into the SOV — commit is awaiting approval.',
+  committed: 'Committed & locked — changes require a Change Order.',
 };
 
 
@@ -69,6 +79,8 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '',
     budgetRows,
 
     lineCounts,
+
+    lockLine,
 
     commitLine,
 
@@ -101,6 +113,7 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '',
     lineLabel?: string;
     missingCount: number;
     openLineCount?: number;
+    actionVerb?: 'lock' | 'commit';
   }>({ missingCount: 1 });
 
 
@@ -150,7 +163,10 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '',
 
         const state = getLineState(r);
 
-        if (state === 'locked' || state === 'pending_approval') return r;
+        // Committed / pending lines are frozen. Locked lines stay editable EXCEPT for
+        // Cost Code + Trade, which define the line's SOV/schedule identity once locked.
+        if (state === 'committed' || state === 'pending_approval') return r;
+        if (state === 'locked' && (colId === 'costCode' || colId === TRADE_FIELD)) return r;
 
 
 
@@ -164,7 +180,16 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '',
 
 
 
-        return { ...r, cells: { ...r.cells, [colId]: numValue } };
+        const nextCells = { ...r.cells, [colId]: numValue };
+
+        // Changing the Trade re-scopes the subcontractor list — clear a now-invalid pick.
+        if (colId === TRADE_FIELD) {
+          const allowed = getSubcontractorsForTrade(String(numValue ?? ''));
+          const currentSub = String(r.cells[SUBCONTRACTOR_FIELD] ?? '');
+          if (currentSub && !allowed.includes(currentSub)) nextCells[SUBCONTRACTOR_FIELD] = '';
+        }
+
+        return { ...r, cells: nextCells };
 
       });
 
@@ -241,9 +266,10 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '',
 
     const state = getLineState(row);
 
-    if (state === 'locked') return;
+    if (state === 'committed' || state === 'pending_approval') return;
 
-    if (state === 'pending_approval') return;
+    // Locked lines: Cost Code + Trade are frozen, everything else stays editable.
+    if (state === 'locked' && (colId === 'costCode' || colId === TRADE_FIELD)) return;
 
     const col = columns.find((c) => c.id === colId);
 
@@ -273,9 +299,10 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '',
 
 
 
+  // Only open lines can be selected for deletion — locked/committed lines are in the SOV.
   const selectableRowIds = useMemo(
 
-    () => budgetRows.filter((r) => getLineState(r) !== 'locked').map((r) => r.id),
+    () => budgetRows.filter((r) => getLineState(r) === 'open').map((r) => r.id),
 
     [budgetRows]
 
@@ -339,15 +366,38 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '',
 
   const isTableEmpty = useMemo(() => isBudgetSheetEmpty(budgetRows), [budgetRows]);
 
+  // Lock needs Cost Code + Trade. It's the lightweight step (no confirm modal) — locking
+  // drops the line into the SOV and Schedule Linking & Allocation as a draft.
+  const handleRequestLock = (row: V3Row) => {
+    const lineLabel = String(row.cells['name'] ?? '').trim() || undefined;
+    if (rowMissingCostCode(row)) {
+      setMissingCostCodeContext({ fieldLabel: 'Cost Code', lineLabel, missingCount: 1, actionVerb: 'lock' });
+      setMissingCostCodeOpen(true);
+      return;
+    }
+    if (rowMissingTrade(row)) {
+      setMissingCostCodeContext({ fieldLabel: 'Trade', lineLabel, missingCount: 1, actionVerb: 'lock' });
+      setMissingCostCodeOpen(true);
+      return;
+    }
+    lockLine(row.id);
+  };
+
+  // Commit needs Cost Code + Trade + Subcontractor. Confirmed via CommitLineModal.
   const handleRequestCommit = (row: V3Row) => {
     const lineLabel = String(row.cells['name'] ?? '').trim() || undefined;
     if (rowMissingCostCode(row)) {
-      setMissingCostCodeContext({ fieldLabel: 'Cost Code', lineLabel, missingCount: 1 });
+      setMissingCostCodeContext({ fieldLabel: 'Cost Code', lineLabel, missingCount: 1, actionVerb: 'commit' });
+      setMissingCostCodeOpen(true);
+      return;
+    }
+    if (rowMissingTrade(row)) {
+      setMissingCostCodeContext({ fieldLabel: 'Trade', lineLabel, missingCount: 1, actionVerb: 'commit' });
       setMissingCostCodeOpen(true);
       return;
     }
     if (rowMissingSubcontractor(row)) {
-      setMissingCostCodeContext({ fieldLabel: 'Subcontractor', lineLabel, missingCount: 1 });
+      setMissingCostCodeContext({ fieldLabel: 'Subcontractor', lineLabel, missingCount: 1, actionVerb: 'commit' });
       setMissingCostCodeOpen(true);
       return;
     }
@@ -364,8 +414,10 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '',
 
   const stickyActionsHeader =
     'sticky right-0 z-50 bg-gray-100 border-l border-gray-300 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)]';
+  // No bg here — the row state supplies a single OPAQUE background in the cell below.
+  // (A translucent bg-*/30 tint here let horizontally-scrolled cells bleed through.)
   const stickyActionsCell =
-    'sticky right-0 z-20 bg-white border-l border-gray-200 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)]';
+    'sticky right-0 z-20 border-l border-gray-200 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)]';
   const stickyActionsFooter =
     'sticky right-0 z-30 bg-gray-100 border-l border-gray-300 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)]';
 
@@ -392,7 +444,9 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '',
                 </>
               ) : (
                 <>
-                  <span className="font-semibold">{lineCounts.locked} of {lineCounts.total} lines committed</span>
+                  <span className="font-semibold">{lineCounts.committed} of {lineCounts.total} lines committed</span>
+
+                  {lineCounts.locked > 0 && <span className="text-blue-600">· {lineCounts.locked} locked</span>}
 
                   {lineCounts.open > 0 && <span className="text-gray-500">· {lineCounts.open} open</span>}
 
@@ -480,7 +534,7 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '',
           {isTableEmpty && (
             <SpreadsheetTableEmptyState
               title="Add your first budget line"
-              description="Enter a description, cost code, and budget amounts in the row above. Use Add row below for more lines — commit each line when it is ready."
+              description="Enter a description, cost code, trade, and budget amounts in the row above. Lock a line (cost code + trade) to add it to the SOV & schedule; commit it once a subcontractor is assigned. Use Add row below for more lines."
             />
           )}
         <table
@@ -523,8 +577,12 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '',
 
                   {col.label}
 
-                  {(col.id === 'costCode' || col.id === SUBCONTRACTOR_FIELD) && (
-                    <span className="text-red-500 ml-0.5">*</span>
+                  {(col.id === 'costCode' || col.id === TRADE_FIELD) && (
+                    <span className="text-red-500 ml-0.5" title="Required to lock">*</span>
+                  )}
+
+                  {col.id === SUBCONTRACTOR_FIELD && (
+                    <span className="text-amber-500 ml-0.5" title="Required to commit">*</span>
                   )}
 
                 </th>
@@ -550,7 +608,10 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '',
 
               const missingCode = state === 'open' && rowMissingCostCode(row);
 
-              const missingSub = state === 'open' && rowMissingSubcontractor(row);
+              const missingTrade = state === 'open' && rowMissingTrade(row);
+
+              // Subcontractor is needed to commit — flag it on open AND locked lines.
+              const missingSub = (state === 'open' || state === 'locked') && rowMissingSubcontractor(row);
 
 
 
@@ -562,7 +623,15 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '',
 
                   data-row-id={row.id}
 
-                  className={`group border-b border-gray-200 h-7 ${state === 'locked' ? 'bg-green-50/30' : 'hover:bg-gray-50'}`}
+                  className={`group border-b border-gray-200 h-7 ${
+                    state === 'committed'
+                      ? 'bg-green-50/30'
+                      : state === 'locked'
+                        ? 'bg-blue-50/30'
+                        : state === 'pending_approval'
+                          ? 'bg-amber-50/20'
+                          : 'hover:bg-gray-50'
+                  }`}
 
                 >
 
@@ -576,7 +645,7 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '',
 
                     onToggleSelect={handleToggleRowSelect}
 
-                    disabled={locked || state === 'locked'}
+                    disabled={locked || state !== 'open'}
 
                     fontSize={fontSize}
 
@@ -588,9 +657,16 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '',
                     className="px-2 border-r border-gray-200 whitespace-nowrap"
                     style={{ width: BUDGET_STATUS_COLUMN_WIDTH, minWidth: BUDGET_STATUS_COLUMN_WIDTH }}
                   >
-                    <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap ${badge.className}`}>
-                      {badge.label}
-                    </span>
+                    <div className="flex items-center gap-1">
+                      <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap ${badge.className}`}>
+                        {badge.label}
+                      </span>
+                      {state !== 'open' && (
+                        <span title={LOCK_TOOLTIP[state]} className="inline-flex text-gray-400 flex-shrink-0">
+                          <Lock size={11} />
+                        </span>
+                      )}
+                    </div>
                   </td>
 
                   {visibleColumns.map((col) => {
@@ -599,7 +675,32 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '',
 
                     const isSelect = col.type === 'select';
 
-                    const isSelectEditable = isSelect && !locked && state === 'open';
+                    const isTrade = col.id === TRADE_FIELD;
+
+                    const isSubcontractor = col.id === SUBCONTRACTOR_FIELD;
+
+                    // Trade is editable only while open (frozen once locked); Subcontractor stays
+                    // editable through locked so a line can be committed after it's in the SOV.
+                    const isSelectEditable =
+                      isSelect && !locked &&
+                      (isTrade
+                        ? state === 'open'
+                        : isSubcontractor
+                          ? state === 'open' || state === 'locked'
+                          : state === 'open');
+
+                    // Subcontractor options are scoped to the line's selected Trade.
+                    const rowTrade = String(row.cells[TRADE_FIELD] ?? '');
+                    const selectOptions: (string | { label: string })[] = isSubcontractor
+                      ? getSubcontractorsForTrade(rowTrade)
+                      : (col.options ?? []);
+                    const selectPlaceholder = isTrade
+                      ? 'Select trade…'
+                      : isSubcontractor
+                        ? rowTrade
+                          ? 'Select subcontractor…'
+                          : 'Select a trade first'
+                        : 'Select…';
 
                     return (
 
@@ -611,7 +712,7 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '',
 
                           missingCode && col.id === 'costCode' ? 'bg-red-50' : ''
 
-                        } ${missingSub && col.id === SUBCONTRACTOR_FIELD ? 'bg-red-50' : ''}`}
+                        } ${missingTrade && isTrade ? 'bg-red-50' : ''} ${missingSub && isSubcontractor ? 'bg-amber-50' : ''}`}
 
                         onClick={() => { if (!isSelect) handleCellClick(row, col.id); }}
 
@@ -625,13 +726,15 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '',
 
                             onChange={(e) => updateRow(row.id, col.id, e.target.value)}
 
-                            className="w-full bg-transparent text-sm focus:outline-none cursor-pointer"
+                            disabled={isSubcontractor && !rowTrade}
+
+                            className="w-full bg-transparent text-sm focus:outline-none cursor-pointer disabled:cursor-not-allowed disabled:text-gray-400"
 
                           >
 
-                            <option value="">Select subcontractor…</option>
+                            <option value="">{selectPlaceholder}</option>
 
-                            {(col.options ?? []).map((opt) => {
+                            {selectOptions.map((opt) => {
 
                               const label = typeof opt === 'string' ? opt : opt.label;
 
@@ -682,11 +785,57 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '',
                   })}
 
                   <td
-                    className={`px-2 whitespace-nowrap ${stickyActionsCell} ${state === 'locked' ? 'bg-green-50/30' : ''}`}
+                    className={`px-2 whitespace-nowrap ${stickyActionsCell} ${
+                      state === 'locked'
+                        ? 'bg-blue-50'
+                        : state === 'pending_approval'
+                          ? 'bg-amber-50'
+                          : 'bg-white'
+                    }`}
                     style={{ width: BUDGET_ACTIONS_COLUMN_WIDTH, minWidth: BUDGET_ACTIONS_COLUMN_WIDTH }}
                   >
 
                     {!locked && state === 'open' && (
+
+                      <div className="flex items-center gap-1.5">
+
+                        <button
+
+                          type="button"
+
+                          onClick={() => handleRequestLock(row)}
+
+                          title={canLockBudgetLine(row) ? 'Lock this line into the SOV & schedule' : 'Needs a cost code and trade to lock'}
+
+                          className={`${PILL_BASE} ${canLockBudgetLine(row) ? PILL_ACTIVE : PILL_DIM}`}
+
+                        >
+
+                          Lock
+
+                        </button>
+
+                        <button
+
+                          type="button"
+
+                          onClick={() => handleRequestCommit(row)}
+
+                          title={canCommitBudgetLine(row) ? 'Commit this line' : 'Needs cost code, trade, and subcontractor to commit'}
+
+                          className={`${PILL_BASE} ${canCommitBudgetLine(row) ? PILL_ACTIVE : PILL_DIM}`}
+
+                        >
+
+                          Commit
+
+                        </button>
+
+                      </div>
+
+                    )}
+
+                    {!locked && state === 'locked' && (
 
                       <button
 
@@ -694,7 +843,9 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '',
 
                         onClick={() => handleRequestCommit(row)}
 
-                        className="text-xs font-medium text-blue-600 hover:text-blue-800"
+                        title={canCommitBudgetLine(row) ? 'Commit this line' : 'Needs a subcontractor to commit'}
+
+                        className={`${PILL_BASE} ${canCommitBudgetLine(row) ? PILL_ACTIVE : PILL_DIM}`}
 
                       >
 
@@ -704,9 +855,15 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '',
 
                     )}
 
-                    {!locked && state === 'locked' && (
+                    {!locked && state === 'pending_approval' && (
 
-                      <span className="text-xs text-gray-400">Committed</span>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-100 text-amber-700">Pending</span>
+
+                    )}
+
+                    {!locked && state === 'committed' && (
+
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 text-gray-500">Committed</span>
 
                     )}
 
@@ -778,6 +935,7 @@ const BudgetSetupGrid: React.FC<BudgetSetupGridProps> = ({ workflowMessage = '',
         lineLabel={missingCostCodeContext.lineLabel}
         missingCount={missingCostCodeContext.missingCount}
         openLineCount={missingCostCodeContext.openLineCount}
+        actionVerb={missingCostCodeContext.actionVerb}
         onClose={() => setMissingCostCodeOpen(false)}
       />
 

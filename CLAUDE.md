@@ -163,6 +163,19 @@ setIsContractUploadOpen: (open: boolean) => void
 
 ---
 
+## Recent Changes (2026-06-11)
+
+**Trade column + two-tier Lock → Commit budget workflow** (progressive, low-friction):
+- ✅ `BudgetLineState` is now `'open' | 'locked' | 'pending_approval' | 'committed'` (was `open|pending_approval|locked` where `locked` meant committed).
+- ✅ Added a required **Trade** select column (`TRADE_FIELD = 'trade'`, label "Trade") between Description and Subcontractor. Data: `data/trades.ts` (`TRADES`, `SUBCONTRACTORS_BY_TRADE`, `getSubcontractorsForTrade`, `ALL_SUBCONTRACTORS`). Picking a Trade scopes the Subcontractor dropdown to that trade's vendors and clears a now-invalid pick. `INVITED_SUBCONTRACTORS` now derives from `ALL_SUBCONTRACTORS`.
+- ✅ Trade is **prepopulated on import** — `tradeForLineItem(name)` in `budgetLineExtraction.ts` (mirrors `csiCodeForLineItem`, threaded through the `trade` field on `ExtractedBudgetLine`) derives a trade from the line name for Prime-Contract / upload seeding. It has NO default — unmatched names land blank (e.g. demo "Kitchen updates") so the picker is demoable without filling every row.
+- ✅ Action column = micro **pill buttons** (`PILL_BASE`/`PILL_ACTIVE`/`PILL_DIM` in `BudgetSetupGrid`). Lock & Commit share one shape; each dims when its required fields are unmet (still clickable → surfaces the missing-field modal). Sticky actions `<td>` carries a single OPAQUE bg per state (was a translucent `bg-*/30` tint that let horizontally-scrolled cells bleed through).
+- ✅ **Lock** (`lockLine`, `bulkLockOpenLines`): open → `locked`. Requires Cost Code + Trade. Adds the line to the SOV (draft mapping) and Schedule Linking & Allocation (draft link). No subcontractor needed. Cost Code + Trade freeze on lock; amounts + subcontractor stay editable.
+- ✅ **Commit** (`commitLine`): requires Cost Code + Trade + Subcontractor. Available from `open` (commits directly, also locking it into the SOV) or from `locked`. Sets `committed` (or `pending_approval` if per-line approval on; reject falls back to `locked`).
+- ✅ "In the SOV" = `isLineInSov` (state !== 'open'). SOV/schedule sync, `canAccessOperations`, and the Step-3/4 gates key off locked-or-beyond lines (`hasSovLines`/`sovLineCount`); subcontract issuance & subs billing still need `hasCommittedLines` (a subcontractor). `isBudgetFullyLocked` = no open lines remain.
+- ✅ Bulk actions on the Budget step: **"Lock All"** (`bulkLockOpenLines`, all-or-nothing — disabled until every open line has cost code + trade; `LockBudgetModal`) and **"Commit All"** (`bulkCommitLines`, commits every line ready to commit — open or locked with cost code + trade + subcontractor; leaves the rest untouched).
+- ✅ Action cells render opaque (no translucent tint) to fix sticky-column bleed-through; the committed state shows no fill on the actions cell. A small Lock icon (tooltip) sits by the status badge for any non-open line (`LOCK_TOOLTIP`).
+
 ## Recent Changes (2026-06-01)
 
 **Prime Contract without cost codes + Budget dual-mode upload** (see `Financial_Workflow_PRD_and_UX_Spec_v2.1.proposed.md` v2.2):
@@ -290,7 +303,8 @@ Memories are stored in `.claude/projects/linarc-financials/memory/`.
 - **Contract workflow:** V4 has three states: no contract (empty screen) → contract attached (details form) → contract confirmed (spreadsheet table)
 - **Contract state:** `contractData` holds extracted details; `contractConfirmed` gates visibility of spreadsheet
 - **Prime Contract has NO cost codes:** The Prime Contract line table is two columns only — Contract Line + Contract Value (`DEFAULT_PRIME_CONTRACT_COLUMNS`). Cost codes are Budget-only (the connector to the schedule). CSI cost-code derivation lives in `lib/budgetLineExtraction.ts`, not contract extraction.
-- **Subcontractor required to commit:** The budget grid has a required `subcontractorName` **select** column (label "Subcontractor", options from `INVITED_SUBCONTRACTORS` in `data/subcontractors.ts`). `canCommitBudgetLine`, `commitLine`, and bulk Lock Budget all block until it's set (alongside cost code). It sits AFTER the currency `subcontractor` column (relabeled "Sub Cost") on purpose — `evaluateFormula` resolves the Profit formula's `subcontractor` token by id-or-label first-match, so the currency column must precede the same-labeled dropdown or Profit breaks.
+- **Lock vs Commit (two-tier, progressive):** A budget line is `open → locked → committed`. **Lock** (`lockLine`/`canLockBudgetLine`) needs Cost Code + **Trade** and drops the line into the SOV + Schedule Linking as drafts — no subcontractor required. **Commit** (`commitLine`/`canCommitBudgetLine`) needs Cost Code + Trade + **Subcontractor** and is callable from `open` (auto-locks) or `locked`. Locked lines freeze Cost Code + Trade but keep amounts + subcontractor editable; committed/pending lines are fully frozen. Don't gate SOV/schedule on `committed` — use `isLineInSov`/`hasSovLines` (state !== 'open'); reserve `hasCommittedLines` for subcontractor-dependent ops (subcontract issuance, subs billing).
+- **Trade scopes the Subcontractor list:** `TRADE_FIELD='trade'` (required select, options `TRADES`) sits between Description and Subcontractor. The Subcontractor dropdown options come from `getSubcontractorsForTrade(row.cells.trade)` (computed in `BudgetSetupGrid`, NOT from the column's static `options`), and the select is disabled until a Trade is chosen. Changing Trade clears an out-of-list subcontractor. The currency "Sub Cost" column (`subCost`) still precedes the `subcontractorName` dropdown; `trade` doesn't collide with any formula token.
 - **Budget Setup choice screen (Upload | Manual | From Prime Contract):** Step 3 shows `BudgetChoiceStep` when empty, then the grid (gated by `budgetSetupPhase`). `BudgetUploadModal` accepts Excel/CSV/PDF (CSV parsed by header; Excel/PDF demo fallback). "From Prime Contract" is a testing convenience (`createBudgetRowsFromPrimeContract` in `budgetLineExtraction.ts`, auto-derives CSI cost codes) shown only when PC lines exist — there is NO automatic seed prompt (the old `BudgetSeedPromptModal` auto-prompt was removed).
 
 ---
@@ -327,5 +341,5 @@ When adding a new feature:
 
 ---
 
-**Last updated:** 2026-05-12  
-**Updated by:** Claude Code cleanup
+**Last updated:** 2026-06-11  
+**Updated by:** Claude Code — Trade column + Lock/Commit two-tier budget workflow

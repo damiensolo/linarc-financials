@@ -30,8 +30,8 @@ export function getWorkflowMessage(context: {
   step: number;
   primeContractState: string;
   hasPcValue: boolean;
-  hasCommittedLines: boolean;
-  committedCount: number;
+  hasLockedLines: boolean;
+  lockedCount: number;
   totalLines: number;
   openCount: number;
   perLineApprovalEnabled: boolean;
@@ -42,8 +42,8 @@ export function getWorkflowMessage(context: {
     step,
     primeContractState,
     hasPcValue,
-    hasCommittedLines,
-    committedCount,
+    hasLockedLines,
+    lockedCount,
     totalLines,
     openCount,
     perLineApprovalEnabled,
@@ -57,26 +57,26 @@ export function getWorkflowMessage(context: {
   if (step === 1 && primeContractState === 'open') {
     return 'Prime Contract is in open. Budget setup is now available. You can refine the contract or lock it as your baseline at any time.';
   }
-  if (step === 1 && primeContractState === 'locked' && !hasCommittedLines) {
+  if (step === 1 && primeContractState === 'locked' && !hasLockedLines) {
     return 'Prime Contract locked as baseline. Changes can still be made by re-opening for edit.';
   }
-  if (step === 1 && primeContractState === 'locked' && hasCommittedLines) {
+  if (step === 1 && primeContractState === 'locked' && hasLockedLines) {
     return 'Prime Contract locked as baseline. Changes will require a Change Order.';
   }
   if (step === 2 && totalLines === 0) {
     return 'Budget is in open. Upload a budget file (Excel, CSV, or PDF) or add line items manually to get started.';
   }
-  if (step === 2 && committedCount > 0 && openCount > 0) {
-    return `${committedCount} of ${totalLines} lines committed. Committed lines are now live for subcontracts, SOV, invoicing, and schedule linking. Open lines are still editable.`;
+  if (step === 2 && lockedCount > 0 && openCount > 0) {
+    return `${lockedCount} of ${totalLines} lines locked into the SOV. Locked lines (cost code + trade) feed the SOV and schedule; assign a subcontractor and commit each to make it fully live. Open lines are still editable.`;
   }
   if (step === 2 && perLineApprovalEnabled) {
-    return 'Per-line approval is on for this project. Each commit will be routed to your approval chain before it locks.';
+    return 'Per-line approval is on for this project. Each commit will be routed to your approval chain before it finalizes.';
   }
-  if (step === 3 && hasCommittedLines) {
-    return `Allocate each of the ${committedCount} committed lines across schedule tasks by cost code, then review the cost-loaded forecast.`;
+  if (step === 3 && hasLockedLines) {
+    return `Allocate each of the ${lockedCount} locked lines across schedule tasks by cost code, then review the cost-loaded forecast.`;
   }
-  if (step === 4 && hasCommittedLines) {
-    return `${committedCount} committed lines are drafted into the Schedule of Values. They stay in draft until you publish.`;
+  if (step === 4 && hasLockedLines) {
+    return `${lockedCount} locked lines are drafted into the Schedule of Values. They stay in draft until you publish.`;
   }
   if (step === 5 && !canPublish) {
     return `Publish SOV is not yet available. ${publishRemaining} checks remaining — click any item below to resolve.`;

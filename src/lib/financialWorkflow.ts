@@ -1,9 +1,13 @@
 import type { ContractData, FinancialConfig, BudgetLineState, PrimeContractState, FinancialActivationState, SOVMapping } from '../types';
 import type { V3Row, V3Sheet, V3Column } from '../components/views/spreadsheetV4/types';
 import { INVITED_SUBCONTRACTORS } from '../data/subcontractors';
+import { TRADES } from '../data/trades';
 
 /** Budget cell holding the assigned subcontractor (vendor) name — required to commit. */
 export const SUBCONTRACTOR_FIELD = 'subcontractorName';
+
+/** Budget cell holding the construction trade — required to lock; scopes the subcontractor list. */
+export const TRADE_FIELD = 'trade';
 
 export const BUDGET_SHEET_ID = 'sheet-budget';
 export const PRIME_CONTRACT_SHEET_ID = 'sheet-prime-contract';
@@ -58,41 +62,62 @@ export function getPrimeContractState(
 export function countLinesByState(rows: V3Row[]): {
   total: number;
   open: number;
-  pending: number;
   locked: number;
+  pending: number;
+  committed: number;
 } {
   const dataRows = rows.filter((r) => !r.isGroup);
   let open = 0;
-  let pending = 0;
   let locked = 0;
+  let pending = 0;
+  let committed = 0;
   for (const row of dataRows) {
     const state = getLineState(row);
     if (state === 'open') open++;
-    else if (state === 'pending_approval') pending++;
     else if (state === 'locked') locked++;
+    else if (state === 'pending_approval') pending++;
+    else if (state === 'committed') committed++;
   }
-  return { total: dataRows.length, open, pending, locked };
+  return { total: dataRows.length, open, locked, pending, committed };
 }
 
+/** A line is "in the SOV" (locked, beyond open) once it carries Cost Code + Trade. */
+export function isLineInSov(row: V3Row): boolean {
+  return getLineState(row) !== 'open';
+}
+
+/** Count of lines that have been locked into the SOV (locked, pending approval, or committed). */
+export function sovLineCount(rows: V3Row[]): number {
+  const { locked, pending, committed } = countLinesByState(rows);
+  return locked + pending + committed;
+}
+
+export function hasSovLines(rows: V3Row[]): boolean {
+  return sovLineCount(rows) > 0;
+}
+
+/** Count of fully committed lines (Cost Code + Trade + Subcontractor). */
 export function committedLineCount(rows: V3Row[]): number {
-  return countLinesByState(rows).locked;
+  return countLinesByState(rows).committed;
 }
 
 export function hasCommittedLines(rows: V3Row[]): boolean {
   return committedLineCount(rows) > 0;
 }
 
+/** Every line is at least locked into the SOV — no open drafts remain. */
 export function isBudgetFullyLocked(rows: V3Row[]): boolean {
-  const { total, locked, pending } = countLinesByState(rows);
-  return total > 0 && locked === total && pending === 0;
+  const { total, open } = countLinesByState(rows);
+  return total > 0 && open === 0;
 }
 
 export function canAccessBudget(contractData: ContractData | null): boolean {
   return hasPcValue(contractData);
 }
 
+/** SOV mapping and Schedule Linking open as soon as one line is locked into the SOV. */
 export function canAccessOperations(rows: V3Row[]): boolean {
-  return hasCommittedLines(rows);
+  return hasSovLines(rows);
 }
 
 export function rowMissingCostCode(row: V3Row): boolean {
@@ -104,6 +129,15 @@ export function countOpenRowsMissingCostCode(rows: V3Row[]): number {
   return rows.filter((r) => getLineState(r) === 'open' && rowMissingCostCode(r)).length;
 }
 
+export function rowMissingTrade(row: V3Row): boolean {
+  const trade = row.cells[TRADE_FIELD];
+  return trade == null || String(trade).trim() === '';
+}
+
+export function countOpenRowsMissingTrade(rows: V3Row[]): number {
+  return rows.filter((r) => getLineState(r) === 'open' && rowMissingTrade(r)).length;
+}
+
 export function rowMissingSubcontractor(row: V3Row): boolean {
   const sub = row.cells[SUBCONTRACTOR_FIELD];
   return sub == null || String(sub).trim() === '';
@@ -113,8 +147,19 @@ export function countOpenRowsMissingSubcontractor(rows: V3Row[]): number {
   return rows.filter((r) => getLineState(r) === 'open' && rowMissingSubcontractor(r)).length;
 }
 
+/** Lock requires Cost Code + Trade. Only open lines can be locked. */
+export function canLockBudgetLine(row: V3Row): boolean {
+  return getLineState(row) === 'open' && !rowMissingCostCode(row) && !rowMissingTrade(row);
+}
+
+/**
+ * Commit requires Cost Code + Trade + Subcontractor. Available from open (commits
+ * directly, also locking the line into the SOV) or from a line that's already locked.
+ */
 export function canCommitBudgetLine(row: V3Row): boolean {
-  return getLineState(row) === 'open' && !rowMissingCostCode(row) && !rowMissingSubcontractor(row);
+  const state = getLineState(row);
+  if (state !== 'open' && state !== 'locked') return false;
+  return !rowMissingCostCode(row) && !rowMissingTrade(row) && !rowMissingSubcontractor(row);
 }
 
 // Prime Contract line items intentionally carry NO cost code — cost codes are a
@@ -140,12 +185,22 @@ export function createBudgetColumns(financialConfig?: FinancialConfig | null): V
     { id: 'costCode', label: 'Cost Code', type: 'text', width: 110, editable: true, visible: true },
     { id: 'name', label: 'Description', type: 'text', width: 220, editable: true, visible: true },
     {
+      id: TRADE_FIELD,
+      label: 'Trade',
+      type: 'select',
+      width: 170,
+      editable: true,
+      visible: true,
+      options: TRADES,
+    },
+    {
       id: SUBCONTRACTOR_FIELD,
       label: 'Subcontractor',
       type: 'select',
       width: 190,
       editable: true,
       visible: true,
+      // Full roster; the Budget grid narrows this to the line's selected Trade.
       options: INVITED_SUBCONTRACTORS,
     },
     { id: 'location', label: 'Location', type: 'text', width: 100, editable: true, visible: true },
@@ -278,6 +333,7 @@ export function isBudgetSheetEmpty(rows: V3Row[]): boolean {
   const budgetFields = [
     'costCode',
     'name',
+    TRADE_FIELD,
     'location',
     'quantity',
     'unit',
@@ -334,7 +390,7 @@ export function getActivationState(
   rows: V3Row[]
 ): FinancialActivationState {
   if (activationState === 'activated') return 'activated';
-  if (hasCommittedLines(rows)) return 'operating';
+  if (hasSovLines(rows)) return 'operating';
   if (hasPcValue(contractData)) return 'operating';
   return 'setup';
 }

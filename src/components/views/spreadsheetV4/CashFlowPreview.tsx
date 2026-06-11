@@ -17,8 +17,9 @@ const THRESHOLD_DRAWS = CONTRACT_DRAWS.filter((d) => d.triggerPct === 25 || d.tr
 const CashFlowPreview: React.FC = () => {
   const { budgetRows, budgetScheduleLinks, scheduleTasks } = useProject();
 
+  // Cash flow is loaded from every line locked into the SOV (locked, pending, or committed).
   const committedRows = useMemo(
-    () => budgetRows.filter((r) => getLineState(r) === 'locked'),
+    () => budgetRows.filter((r) => getLineState(r) !== 'open'),
     [budgetRows]
   );
 

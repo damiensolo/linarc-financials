@@ -23,7 +23,7 @@ const StepDetailCard: React.FC = () => {
     primeContractSetupPhase,
     budgetSetupPhase,
     budgetRows,
-    committedLineCount,
+    sovLineCount,
     lineCounts,
     financialConfig,
     canPublishSOV,
@@ -34,8 +34,8 @@ const StepDetailCard: React.FC = () => {
     step: financialSetupStep,
     primeContractState,
     hasPcValue,
-    hasCommittedLines: canAccessOperations,
-    committedCount: committedLineCount,
+    hasLockedLines: canAccessOperations,
+    lockedCount: sovLineCount,
     totalLines: lineCounts.total,
     openCount: lineCounts.open,
     perLineApprovalEnabled: financialConfig?.perLineApprovalEnabled ?? false,
@@ -89,7 +89,7 @@ const StepDetailCard: React.FC = () => {
         if (!canAccessOperations) {
           return (
             <div className="max-w-md text-center text-gray-600">
-              Commit at least one budget line in Step 2 to link and allocate the schedule.
+              Lock at least one budget line (cost code + trade) in Step 2 to link and allocate the schedule.
             </div>
           );
         }
@@ -105,7 +105,7 @@ const StepDetailCard: React.FC = () => {
         if (!canAccessOperations) {
           return (
             <div className="max-w-md text-center text-gray-600">
-              Commit at least one budget line in Step 2 to build the Schedule of Values.
+              Lock at least one budget line (cost code + trade) in Step 2 to build the Schedule of Values.
             </div>
           );
         }

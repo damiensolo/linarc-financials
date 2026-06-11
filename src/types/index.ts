@@ -222,7 +222,14 @@ export interface FinancialConfig {
 }
 
 export type PrimeContractState = 'none' | 'open' | 'locked';
-export type BudgetLineState = 'open' | 'pending_approval' | 'locked';
+/**
+ * Budget-line lifecycle (progressive — each step needs more data, none require the whole budget):
+ * - open: editable draft.
+ * - locked: has Cost Code + Trade. Added to the SOV and Schedule Linking & Allocation as a draft line.
+ * - pending_approval: a commit was submitted and is awaiting per-line approval (stays in the SOV).
+ * - committed: also has a Subcontractor assigned. Fully live (subcontract issuance, invoicing).
+ */
+export type BudgetLineState = 'open' | 'locked' | 'pending_approval' | 'committed';
 export type FinancialActivationState = 'setup' | 'operating' | 'activated';
 export type FinancialSetupStep = 1 | 2 | 3 | 4 | 5;
 export type PrimeContractSetupPhase = 'choose' | 'review';

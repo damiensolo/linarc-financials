@@ -4,6 +4,8 @@ import { extractLineItems, type ExtractedLineItem } from './contractLineExtracti
 export interface ExtractedBudgetLine {
   name: string;
   costCode: string;
+  /** Construction trade derived from the line name; '' when no rule matches. */
+  trade: string;
   budget: number;
   labor: number;
   material: number;
@@ -53,16 +55,53 @@ export function csiCodeForLineItem(name: string): string {
   return '01 00 00';
 }
 
+/**
+ * Construction trade keyed by work type — values MUST match the keys in
+ * `data/trades.ts` (SUBCONTRACTORS_BY_TRADE) so the Subcontractor dropdown can be
+ * scoped. Unlike cost codes, this intentionally has NO default: a line that
+ * matches no rule gets '' (empty), so a Prime-Contract import lands with most
+ * trades pre-filled and a few blank to demonstrate the picker.
+ */
+const TRADE_RULES: { test: RegExp; trade: string }[] = [
+  { test: /demo|demolition|prep/i, trade: 'Demolition' },
+  { test: /site\s*work|grading|excavat|earthwork/i, trade: 'Sitework / Earthwork' },
+  { test: /concrete|foundation|flatwork|entry/i, trade: 'Concrete' },
+  { test: /mason|brick|block|stone/i, trade: 'Masonry' },
+  { test: /structural\s*steel|steel\s*erect|joist/i, trade: 'Structural Steel' },
+  { test: /fram(e|ing)|rough\s*carpentry|carpentry|millwork|trim|cabinet/i, trade: 'Carpentry / Framing' },
+  { test: /roof/i, trade: 'Roofing' },
+  { test: /door|window|glaz|glass|storefront/i, trade: 'Doors & Windows' },
+  { test: /drywall|gypsum|stairwell/i, trade: 'Drywall' },
+  { test: /paint|coating/i, trade: 'Painting' },
+  { test: /floor|lvp|carpet|resilient/i, trade: 'Flooring' },
+  { test: /tile/i, trade: 'Tile' },
+  { test: /plumb|bath|fixture|water\s*heater/i, trade: 'Plumbing' },
+  { test: /hvac|mechanical|air\s*condition|ductwork|furnace/i, trade: 'HVAC / Mechanical' },
+  { test: /electric|light|power|lv|low\s*voltage/i, trade: 'Electrical' },
+  { test: /fire\s*(protection|sprinkler|alarm)|sprinkler/i, trade: 'Fire Protection' },
+  { test: /landscap|irrigation|grounds|hardscape/i, trade: 'Landscaping' },
+  { test: /project\s*management|supervision|temp(orary)?\s*facilit|general\s*condition/i, trade: 'General Conditions' },
+];
+
+export function tradeForLineItem(name: string): string {
+  for (const rule of TRADE_RULES) {
+    if (rule.test.test(name)) return rule.trade;
+  }
+  return '';
+}
+
 /** Demo budget used when a file can't be parsed (xlsx, scanned PDF, etc.). */
+// Trades are pre-filled to mirror a real Prime-Contract import; "Kitchen updates"
+// is intentionally left blank to demo selecting a trade.
 const DEMO_BUDGET_LINES: ExtractedBudgetLine[] = [
-  { name: 'Interior demolition and prep', costCode: '02 41 00', budget: 16000, labor: 11000, material: 2000, equipment: 3000, subcontractor: 0, others: 0, quantity: 8, unit: 'unit', location: '' },
-  { name: 'Flooring materials & installation', costCode: '09 65 13', budget: 34000, labor: 14000, material: 20000, equipment: 0, subcontractor: 0, others: 0, quantity: 8, unit: 'unit', location: '' },
-  { name: 'Interior paint (walls/ceilings/trim)', costCode: '09 91 00', budget: 18000, labor: 12000, material: 6000, equipment: 0, subcontractor: 0, others: 0, quantity: 8, unit: 'unit', location: '' },
-  { name: 'Kitchen updates (cabinets, tops, sink)', costCode: '11 31 00', budget: 42000, labor: 14000, material: 28000, equipment: 0, subcontractor: 0, others: 0, quantity: 8, unit: 'unit', location: '' },
-  { name: 'Bathroom updates (vanities, fixtures, tile)', costCode: '22 40 00', budget: 32000, labor: 12000, material: 20000, equipment: 0, subcontractor: 0, others: 0, quantity: 8, unit: 'unit', location: '' },
-  { name: 'Unit lighting & electrical device updates', costCode: '26 51 00', budget: 16000, labor: 9000, material: 7000, equipment: 0, subcontractor: 0, others: 0, quantity: 8, unit: 'unit', location: '' },
-  { name: 'Corridor/stairwell drywall repair & paint', costCode: '09 29 00', budget: 14000, labor: 8000, material: 6000, equipment: 0, subcontractor: 0, others: 0, quantity: null, unit: 'ls', location: 'Common' },
-  { name: 'Project management, supervision, temp facilities', costCode: '01 31 00', budget: 32000, labor: 32000, material: 0, equipment: 0, subcontractor: 0, others: 0, quantity: null, unit: 'ls', location: '' },
+  { name: 'Interior demolition and prep', costCode: '02 41 00', trade: 'Demolition', budget: 16000, labor: 11000, material: 2000, equipment: 3000, subcontractor: 0, others: 0, quantity: 8, unit: 'unit', location: '' },
+  { name: 'Flooring materials & installation', costCode: '09 65 13', trade: 'Flooring', budget: 34000, labor: 14000, material: 20000, equipment: 0, subcontractor: 0, others: 0, quantity: 8, unit: 'unit', location: '' },
+  { name: 'Interior paint (walls/ceilings/trim)', costCode: '09 91 00', trade: 'Painting', budget: 18000, labor: 12000, material: 6000, equipment: 0, subcontractor: 0, others: 0, quantity: 8, unit: 'unit', location: '' },
+  { name: 'Kitchen updates (cabinets, tops, sink)', costCode: '11 31 00', trade: '', budget: 42000, labor: 14000, material: 28000, equipment: 0, subcontractor: 0, others: 0, quantity: 8, unit: 'unit', location: '' },
+  { name: 'Bathroom updates (vanities, fixtures, tile)', costCode: '22 40 00', trade: 'Plumbing', budget: 32000, labor: 12000, material: 20000, equipment: 0, subcontractor: 0, others: 0, quantity: 8, unit: 'unit', location: '' },
+  { name: 'Unit lighting & electrical device updates', costCode: '26 51 00', trade: 'Electrical', budget: 16000, labor: 9000, material: 7000, equipment: 0, subcontractor: 0, others: 0, quantity: 8, unit: 'unit', location: '' },
+  { name: 'Corridor/stairwell drywall repair & paint', costCode: '09 29 00', trade: 'Drywall', budget: 14000, labor: 8000, material: 6000, equipment: 0, subcontractor: 0, others: 0, quantity: null, unit: 'ls', location: 'Common' },
+  { name: 'Project management, supervision, temp facilities', costCode: '01 31 00', trade: 'General Conditions', budget: 32000, labor: 32000, material: 0, equipment: 0, subcontractor: 0, others: 0, quantity: null, unit: 'ls', location: '' },
 ];
 
 function parseAmount(raw: string | undefined): number {
@@ -144,6 +183,7 @@ function extractFromCsv(text: string): ExtractedBudgetLine[] {
     lines.push({
       name,
       costCode: cellAt(cells, 'costCode') || csiCodeForLineItem(name),
+      trade: tradeForLineItem(name),
       budget,
       labor: parseAmount(cellAt(cells, 'labor')),
       material: parseAmount(cellAt(cells, 'material')),
@@ -162,6 +202,7 @@ function lineFromExtractedItem(item: ExtractedLineItem): ExtractedBudgetLine {
   return {
     name: item.name,
     costCode: csiCodeForLineItem(item.name),
+    trade: tradeForLineItem(item.name),
     budget: item.value,
     labor: 0,
     material: 0,
@@ -216,6 +257,7 @@ export function createBudgetRowsFromPrimeContract(primeRows: V3Row[]): V3Row[] {
     .map((l) => ({
       name: l.name,
       costCode: csiCodeForLineItem(l.name),
+      trade: tradeForLineItem(l.name),
       budget: l.value,
       labor: 0,
       material: 0,
@@ -236,6 +278,7 @@ export function createBudgetRowsFromExtractedLines(lines: ExtractedBudgetLine[])
     cells: {
       name: line.name,
       costCode: line.costCode,
+      trade: line.trade,
       location: line.location,
       quantity: line.quantity,
       unit: line.unit,

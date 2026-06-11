@@ -56,7 +56,7 @@ const ContractMetadataBar: React.FC<ContractMetadataBarProps> = ({ isLocked = fa
     setContractSum(value);
 
     const numValue = parseContractSum(value);
-    const hasCommitted = budgetRows.some((r) => (r.lineState ?? 'open') === 'locked');
+    const hasCommitted = budgetRows.some((r) => (r.lineState ?? 'open') !== 'open');
 
     // Sync context while typing so action buttons enable immediately (hub layout is stable)
     if (!hasCommitted) {
@@ -68,7 +68,7 @@ const ContractMetadataBar: React.FC<ContractMetadataBarProps> = ({ isLocked = fa
     if (!isEditable || isLocked || !contractData) return;
 
     const numValue = parseContractSum(contractSum);
-    const hasCommitted = budgetRows.some((r) => (r.lineState ?? 'open') === 'locked');
+    const hasCommitted = budgetRows.some((r) => (r.lineState ?? 'open') !== 'open');
     if (hasCommitted && numValue !== contractData.contractSum) {
       setPendingPcValue(numValue);
       setShowPcModal(true);

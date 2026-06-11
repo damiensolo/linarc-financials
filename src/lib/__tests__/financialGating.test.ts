@@ -28,13 +28,21 @@ describe('financialWorkflow', () => {
     expect(hasPcValue(null)).toBe(false);
   });
 
-  it('countLinesByState tracks open and locked lines', () => {
+  it('countLinesByState tracks open, locked, pending, and committed lines', () => {
     const rows: V3Row[] = [
       { id: '1', cells: {}, lineState: 'open' },
       { id: '2', cells: {}, lineState: 'locked' },
       { id: '3', cells: {}, lineState: 'pending_approval' },
+      { id: '4', cells: {}, lineState: 'committed' },
     ];
-    expect(countLinesByState(rows)).toEqual({ total: 3, open: 1, pending: 1, locked: 1 });
+    expect(countLinesByState(rows)).toEqual({
+      total: 4,
+      open: 1,
+      locked: 1,
+      pending: 1,
+      committed: 1,
+    });
+    // An open line remains → not fully locked into the SOV.
     expect(isBudgetFullyLocked(rows)).toBe(false);
   });
 });

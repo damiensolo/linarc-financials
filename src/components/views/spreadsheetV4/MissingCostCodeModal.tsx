@@ -4,11 +4,13 @@ import ModalPortal from './ModalPortal';
 
 interface MissingFieldModalProps {
   open: boolean;
-  /** The required field that's missing, e.g. "Cost Code" or "Subcontractor". */
+  /** The required field that's missing, e.g. "Cost Code", "Trade", or "Subcontractor". */
   fieldLabel?: string;
   lineLabel?: string;
   missingCount?: number;
   openLineCount?: number;
+  /** The action the user attempted — tailors the copy ("lock" vs "commit"). */
+  actionVerb?: 'lock' | 'commit';
   onClose: () => void;
 }
 
@@ -18,10 +20,12 @@ const MissingCostCodeModal: React.FC<MissingFieldModalProps> = ({
   lineLabel,
   missingCount = 1,
   openLineCount,
+  actionVerb = 'commit',
   onClose,
 }) => {
   const isBulk = missingCount > 1 || (openLineCount != null && openLineCount > 1);
   const lower = fieldLabel.toLowerCase();
+  const bulkAction = actionVerb === 'lock' ? 'lock all open lines' : 'commit the budget';
 
   return (
     <ModalPortal open={open}>
@@ -35,7 +39,7 @@ const MissingCostCodeModal: React.FC<MissingFieldModalProps> = ({
             <h3 className="text-lg font-semibold text-gray-900">{fieldLabel} Required</h3>
             {isBulk ? (
               <p className="text-sm text-gray-600 mt-2">
-                You cannot lock the budget until every open line has a {fieldLabel}.
+                You cannot {bulkAction} until every open line has a {fieldLabel}.
                 {openLineCount != null && (
                   <>
                     {' '}
@@ -55,7 +59,7 @@ const MissingCostCodeModal: React.FC<MissingFieldModalProps> = ({
               </p>
             ) : (
               <p className="text-sm text-gray-600 mt-2">
-                You cannot commit{' '}
+                You cannot {actionVerb}{' '}
                 {lineLabel ? (
                   <>
                     <strong>{lineLabel}</strong>

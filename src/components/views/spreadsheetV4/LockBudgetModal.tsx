@@ -1,12 +1,12 @@
 import React from 'react';
-import { AlertTriangle, Lock } from 'lucide-react';
+import { Lock } from 'lucide-react';
 import ModalPortal from './ModalPortal';
 
 interface LockBudgetModalProps {
   open: boolean;
   openLineCount: number;
-  committedLineCount: number;
-  perLineApprovalEnabled: boolean;
+  /** Lines already locked into the SOV (locked, pending, or committed). */
+  alreadyLockedCount: number;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -14,8 +14,7 @@ interface LockBudgetModalProps {
 const LockBudgetModal: React.FC<LockBudgetModalProps> = ({
   open,
   openLineCount,
-  committedLineCount,
-  perLineApprovalEnabled,
+  alreadyLockedCount,
   onConfirm,
   onCancel,
 }) => {
@@ -28,45 +27,36 @@ const LockBudgetModal: React.FC<LockBudgetModalProps> = ({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start gap-3 mb-4">
-          <AlertTriangle className="text-amber-500 flex-shrink-0" size={24} />
+          <Lock className="text-blue-600 flex-shrink-0" size={22} />
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">Lock Budget?</h3>
+            <h3 className="text-lg font-semibold text-gray-900">Lock all open lines?</h3>
             <p className="text-sm text-gray-600 mt-2">
-              Locking the budget will commit all remaining open line items at once —{' '}
+              This locks all remaining open line items at once —{' '}
               <strong>
                 {openLineCount} {lineWord}
               </strong>
-              {committedLineCount > 0 && (
-                <>
-                  {' '}
-                  ({committedLineCount} already committed will not change)
-                </>
+              {alreadyLockedCount > 0 && (
+                <> ({alreadyLockedCount} already locked will not change)</>
               )}
-              . After they are committed:
+              . Each open line needs a Cost Code and Trade. After they are locked:
             </p>
             <ul className="mt-3 space-y-2 text-sm text-gray-700 list-disc pl-5">
-              {perLineApprovalEnabled ? (
-                <li>
-                  All {openLineCount} open {lineWord} will be routed to your approval chain before
-                  they lock. Lines stay editable until approved.
-                </li>
-              ) : (
-                <li>
-                  All {openLineCount} open {lineWord} lock immediately — the same result as
-                  committing each line individually.
-                </li>
-              )}
               <li>
-                Committed lines can no longer be edited directly.{' '}
-                <strong>Changes require a Change Order</strong> on each affected line.
+                Every locked line is added to the <strong>Schedule of Values</strong> as a draft
+                line and to <strong>Schedule Linking &amp; Allocation</strong> as an item.
               </li>
               <li>
-                Each committed line becomes operationally live: subcontract and PO issuance, SOV
-                mapping, subcontractor invoicing, and schedule linking — for that line only.
+                Cost Code and Trade become fixed on locked lines. Amounts and the subcontractor stay
+                editable until the line is committed.
+              </li>
+              <li>
+                Locking does <strong>not</strong> require a subcontractor. Assign one and{' '}
+                <strong>Commit</strong> each line individually when it's ready — that's what makes a
+                line fully live for subcontract issuance and invoicing.
               </li>
               <li>
                 General Contractor pay applications to the Owner remain blocked until the Prime
-                Contract is locked, the full budget is committed, and the SOV is published.
+                Contract is locked, every line is locked into the SOV, and the SOV is published.
               </li>
             </ul>
           </div>
@@ -85,7 +75,7 @@ const LockBudgetModal: React.FC<LockBudgetModalProps> = ({
             className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
           >
             <Lock size={16} />
-            Lock Budget
+            Lock All
           </button>
         </div>
       </div>

@@ -29,9 +29,11 @@ const CommitLineModal: React.FC<CommitLineModalProps> = ({
         <div>
           <h3 className="text-lg font-semibold text-gray-900">Commit Line Item</h3>
           <p className="text-sm text-gray-600 mt-2">
-            Committing <strong>{lineLabel}</strong> (${lineAmount.toLocaleString()}) will lock it for
-            direct edits. Changes will require a Change Order. This will also enable subcontract
-            issuance, SOV mapping, invoicing, and schedule linking for this line. Continue?
+            Committing <strong>{lineLabel}</strong> (${lineAmount.toLocaleString()}) assigns its
+            subcontractor and makes the line fully live — enabling subcontract issuance and
+            subcontractor invoicing. If the line isn't locked yet, committing also adds it to the
+            SOV and Schedule Linking. The line is frozen for direct edits; changes will require a
+            Change Order. Continue?
           </p>
           {subcontractor && (
             <p className="text-sm text-gray-600 mt-2">
