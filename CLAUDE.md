@@ -163,6 +163,19 @@ setIsContractUploadOpen: (open: boolean) => void
 
 ---
 
+## Recent Changes (2026-06-11) — SOV moved up + publish-anytime
+
+**Setup-step reorder (SOV is now Step 3, right after Budget):**
+- ✅ New setup order: **1. Prime Contract → 2. Budget Setup → 3. Schedule of Values → 4. Schedule Linking & Allocation → 5. Publish SOV** (steps 3 ↔ 4 swapped from before). Touched: `SetupStepper` (STEPS), `StepDetailCard` (case 3 → `SOVMappingGrid`, case 4 → `BudgetScheduleLinker`), `FinancialSetupActionBar` (`isSov = step === 3`; step-3 continues to Linking, step-4 continues to Publish; step-2 "Continue to Schedule of Values"), `WorkflowMessageBanner` (step 3/4 messages swapped), `ReadinessSection` (`STEP_LABELS`).
+- ✅ Sidebar order is now **Prime Contract · Budget · SOV · Allocate · …** — the `sov` icon moved above `allocate` in `Sidebar.tsx`. Step↔sidebar maps updated: `getSidebarItemKeyForSetupStep` (3→`sov`, 4→`allocate`, 5→`sov`) and `useFinancialGating` `stepMap` (`sov:3`, `allocate:4`, `commitment:4`).
+
+**SOV publishes anytime — decoupled from PC lock and allocation/linking:**
+- ✅ `computePublishReadiness(budgetRows, sovMappings, approvalQueue)` — **signature trimmed** (dropped `scheduleLinks` + `{ contractLocked }`). Removed the `prime-contract-locked`, `budget-locked` (fully-locked), and `wbs-linked` (allocation) checks. Remaining checks: `sov-mapped` (≥1 locked line, each with an SOV entry — `actionStep` is 2 when nothing's locked yet, else 3), `no-pending-approvals`, `no-pc-change-pending`.
+- ✅ `publishSOV` no longer requires `contractLocked` or `isBudgetFullyLocked` — it publishes on `allPublishChecksMet` alone, so a **partial SOV can go out** while other budget lines stay open and before any allocation. (`PublishSOVStep` hint copy + `ReadinessSection` descriptions updated; removed the dead `prime-contract-locked`/`setPrimeContractSetupPhase` branch.)
+- ⚠️ Owner-billing gating (`HEADER_CATEGORY_GATING.ownerBilling`) intentionally still wants a locked PC + fully-locked budget + published SOV — that's a downstream op, not SOV publish.
+
+---
+
 ## Recent Changes (2026-06-11)
 
 **Trade column + two-tier Lock → Commit budget workflow** (progressive, low-friction):
@@ -305,7 +318,9 @@ Memories are stored in `.claude/projects/linarc-financials/memory/`.
 - **Prime Contract has NO cost codes:** The Prime Contract line table is two columns only — Contract Line + Contract Value (`DEFAULT_PRIME_CONTRACT_COLUMNS`). Cost codes are Budget-only (the connector to the schedule). CSI cost-code derivation lives in `lib/budgetLineExtraction.ts`, not contract extraction.
 - **Lock vs Commit (two-tier, progressive):** A budget line is `open → locked → committed`. **Lock** (`lockLine`/`canLockBudgetLine`) needs Cost Code + **Trade** and drops the line into the SOV + Schedule Linking as drafts — no subcontractor required. **Commit** (`commitLine`/`canCommitBudgetLine`) needs Cost Code + Trade + **Subcontractor** and is callable from `open` (auto-locks) or `locked`. Locked lines freeze Cost Code + Trade but keep amounts + subcontractor editable; committed/pending lines are fully frozen. Don't gate SOV/schedule on `committed` — use `isLineInSov`/`hasSovLines` (state !== 'open'); reserve `hasCommittedLines` for subcontractor-dependent ops (subcontract issuance, subs billing).
 - **Trade scopes the Subcontractor list:** `TRADE_FIELD='trade'` (required select, options `TRADES`) sits between Description and Subcontractor. The Subcontractor dropdown options come from `getSubcontractorsForTrade(row.cells.trade)` (computed in `BudgetSetupGrid`, NOT from the column's static `options`), and the select is disabled until a Trade is chosen. Changing Trade clears an out-of-list subcontractor. The currency "Sub Cost" column (`subCost`) still precedes the `subcontractorName` dropdown; `trade` doesn't collide with any formula token.
-- **Budget Setup choice screen (Upload | Manual | From Prime Contract):** Step 3 shows `BudgetChoiceStep` when empty, then the grid (gated by `budgetSetupPhase`). `BudgetUploadModal` accepts Excel/CSV/PDF (CSV parsed by header; Excel/PDF demo fallback). "From Prime Contract" is a testing convenience (`createBudgetRowsFromPrimeContract` in `budgetLineExtraction.ts`, auto-derives CSI cost codes) shown only when PC lines exist — there is NO automatic seed prompt (the old `BudgetSeedPromptModal` auto-prompt was removed).
+- **Budget Setup choice screen (Upload | Manual | From Prime Contract):** Step 2 shows `BudgetChoiceStep` when empty, then the grid (gated by `budgetSetupPhase`). `BudgetUploadModal` accepts Excel/CSV/PDF (CSV parsed by header; Excel/PDF demo fallback). "From Prime Contract" is a testing convenience (`createBudgetRowsFromPrimeContract` in `budgetLineExtraction.ts`, auto-derives CSI cost codes) shown only when PC lines exist — there is NO automatic seed prompt (the old `BudgetSeedPromptModal` auto-prompt was removed).
+- **Setup step order (SOV before Allocate):** Steps are **1 PC → 2 Budget → 3 Schedule of Values → 4 Schedule Linking & Allocation → 5 Publish SOV**. Step 3↔4 components are `SOVMappingGrid` / `BudgetScheduleLinker` respectively (in `StepDetailCard`). Two maps must stay in sync with this order: `getSidebarItemKeyForSetupStep` (financialGating) and `useFinancialGating`'s `stepMap`. Sidebar `contract` items run PC · Budget · SOV · Allocate · …
+- **Publishing the SOV is intentionally low-gate:** `computePublishReadiness` only checks that ≥1 locked line has an SOV entry + no pending approvals. It is NOT tied to a locked Prime Contract, a fully-locked budget, or schedule allocation/linking — a partial SOV can publish while other lines stay open. `publishSOV` mirrors this (no `contractLocked`/`isBudgetFullyLocked` guard). Don't re-add those couplings to publish; owner-billing (a downstream op) keeps the stricter gate.
 
 ---
 
@@ -342,4 +357,4 @@ When adding a new feature:
 ---
 
 **Last updated:** 2026-06-11  
-**Updated by:** Claude Code — Trade column + Lock/Commit two-tier budget workflow
+**Updated by:** Claude Code — SOV moved to Step 3 (after Budget) + publish-anytime (decoupled from PC lock & allocation)

@@ -73,10 +73,10 @@ export function getWorkflowMessage(context: {
     return 'Per-line approval is on for this project. Each commit will be routed to your approval chain before it finalizes.';
   }
   if (step === 3 && hasLockedLines) {
-    return `Allocate each of the ${lockedCount} locked lines across schedule tasks by cost code, then review the cost-loaded forecast.`;
+    return `${lockedCount} locked lines are drafted into the Schedule of Values. You can publish the SOV any time — allocation isn't required first.`;
   }
   if (step === 4 && hasLockedLines) {
-    return `${lockedCount} locked lines are drafted into the Schedule of Values. They stay in draft until you publish.`;
+    return `Allocate each of the ${lockedCount} locked lines across schedule tasks by cost code for the cost-loaded forecast.`;
   }
   if (step === 5 && !canPublish) {
     return `Publish SOV is not yet available. ${publishRemaining} checks remaining — click any item below to resolve.`;

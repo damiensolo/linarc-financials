@@ -6,8 +6,8 @@ import { FinancialSetupStep } from '../../../types';
 const STEP_LABELS: Record<FinancialSetupStep, string> = {
   1: 'Prime Contract',
   2: 'Budget Setup',
-  3: 'Schedule Linking & Allocation',
-  4: 'Schedule of Values',
+  3: 'Schedule of Values',
+  4: 'Schedule Linking & Allocation',
   5: 'Publish SOV',
 };
 
@@ -64,11 +64,9 @@ const ReadinessSection: React.FC<ReadinessSectionProps> = ({
       title: check.label,
       description: check.met
         ? 'Complete'
-        : check.id === 'wbs-linked'
-          ? 'Step 3 → allocate each committed line to schedule tasks'
-          : check.id === 'sov-mapped'
-            ? 'Step 4 → review the Schedule of Values draft lines'
-            : 'Action required',
+        : check.id === 'sov-mapped'
+          ? 'Step 3 → review the Schedule of Values draft lines'
+          : 'Action required',
       met: check.met,
       step: check.actionStep ?? 5,
       tab: check.actionTab,

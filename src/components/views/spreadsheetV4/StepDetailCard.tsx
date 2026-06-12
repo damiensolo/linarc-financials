@@ -89,22 +89,6 @@ const StepDetailCard: React.FC = () => {
         if (!canAccessOperations) {
           return (
             <div className="max-w-md text-center text-gray-600">
-              Lock at least one budget line (cost code + trade) in Step 2 to link and allocate the schedule.
-            </div>
-          );
-        }
-        return (
-          <div className="w-full h-full flex flex-col min-h-0">
-            <div className="flex-1 min-h-0">
-              <BudgetScheduleLinker />
-            </div>
-          </div>
-        );
-
-      case 4:
-        if (!canAccessOperations) {
-          return (
-            <div className="max-w-md text-center text-gray-600">
               Lock at least one budget line (cost code + trade) in Step 2 to build the Schedule of Values.
             </div>
           );
@@ -113,6 +97,22 @@ const StepDetailCard: React.FC = () => {
           <div className="w-full h-full flex flex-col min-h-0">
             <div className="flex-1 min-h-0">
               <SOVMappingGrid />
+            </div>
+          </div>
+        );
+
+      case 4:
+        if (!canAccessOperations) {
+          return (
+            <div className="max-w-md text-center text-gray-600">
+              Lock at least one budget line (cost code + trade) in Step 2 to link and allocate the schedule.
+            </div>
+          );
+        }
+        return (
+          <div className="w-full h-full flex flex-col min-h-0">
+            <div className="flex-1 min-h-0">
+              <BudgetScheduleLinker />
             </div>
           </div>
         );

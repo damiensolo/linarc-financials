@@ -16,7 +16,6 @@ const PublishSOVStep: React.FC = () => {
     sovLineCount,
     lineCounts,
     financialConfig,
-    setPrimeContractSetupPhase,
   } = useProject();
 
   const message = getWorkflowMessage({
@@ -49,9 +48,6 @@ const PublishSOVStep: React.FC = () => {
             disabled={check.met}
             onClick={() => {
               if (!check.actionStep) return;
-              if (check.id === 'prime-contract-locked') {
-                setPrimeContractSetupPhase('review');
-              }
               navigateToSetupStep(check.actionStep, check.actionTab);
             }}
             className={`w-full flex items-start gap-3 p-3 rounded-lg border text-left transition-colors ${
@@ -68,24 +64,14 @@ const PublishSOVStep: React.FC = () => {
             <span className={`text-sm ${check.met ? 'text-green-900' : 'text-amber-900'}`}>
               {check.label}
             </span>
-            {!check.met && check.actionStep === 1 && (
-              <span className="block text-xs text-amber-700 mt-1">
-                Opens Step 1 — lock Prime Contract as baseline
-              </span>
-            )}
             {!check.met && check.actionStep === 2 && (
               <span className="block text-xs text-amber-700 mt-1">
-                Opens Step 2 — lock all open budget lines into the SOV
+                Opens Step 2 — lock a budget line (Cost Code + Trade) into the SOV
               </span>
             )}
             {!check.met && check.actionStep === 3 && (
               <span className="block text-xs text-amber-700 mt-1">
-                Opens Step 3 — Schedule Linking & Allocation
-              </span>
-            )}
-            {!check.met && check.actionStep === 4 && (
-              <span className="block text-xs text-amber-700 mt-1">
-                Opens Step 4 — Schedule of Values
+                Opens Step 3 — review the Schedule of Values
               </span>
             )}
           </button>

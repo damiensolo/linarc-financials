@@ -127,10 +127,10 @@ const FinancialSetupActionBar: React.FC = () => {
                 </span>
                 {committedLineCount > 0 && ` (${committedLineCount} committed)`}
                 {' — '}
-                Link and allocate the schedule next. Lock remaining open lines when ready.
+                Review the Schedule of Values next. Lock remaining open lines when ready.
               </>
             ) : (
-              'Lock at least one budget line (cost code + trade) to continue to Schedule Linking & Allocation.'
+              'Lock at least one budget line (cost code + trade) to continue to the Schedule of Values.'
             )}
           </p>
           <div className="flex items-center gap-3 flex-shrink-0">
@@ -174,7 +174,7 @@ const FinancialSetupActionBar: React.FC = () => {
                       disabled={!canContinueToOps}
                       className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
                     >
-                      Continue to Schedule Linking & Allocation
+                      Continue to Schedule of Values
                       <ChevronRight size={16} />
                     </button>
                   </span>
@@ -213,7 +213,7 @@ const FinancialSetupActionBar: React.FC = () => {
   }
 
   if (financialSetupStep === 3 || financialSetupStep === 4) {
-    const isSov = financialSetupStep === 4;
+    const isSov = financialSetupStep === 3;
     return (
       <div className="flex items-center justify-between gap-4 px-6 py-3 border-b border-gray-200 bg-gray-50 flex-shrink-0">
         <p className="text-sm text-gray-600 truncate min-w-0">
@@ -222,15 +222,15 @@ const FinancialSetupActionBar: React.FC = () => {
           </span>
           {' — '}
           {isSov
-            ? 'Review the draft Schedule of Values, then publish.'
-            : 'Allocate committed lines across the schedule, then review the SOV.'}
+            ? 'Review the draft Schedule of Values — you can publish it any time.'
+            : 'Allocate locked lines across the schedule for the cost-loaded forecast.'}
         </p>
         <button
           type="button"
-          onClick={() => setFinancialSetupStep(isSov ? 5 : 4)}
+          onClick={() => setFinancialSetupStep(isSov ? 4 : 5)}
           className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 flex-shrink-0"
         >
-          {isSov ? 'Continue to Publish SOV' : 'Continue to Schedule of Values'}
+          {isSov ? 'Continue to Schedule Linking & Allocation' : 'Continue to Publish SOV'}
           <ChevronRight size={16} />
         </button>
       </div>

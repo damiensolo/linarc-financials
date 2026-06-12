@@ -86,7 +86,32 @@ describe('setup milestone readiness', () => {
 describe('financialGating publish readiness', () => {
   it('blocks publish when checks unmet', () => {
     const rows: V3Row[] = [{ id: '1', cells: { name: 'Line' }, lineState: 'locked' }];
-    const checks = computePublishReadiness(rows, [], [], []);
+    // Locked line but no SOV mapping yet → the SOV-mapped check is unmet.
+    const checks = computePublishReadiness(rows, [], []);
     expect(allPublishChecksMet(checks)).toBe(false);
+  });
+
+  it('publishes a partial SOV without a fully-locked budget or a locked Prime Contract', () => {
+    const rows: V3Row[] = [
+      { id: '1', cells: { name: 'Mapped line' }, lineState: 'locked' },
+      // An open line remains → the budget is NOT fully locked, yet publish is allowed.
+      { id: '2', cells: { name: 'Still open' }, lineState: 'open' },
+    ];
+    const mappings = [
+      {
+        rowId: '1',
+        sovLineNumber: 1,
+        sovDescription: 'Mapped line',
+        amount: 0,
+        status: 'draft' as const,
+        costCode: '',
+        budgetLineItem: 'Mapped line',
+        quantity: null,
+        uom: '',
+        location: '',
+      },
+    ];
+    const checks = computePublishReadiness(rows, mappings, []);
+    expect(allPublishChecksMet(checks)).toBe(true);
   });
 });

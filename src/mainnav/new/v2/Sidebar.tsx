@@ -102,8 +102,8 @@ const sidebarItemsByCategory: { [key: string]: Array<{ key: string; label: strin
     contract: [
         { key: 'primeContract', label: 'Prime Contract', icon: <ContractIcon /> },
         { key: 'budget', label: 'Budget', icon: <BudgetIcon /> },
-        { key: 'allocate', label: 'Allocate', icon: <AllocateIcon /> },
         { key: 'sov', label: 'SOV', icon: <SOVIcon /> },
+        { key: 'allocate', label: 'Allocate', icon: <AllocateIcon /> },
         { key: 'commitment', label: 'Commitment Release', icon: <CommitmentIcon /> },
         { key: 'adjustment', label: 'Adjustment History', icon: <AdjustmentIcon /> },
         { key: 'cls', label: 'CLS', icon: <CLSIcon /> },

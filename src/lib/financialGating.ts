@@ -4,7 +4,6 @@ import {
   PrimeContractSetupPhase,
   FinancialConfig,
   SOVMapping,
-  BudgetScheduleLink,
   ApprovalRequest,
 } from '../types';
 import { V3Row } from '../components/views/spreadsheetV4/types';
@@ -16,9 +15,7 @@ import {
   getBudgetRows,
   isLineInSov,
   sovLineCount,
-  getBudgetLineAmount,
 } from './financialWorkflow';
-import { isLinkFullyAllocated } from './scheduleLinking';
 
 export interface GatingContext {
   financialSetupStep: FinancialSetupStep;
@@ -39,9 +36,9 @@ export function getSidebarItemKeyForSetupStep(step: FinancialSetupStep): string 
     case 2:
       return 'budget';
     case 3:
-      return 'allocate';
-    case 4:
       return 'sov';
+    case 4:
+      return 'allocate';
     case 5:
       return 'sov';
     default:
@@ -310,15 +307,17 @@ export function computeSetupMilestoneReadiness(
   };
 }
 
+/**
+ * Readiness to publish the SOV. The SOV can be published any time there is at
+ * least one locked line with an SOV entry — it is intentionally NOT tied to the
+ * Prime Contract lock or to schedule linking/allocation, so a partial SOV can go
+ * out while the rest of the budget and schedule are still being shaped.
+ */
 export function computePublishReadiness(
   budgetRows: V3Row[],
   sovMappings: SOVMapping[],
-  scheduleLinks: BudgetScheduleLink[],
-  approvalQueue: ApprovalRequest[],
-  options: { contractLocked?: boolean } = {}
+  approvalQueue: ApprovalRequest[]
 ): import('../types').PublishReadinessCheck[] {
-  const { contractLocked = false } = options;
-  const budgetFullyLocked = isBudgetFullyLocked(budgetRows);
   const sovLines = sovLineCount(budgetRows);
 
   // The SOV is built from every line locked into it (locked, pending, or committed).
@@ -327,13 +326,6 @@ export function computePublishReadiness(
   // SOV lines stay draft until publish, so readiness only requires a line per locked budget line.
   const unmappedSov = sovRowIds.filter((id) => !sovMappings.some((m) => m.rowId === id)).length;
 
-  const unlinkedSchedule = budgetRows
-    .filter(isLineInSov)
-    .filter((row) => {
-      const link = scheduleLinks.find((l) => l.budgetRowId === row.id);
-      return !link || link.status !== 'confirmed' || !isLinkFullyAllocated(link, getBudgetLineAmount(row));
-    }).length;
-
   const pendingApprovals = approvalQueue.filter((a) => a.status === 'pending').length;
   const pendingPcChanges = approvalQueue.filter(
     (a) => a.type === 'pc_value_change' && a.status === 'pending'
@@ -341,40 +333,16 @@ export function computePublishReadiness(
 
   return [
     {
-      id: 'prime-contract-locked',
-      label: contractLocked
-        ? 'Prime Contract locked as baseline'
-        : 'Lock Prime Contract before publishing SOV',
-      met: contractLocked,
-      actionStep: 1,
-    },
-    {
-      id: 'budget-locked',
-      label: budgetFullyLocked
-        ? 'All budget lines locked into the SOV'
-        : 'Lock every open budget line (Cost Code + Trade) before publishing SOV',
-      met: budgetFullyLocked,
-      actionStep: 2,
-    },
-    {
       id: 'sov-mapped',
       label:
-        unmappedSov === 0
-          ? 'Every locked line has a Schedule of Values entry'
-          : `${unmappedSov} locked line(s) missing an SOV entry — click to open Schedule of Values`,
+        sovLines === 0
+          ? 'Lock at least one budget line (Cost Code + Trade) to build the SOV'
+          : unmappedSov === 0
+            ? 'Every locked line has a Schedule of Values entry'
+            : `${unmappedSov} locked line(s) missing an SOV entry — click to open Schedule of Values`,
       met: unmappedSov === 0 && sovLines > 0,
-      actionStep: 4,
+      actionStep: sovLines === 0 ? 2 : 3,
       actionTab: 'sov',
-    },
-    {
-      id: 'wbs-linked',
-      label:
-        unlinkedSchedule === 0
-          ? 'All locked lines allocated to the schedule'
-          : `${unlinkedSchedule} locked line(s) not yet allocated to the schedule — click to open Schedule Linking & Allocation`,
-      met: unlinkedSchedule === 0 && sovLines > 0,
-      actionStep: 3,
-      actionTab: 'schedule',
     },
     {
       id: 'no-pending-approvals',

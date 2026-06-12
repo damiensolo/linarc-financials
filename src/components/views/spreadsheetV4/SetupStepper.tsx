@@ -6,8 +6,8 @@ import { FinancialSetupStep } from '../../../types';
 const STEPS: { id: FinancialSetupStep; label: string }[] = [
   { id: 1, label: 'Prime Contract' },
   { id: 2, label: 'Budget Setup' },
-  { id: 3, label: 'Schedule Linking & Allocation' },
-  { id: 4, label: 'Schedule of Values' },
+  { id: 3, label: 'Schedule of Values' },
+  { id: 4, label: 'Schedule Linking & Allocation' },
   { id: 5, label: 'Publish SOV' },
 ];
 

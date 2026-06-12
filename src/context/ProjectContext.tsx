@@ -681,11 +681,8 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
   const budgetFullyLocked = useMemo(() => isBudgetFullyLocked(budgetRows), [budgetRows]);
   const financialSetupComplete = activationState === 'activated';
   const publishReadiness = useMemo(
-    () =>
-      computePublishReadiness(budgetRows, sovMappings, budgetScheduleLinks, approvalQueue, {
-        contractLocked,
-      }),
-    [budgetRows, sovMappings, budgetScheduleLinks, approvalQueue, contractLocked]
+    () => computePublishReadiness(budgetRows, sovMappings, approvalQueue),
+    [budgetRows, sovMappings, approvalQueue]
   );
   const canPublishSOV = useMemo(() => allPublishChecksMet(publishReadiness), [publishReadiness]);
 
@@ -1030,13 +1027,9 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const publishSOV = useCallback((): boolean => {
     const rows = getBudgetRows(activeViewRef.current.v3Sheets);
-    if (
-      !contractLocked ||
-      !isBudgetFullyLocked(rows) ||
-      !allPublishChecksMet(
-        computePublishReadiness(rows, sovMappings, budgetScheduleLinks, approvalQueue, { contractLocked })
-      )
-    ) {
+    // The SOV publishes on its own readiness alone — no Prime Contract lock and
+    // no fully-locked budget required (a partial SOV is allowed to go out).
+    if (!allPublishChecksMet(computePublishReadiness(rows, sovMappings, approvalQueue))) {
       return false;
     }
     // Publishing finalizes the SOV — every draft line becomes confirmed.
@@ -1046,7 +1039,7 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     setFinancialSetupStep(5);
     setHubCollapsed(true);
     return true;
-  }, [contractLocked, sovMappings, budgetScheduleLinks, approvalQueue]);
+  }, [sovMappings, approvalQueue]);
 
   const navigateToSetupStep = useCallback((step: FinancialSetupStep, tab?: 'sov' | 'schedule') => {
     setFinancialSetupStep(step);
